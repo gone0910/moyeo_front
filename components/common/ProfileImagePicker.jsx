@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import * as ImagePicker from 'expo-image-picker';
-import { View, Image, TouchableOpacity, Text } from 'react-native';
+import { View, Image, TouchableOpacity, Text, StyleSheet } from 'react-native';
 
 /**
- * 프로필 사진 선택 컴포넌트 (원형 UI + 안내문구)
+ * 프로필 사진 선택 컴포넌트
+ * - 원형 이미지 UI
+ * - 이미지 선택 시 상위 컴포넌트로 uri 전달
  */
 export default function ProfileImagePicker({ onChange, defaultImage }) {
   const [imageUri, setImageUri] = useState(defaultImage || null);
@@ -29,23 +31,50 @@ export default function ProfileImagePicker({ onChange, defaultImage }) {
   };
 
   return (
-    <View className="items-center mb-6">
-      {/* 안내문구 */}
-      <Text className="text-gray-600 mb-2">프로필 사진을 선택하세요.</Text>
+    <View style={styles.container}>
+      <Text style={styles.guideText}>프로필 사진을 선택하세요.</Text>
 
-      {/* 터치 가능한 원형 이미지 or 공백 */}
       <TouchableOpacity onPress={pickImage}>
         {imageUri ? (
           <Image
             source={{ uri: imageUri }}
-            style={{ width: 120, height: 120, borderRadius: 60 }}
+            style={styles.image}
           />
         ) : (
-          <View className="w-[120px] h-[120px] rounded-full bg-gray-200 items-center justify-center">
-            <Text className="text-gray-400 text-xs">선택</Text>
+          <View style={styles.placeholder}>
+            <Text style={styles.placeholderText}>선택</Text>
           </View>
         )}
       </TouchableOpacity>
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  guideText: {
+    fontSize: 20,
+    color: '#4B5563', // gray-600
+    marginBottom: 8,
+  },
+  image: {
+    width: 120,
+    height: 120,
+    borderRadius: 60, // 원형 이미지
+  },
+  placeholder: {
+    width: 120,
+    height: 120,
+    borderRadius: 60, // 원형
+    backgroundColor: '#E5E7EB', // gray-200
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  placeholderText: {
+    fontSize: 12,
+    color: '#9CA3AF', // gray-400
+  },
+});

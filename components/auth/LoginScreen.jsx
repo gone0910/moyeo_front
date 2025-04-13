@@ -22,7 +22,7 @@ export default function LoginScreen() {
       const user = response.data;
       setUser(user);
       await AsyncStorage.setItem('user', JSON.stringify(user));
-      navigation.replace('Home');
+      navigation.replace('BottomTab');  // 하단 탭 이동(이후 바로 홈화면)
     } catch (error) {
       if (
         error?.response?.status >= 400 &&
@@ -39,17 +39,10 @@ export default function LoginScreen() {
   };
 
   const handleMockLogin = async () => {
-    const mockUser = {
-      nickname: '테스트유저',
-      age: '24',
-      gender: 'male',
-      mbti: 'ENFP',
-      image: null,
-    };
-    setUser(mockUser);
-    await AsyncStorage.setItem('user', JSON.stringify(mockUser));
-    navigation.replace('Home');
-  };
+  // 수정: mock 유저 정보 직접 입력을 위해 자동 저장 로직 제거
+  // → UserInfoScreen으로 이동하여 사용자가 직접 입력하게 설정
+  navigation.replace('UserInfo', { isMock: true });
+};
 
   return (
     <View style={styles.container}>
@@ -66,7 +59,7 @@ export default function LoginScreen() {
           onPress={() => handleOAuthLogin('kakao')}
         >
           <Image source={kakaoIcon} style={styles.icon} />
-          <Text style={styles.loginButtonText}>Login with Kakao</Text>
+          <Text style={styles.loginButtonText}>카카오 로그인</Text>
         </TouchableOpacity>
 
         <TouchableOpacity 
@@ -74,14 +67,14 @@ export default function LoginScreen() {
           onPress={() => handleOAuthLogin('google')}
         >
           <Image source={googleIcon} style={styles.icon} />
-          <Text style={styles.loginButtonText}>Login with Google</Text>
+          <Text style={styles.loginButtonText}>구글 로그인</Text>
         </TouchableOpacity>
 
         <TouchableOpacity 
           style={[styles.loginButton, styles.mockButton]} // ✅ mock 버튼 색상 적용
           onPress={handleMockLogin}
         >
-          <Text style={styles.mockButtonText}>Login with Mock</Text>
+          <Text style={styles.mockButtonText}>테스트 로그인(mock)</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -122,7 +115,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     paddingVertical: 14,
     paddingHorizontal: 20,
-    borderRadius: 25,
+    borderRadius:12,
     borderWidth: 1,
     borderColor: '#DDDDDD',
     width: '100%',

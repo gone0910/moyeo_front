@@ -1,132 +1,172 @@
-import { useState, useContext, useEffect } from 'react';
-import { View, ScrollView, Alert } from 'react-native';
-import CustomInput from '../common/CustomInput';
-import CustomButton from '../common/CustomButton';
-import Dropdown from '../common/Dropdown';
-import RadioButton from '../common/RadioButton';
-import ProfileImagePicker from '../common/ProfileImagePicker';
+import React, { useState, useContext, useEffect } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  SafeAreaView,
+  Alert,
+  ScrollView,
+} from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { UserContext } from '../../contexts/UserContext';
-import { registerUser } from '../../api/auth';
 import { useNavigation } from '@react-navigation/native';
 
-/**
- * 프로필 정보 입력 (회원가입) 화면
- * 회원가입 화면 (OAuth 신규 유저 대상)
- * - 로그인 시 백엔드가 '회원가입 필요' 예외를 응답한 경우 진입
- * - AsyncStorage에 저장된 임시 토큰을 꺼내 회원가입 요청 시 Authorization 헤더로 전달
- * - 회원가입 성공 시 최종 user 정보 저장 + Home 화면 이동
- */
+import { UserContext } from '../../contexts/UserContext';
 
+// 공통 컴포넌트 import
+import ProfileImagePicker from '../common/ProfileImagePicker';
+import ToggleSelector from '../common/ToggleSelector';
+import Dropdown from '../common/Dropdown';
+import CustomButton from '../common/CustomButton';
+import CustomInput from '../common/CustomInput';
+
+// 회원가입 시 사용자 정보를 입력받는 화면
+// 필수 항목: 닉네임, 나이, 성별
 export default function UserInfoScreen() {
   const navigation = useNavigation();
   const { setUser } = useContext(UserContext);
 
+  // 프로필 이미지 상태
   const [image, setImage] = useState(null);
+  // 닉네임 상태 (최대 12자)
   const [nickname, setNickname] = useState('');
+  // 나이 상태 (10~99 범위만 허용)
   const [age, setAge] = useState('');
-  const [gender, setGender] = useState('male');
+  // 성별 상태 ('남성', '여성')
+  const [gender, setGender] = useState('');
+  // MBTI 상태 (선택사항)
   const [mbti, setMbti] = useState('');
 
-  // 앱 진입 시 임시 토큰 로드
-  const [tempToken, setTempToken] = useState(null);
+  // 닉네임, 성별, 나이가 유효할 경우만 저장 버튼 활성화
+  const isValid = nickname.length > 0 && gender && age >= 10 && age <= 99;
 
-  useEffect(() => {
-    const loadTempToken = async () => {
-      const token = await AsyncStorage.getItem('tempToken');
-      setTempToken(token);
-    };
-    loadTempToken();
-  }, []);
-
-  // 회원가입 완료 버튼 클릭 시 실행
-  const handleComplete = async () => {
-    if (!tempToken) {
-      Alert.alert('에러', '임시 토큰이 없습니다. 로그인부터 다시 시도해주세요.');
-      return;
-    }
-
+  // 저장 버튼 클릭 시 실행되는 함수
+  const handleSubmit = async () => {
     const newUser = { nickname, age, gender, mbti, image };
 
     try {
-      // 서버에 회원가입 요청 (임시 토큰을 Authorization 헤더로 전달)
-      const user = await registerUser(newUser, tempToken);
-
-      // 전역 상태 + 자동 로그인 정보 저장
-      setUser(user);
-      await AsyncStorage.setItem('user', JSON.stringify(user));
-      await AsyncStorage.removeItem('tempToken');
-      navigation.replace('Home');
+      setUser(newUser);
+      await AsyncStorage.setItem('user', JSON.stringify(newUser));
+      Alert.alert('완료', '회원가입이 완료되었습니다.');
+      navigation.replace('BottomTab');                     // BottomTab(하단바 로딩 후 홈화면면)
     } catch (e) {
-      console.error('회원가입 실패:', e);
-      Alert.alert('회원가입 실패', '다시 시도해주세요.');
+      console.error('저장 오류:', e);
+      Alert.alert('오류', '회원가입이 실패하였습니다다.');
     }
   };
 
+  // 뒤로가기 이벤트 리스너 등록
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('beforeRemove', (e) => {
+      // 기본 뒤로가기 허용
+    });
+    return unsubscribe;
+  }, [navigation]);
+
   return (
-    <ScrollView className="flex-1 bg-white px-8 pt-12">
-      <View className="items-center mb-6">
+    <SafeAreaView style={styles.safe}> 
+      <ScrollView contentContainerStyle={styles.container}>
+        {/* 화면 전체 폼을 스크롤 가능하도록 구성 */}
+        
+        <Text style={styles.notice}>*는 필수입력 사항입니다</Text>
+
         <ProfileImagePicker onChange={setImage} />
-      </View>
 
-      <CustomInput
-        label="닉네임"
-        placeholder="닉네임을 입력하세요"
-        value={nickname}
-        onChangeText={setNickname}
-      />
-
-      <CustomInput
-        label="나이"
-        placeholder="나이를 입력하세요"
-        value={age}
-        keyboardType="numeric"
-        onChangeText={setAge}
-      />
-
-      <View className="flex-row items-center space-x-8 mb-4">
-        <RadioButton
-          label="남성"
-          selected={gender === 'male'}
-          onPress={() => setGender('male')}
+        <CustomInput
+          label="닉네임 *"
+          placeholder="닉네임을 입력하세요"
+          value={nickname}
+          onChangeText={(text) => {
+            if (text.length <= 12) setNickname(text);
+          }}
         />
-        <RadioButton
-          label="여성"
-          selected={gender === 'female'}
-          onPress={() => setGender('female')}
+
+        <CustomInput
+          label="나이 *"
+          placeholder="나이를 입력하세요"
+          value={age.toString()}
+          keyboardType="numeric"
+          onChangeText={(text) => {
+            const num = parseInt(text);
+            if (!isNaN(num) && num >= 0 && num <= 99) setAge(num);
+            else if (text === '') setAge('');
+          }}
         />
-      </View>
 
-      <Dropdown
-        label="MBTI 선택"
-        selectedValue={mbti}
-        onValueChange={setMbti}
-        items={[
-          { label: '선택하지 않음', value: '' },
-          { label: 'INTJ', value: 'INTJ' },
-          { label: 'INTP', value: 'INTP' },
-          { label: 'ENTJ', value: 'ENTJ' },
-          { label: 'ENTP', value: 'ENTP' },
-          { label: 'INFJ', value: 'INFJ' },
-          { label: 'INFP', value: 'INFP' },
-          { label: 'ENFJ', value: 'ENFJ' },
-          { label: 'ENFP', value: 'ENFP' },
-          { label: 'ISTJ', value: 'ISTJ' },
-          { label: 'ISFJ', value: 'ISFJ' },
-          { label: 'ESTJ', value: 'ESTJ' },
-          { label: 'ESFJ', value: 'ESFJ' },
-          { label: 'ISTP', value: 'ISTP' },
-          { label: 'ISFP', value: 'ISFP' },
-          { label: 'ESTP', value: 'ESTP' },
-          { label: 'ESFP', value: 'ESFP' },
-        ]}
-      />
+        <Text style={styles.label}>성별 *</Text>
+        <ToggleSelector
+          options={['남성', '여성']}
+          selected={gender}
+          setSelected={(value) => {
+            if (gender === value) {
+              setGender('');
+            } else {
+              setGender(value);
+            }
+          }}
+          align="left" // 좌측 정렬 추가
+          theme="dark" // 선택 시 검정색 강조
+        />
 
-      <CustomButton
-        label="회원가입 완료"
-        onPress={handleComplete}
-        className="mt-4"
-      />
-    </ScrollView>
+        <Dropdown
+          label="MBTI 선택"
+          selectedValue={mbti}
+          onValueChange={setMbti}
+          items={[
+            { label: '선택하지 않음', value: '' },
+            { label: 'INTJ', value: 'INTJ' },
+            { label: 'INTP', value: 'INTP' },
+            { label: 'ENTJ', value: 'ENTJ' },
+            { label: 'ENTP', value: 'ENTP' },
+            { label: 'INFJ', value: 'INFJ' },
+            { label: 'INFP', value: 'INFP' },
+            { label: 'ENFJ', value: 'ENFJ' },
+            { label: 'ENFP', value: 'ENFP' },
+            { label: 'ISTJ', value: 'ISTJ' },
+            { label: 'ISFJ', value: 'ISFJ' },
+            { label: 'ESTJ', value: 'ESTJ' },
+            { label: 'ESFJ', value: 'ESFJ' },
+            { label: 'ISTP', value: 'ISTP' },
+            { label: 'ISFP', value: 'ISFP' },
+            { label: 'ESTP', value: 'ESTP' },
+            { label: 'ESFP', value: 'ESFP' },
+          ]}
+        />
+
+        <CustomButton
+          label="회원가입 완료"
+          onPress={handleSubmit}
+          disabled={!isValid}
+          
+        />
+      </ScrollView>
+    </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  notice: {
+    fontSize: 14,
+    color: '#EF4444', // 빨간색 강조
+    marginBottom: 16,
+  },
+  safe: {
+    flex: 1,
+    backgroundColor: '#fff',
+  },
+  container: {
+    paddingHorizontal: 24,
+    paddingTop: 20,
+    paddingBottom: 40,
+  },
+  header: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginBottom: 16,
+  },
+  label: {
+    fontSize: 20,
+    fontWeight: '500',
+    marginBottom: 6,
+    color: '#374151',
+  },
+});

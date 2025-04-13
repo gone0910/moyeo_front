@@ -1,145 +1,165 @@
 import React, { useState, useContext } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Alert, Platform, KeyboardAvoidingView } from 'react-native';
-import { Picker } from '@react-native-picker/picker';
-import { RadioButton } from 'react-native-paper';
-import ProfileImagePicker from '../common/ProfileImagePicker';
-import { UserContext } from '../../contexts/UserContext';
+import {
+  View,
+  Text,
+  StyleSheet,
+  SafeAreaView,
+  ScrollView,
+  Alert,
+} from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useNavigation } from '@react-navigation/native';
 
+import { UserContext } from '../../contexts/UserContext';
+
+// 공통 컴포넌트 import
+import ProfileImagePicker from '../common/ProfileImagePicker';
+import ToggleSelector from '../common/ToggleSelector';
+import Dropdown from '../common/Dropdown';
+import CustomButton from '../common/CustomButton';
+import CustomInput from '../common/CustomInput';
+
+// 프로필 편집 화면 (기존 입력 데이터 수정 화면)
 export default function EditProfileScreen() {
-  const [nickname, setNickname] = useState('');
-  const [gender, setGender] = useState('');
-  const [age, setAge] = useState('');
-  const [mbti, setMbti] = useState('');
-  const [image, setImage] = useState(null);
+  const navigation = useNavigation();
+  const { user, setUser } = useContext(UserContext);
 
-  const { setUser } = useContext(UserContext);
+  // 기존 사용자 정보로 초기화
+  const [image, setImage] = useState(user?.image || null); // 프로필 이미지 상태
+  const [nickname, setNickname] = useState(user?.nickname || ''); // 닉네임 상태 (최대 12자)
+  const [age, setAge] = useState(user?.age || ''); // 나이 상태 (10~99 범위)
+  const [gender, setGender] = useState(user?.gender || ''); // 성별 상태 ('남성', '여성')
+  const [mbti, setMbti] = useState(user?.mbti || ''); // MBTI 상태 (선택사항)
 
-  const handleSave = async () => {
-    const updatedUser = { nickname, gender, age, mbti, image };
+  // 필수 항목 입력 여부 확인
+  const isValid = nickname.length > 0 && gender && age >= 10 && age <= 99;
+
+  // 저장 버튼 클릭 시 실행
+  const handleSubmit = async () => {
+    const updatedUser = { nickname, age, gender, mbti, image };
 
     try {
-      setUser(updatedUser);
-      await AsyncStorage.setItem('user', JSON.stringify(updatedUser));
-      Alert.alert('저장 완료', '프로필이 성공적으로 저장되었습니다.');
-    } catch (error) {
-      console.error('프로필 저장 실패:', error);
-      Alert.alert('저장 실패', '다시 시도해주세요.');
+      setUser(updatedUser); // 전역 상태 저장
+      await AsyncStorage.setItem('user', JSON.stringify(updatedUser)); // 로컬 저장
+      Alert.alert('성공', '프로필이 수정되었습니다.');
+      navigation.goBack();
+    } catch (e) {
+      console.error('프로필 저장 실패:', e);
+      Alert.alert('실패', '프로필 저장에 실패했습니다.');
     }
   };
 
   return (
-    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
-      <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 40 }}>
-        <Text style={styles.label}>프로필 사진</Text>
-        <View style={styles.imagePickerContainer}>
-          <ProfileImagePicker defaultImage={image} onChange={setImage} />
-        </View>
+    <SafeAreaView style={styles.safe}>
+      <ScrollView contentContainerStyle={styles.container}>
+        {/* 제목 및 필수항목 안내 */}
+        
+        <Text style={styles.notice}>*는 필수입력 사항입니다</Text>
 
-        <Text style={styles.label}>닉네임</Text>
-        <TextInput
-          style={styles.input}
+        {/* 프로필 이미지 선택 */}
+        <ProfileImagePicker defaultImage={image} onChange={setImage} />
+
+        {/* 닉네임 입력 */}
+        <CustomInput
+          label="닉네임 *"
           placeholder="닉네임을 입력하세요"
           value={nickname}
-          onChangeText={setNickname}
+          onChangeText={(text) => {
+            if (text.length <= 12) setNickname(text);
+          }}
         />
 
-        <Text style={styles.label}>성별 선택</Text>
-        <RadioButton.Group onValueChange={setGender} value={gender}>
-          <View style={styles.radioContainer}>
-            <RadioButton value="male" />
-            <Text style={styles.radioLabel}>남성</Text>
-          </View>
-          <View style={styles.radioContainer}>
-            <RadioButton value="female" />
-            <Text style={styles.radioLabel}>여성</Text>
-          </View>
-        </RadioButton.Group>
-
-        <Text style={styles.label}>나이</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="나이"
+        {/* 나이 입력 */}
+        <CustomInput
+          label="나이 *"
+          placeholder="나이를 입력하세요"
+          value={age.toString()}
           keyboardType="numeric"
-          value={age}
-          onChangeText={setAge}
+          onChangeText={(text) => {
+            const num = parseInt(text);
+            if (!isNaN(num) && num >= 0 && num <= 99) setAge(num);
+            else if (text === '') setAge('');
+          }}
         />
 
-        <Text style={styles.label}>MBTI 선택</Text>
-        <Picker
-          selectedValue={mbti}
-          onValueChange={(itemValue) => setMbti(itemValue)}
-          style={styles.picker}
-        >
-          <Picker.Item label="선택하지 않음" value="" />
-          <Picker.Item label="ISTJ" value="ISTJ" />
-          <Picker.Item label="ISFJ" value="ISFJ" />
-          <Picker.Item label="ISTP" value="ISTP" />
-          <Picker.Item label="ISFP" value="ISFP" />
-          <Picker.Item label="INFJ" value="INFJ" />
-          <Picker.Item label="INTJ" value="INTJ" />
-          <Picker.Item label="INFP" value="INFP" />
-          <Picker.Item label="INTP" value="INTP" />
-          <Picker.Item label="ESTP" value="ESTP" />
-          <Picker.Item label="ESFP" value="ESFP" />
-          <Picker.Item label="ESTJ" value="ESTJ" />
-          <Picker.Item label="ESFJ" value="ESFJ" />
-          <Picker.Item label="ENFP" value="ENFP" />
-          <Picker.Item label="ENTP" value="ENTP" />
-          <Picker.Item label="ENFJ" value="ENFJ" />
-          <Picker.Item label="ENTJ" value="ENTJ" />
-        </Picker>
+        {/* 성별 선택 */}
+        <Text style={styles.label}>성별 * </Text>
+        <ToggleSelector
+          options={['남성', '여성']}
+          selected={gender}
+          setSelected={(value) => {
+            if (gender === value) {
+              setGender(''); // 같은 항목 다시 누르면 해제
+            } else {
+              setGender(value);
+            }
+          }}
+          align="left"
+          theme="dark"
+        />
 
-        <TouchableOpacity style={styles.button} onPress={handleSave}>
-          <Text style={styles.buttonText}>저장</Text>
-        </TouchableOpacity>
+        {/* MBTI 선택 (선택사항) */}
+        <Dropdown
+          label="MBTI 선택"
+          selectedValue={mbti}
+          onValueChange={setMbti}
+          items={[
+            { label: '선택하지 않음', value: '' },
+            { label: 'INTJ', value: 'INTJ' },
+            { label: 'INTP', value: 'INTP' },
+            { label: 'ENTJ', value: 'ENTJ' },
+            { label: 'ENTP', value: 'ENTP' },
+            { label: 'INFJ', value: 'INFJ' },
+            { label: 'INFP', value: 'INFP' },
+            { label: 'ENFJ', value: 'ENFJ' },
+            { label: 'ENFP', value: 'ENFP' },
+            { label: 'ISTJ', value: 'ISTJ' },
+            { label: 'ISFJ', value: 'ISFJ' },
+            { label: 'ESTJ', value: 'ESTJ' },
+            { label: 'ESFJ', value: 'ESFJ' },
+            { label: 'ISTP', value: 'ISTP' },
+            { label: 'ISFP', value: 'ISFP' },
+            { label: 'ESTP', value: 'ESTP' },
+            { label: 'ESFP', value: 'ESFP' },
+          ]}
+        />
+
+        {/* 저장 버튼 */}
+        <CustomButton
+          label="저장하기"
+          onPress={handleSubmit}
+          disabled={!isValid}
+        />
       </ScrollView>
-    </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 
+// 스타일 가이드 적용
 const styles = StyleSheet.create({
+  notice: {
+    fontSize: 14,
+    color: '#EF4444', // 빨간색 강조
+    marginBottom: 16,
+  },
+  safe: {
+    flex: 1,
+    backgroundColor: '#fff',
+  },
   container: {
-    padding: 20,
-    backgroundColor: 'white',
+    paddingHorizontal: 24,
+    paddingTop: 20,
+    paddingBottom: 40,
+  },
+  header: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginBottom: 16,
   },
   label: {
-    fontSize: 16,
-    marginVertical: 10,
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: '#ccc',
-    padding: 10,
-    marginVertical: 10,
-  },
-  imagePickerContainer: {
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  radioContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: 5,
-  },
-  radioLabel: {
-    marginLeft: 8,
-    fontSize: 16,
-  },
-  picker: {
-    height: 50,
-    width: '100%',
-    marginVertical: 10,
-  },
-  button: {
-    backgroundColor: 'black',
-    padding: 15,
-    alignItems: 'center',
-    marginVertical: 20,
-    marginTop: 50,
-  },
-  buttonText: {
-    color: 'white',
-    fontSize: 16,
+    fontSize: 20,
+    fontWeight: '500',
+    marginBottom: 6,
+    color: '#374151',
   },
 });
