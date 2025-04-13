@@ -1,4 +1,3 @@
-// 테스트용 주석.
 
 import { View, Text, TouchableOpacity, Image, Alert, Modal, StyleSheet } from 'react-native';
 import { useContext, useEffect, useState } from 'react';
