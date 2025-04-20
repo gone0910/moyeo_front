@@ -6,6 +6,8 @@ import { View, Image, TouchableOpacity, Text, StyleSheet } from 'react-native';
  * 프로필 사진 선택 컴포넌트
  * - 원형 이미지 UI
  * - 이미지 선택 시 상위 컴포넌트로 uri 전달
+ * ✅ 안내 텍스트 제거
+ * ✅ marginTop: -45 적용 (⚠️ 기기 해상도에 따라 이미지 깨짐 위험 있음)
  */
 export default function ProfileImagePicker({ onChange, defaultImage }) {
   const [imageUri, setImageUri] = useState(defaultImage || null);
@@ -32,14 +34,10 @@ export default function ProfileImagePicker({ onChange, defaultImage }) {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.guideText}>프로필 사진을 선택하세요.</Text>
-
+      {/* 안내 텍스트 제거됨 */}
       <TouchableOpacity onPress={pickImage}>
         {imageUri ? (
-          <Image
-            source={{ uri: imageUri }}
-            style={styles.image}
-          />
+          <Image source={{ uri: imageUri }} style={styles.image} />
         ) : (
           <View style={styles.placeholder}>
             <Text style={styles.placeholderText}>선택</Text>
@@ -55,26 +53,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 24,
   },
-  guideText: {
-    fontSize: 20,
-    color: '#4B5563', // gray-600
-    marginBottom: 8,
-  },
   image: {
     width: 120,
     height: 120,
-    borderRadius: 60, // 원형 이미지
+    borderRadius: 60,
   },
   placeholder: {
     width: 120,
     height: 120,
-    borderRadius: 60, // 원형
-    backgroundColor: '#E5E7EB', // gray-200
+    borderRadius: 60,
+    backgroundColor: '#E5E7EB',
     alignItems: 'center',
     justifyContent: 'center',
+    // marginTop : -45는  특정 해상도에서 이미지 깨질 수 있음 (주의) 나 깨짐.
   },
   placeholderText: {
     fontSize: 12,
-    color: '#9CA3AF', // gray-400
+    color: '#9CA3AF',
   },
 });

@@ -1,69 +1,80 @@
-/*이 예제는 React Native의 기본 Picker 
-또는 더 강력한 서드파티 라이브러리인 react-native-picker-select 등을 사용할 수 있지만, 
-우선 Expo에서 쉽게 사용할 수 있는 기본 Picker를 활용하여 제작하겠습니다.
-Expo SDK 50+부터는 Picker가 deprecated 되어, 
-가장 권장되는 패키지인 @react-native-picker/picker를 사용합니다.
-npm install @react-native-picker/picker */
-
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { Picker } from '@react-native-picker/picker';
+import DropDownPicker from 'react-native-dropdown-picker';
+
 
 /**
- * 재사용 가능한 드롭다운 컴포넌트
- *
+ * 재사용 가능한 드롭다운 컴포넌트 (react-native-dropdown-picker 기반)
  * @param {string} label - 라벨 텍스트
  * @param {string} selectedValue - 현재 선택된 값
  * @param {function} onValueChange - 값 변경 함수
- * @param {Array} items - 드롭다운 옵션 배열
+ * @param {Array} items - 드롭다운 옵션 배열 (label, value 포함)
  */
-export default function Dropdown({
-  label,
-  selectedValue,
-  onValueChange,
-  items,
-}) {
+export default function Dropdown({ label, selectedValue, onValueChange, items }) {
+  const [open, setOpen] = useState(false);
+  const [value, setValue] = useState(selectedValue);
+  const [options, setOptions] = useState(items);
+
+
+  const handleChangeValue = (val) => {
+    setValue(val);
+    onValueChange(val);
+  };
+
+
   return (
     <View style={styles.container}>
       {label && <Text style={styles.label}>{label}</Text>}
 
-      <View style={styles.pickerWrapper}>
-        <Picker
-          selectedValue={selectedValue}
-          onValueChange={onValueChange}
-          dropdownIconColor="#6B7280" // gray-500
-        >
-          {items.map((item) => (
-            <Picker.Item
-              key={item.value}
-              label={item.label}
-              value={item.value}
-              color="#111827" // gray-900
-            />
-          ))}
-        </Picker>
-      </View>
+
+      <DropDownPicker
+        open={open}
+        value={value}
+        items={options}
+        setOpen={setOpen}
+        setValue={handleChangeValue}
+        setItems={setOptions}
+        placeholder="선택안함"
+        style={styles.dropdown}
+        textStyle={styles.text}
+        dropDownContainerStyle={styles.dropdownContainer}
+        listMode="SCROLLVIEW"
+      />
     </View>
   );
 }
 
+
 const styles = StyleSheet.create({
   container: {
     width: '100%',
-    marginBottom: 16,
+    height: '10%',
+    marginBottom: 10,
+    zIndex: 10, // 드롭다운 겹침 이슈 해결
   },
   label: {
-    fontSize: 20,
+    fontSize: 16,
     color: '#374151', // gray-700
-    marginBottom: 6,
-    fontWeight: '500',
+    marginBottom: 4,
+    fontWeight: '400',
   },
-  pickerWrapper: {
-    borderWidth: 1,
+  dropdown: {
     borderColor: '#D1D5DB', // gray-300
-    borderRadius: 12, // 🔧 메인 컴포넌트 기준
-    backgroundColor: '#ffffff',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    borderRadius: 8,
+    backgroundColor: '#fff',
+    paddingHorizontal: 20,
+    minHeight: 40,
+  },
+  dropdownContainer: {
+    borderColor: '#D1D5DB',
+    borderRadius: 8,
+  },
+  text: {
+    fontSize: 16,
+    color: '#111827', // gray-900
+    marginLeft: -5,
+    textAlign: 'left',
   },
 });
+
+

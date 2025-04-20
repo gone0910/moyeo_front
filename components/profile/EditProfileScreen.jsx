@@ -1,48 +1,60 @@
-import React, { useState, useContext } from 'react';
+/* 프로필 편집 화면 */
+import React, { useState, useContext, useEffect } from 'react';
 import {
   View,
   Text,
+  TextInput,
   StyleSheet,
   SafeAreaView,
   ScrollView,
   Alert,
+  KeyboardAvoidingView,
+  Platform,
+  TouchableOpacity,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
 
 import { UserContext } from '../../contexts/UserContext';
-
-// 공통 컴포넌트 import
 import ProfileImagePicker from '../common/ProfileImagePicker';
+import Dropdown from '../common/Dropdown'; // DropDownPicker 기반
 import ToggleSelector from '../common/ToggleSelector';
-import Dropdown from '../common/Dropdown';
-import CustomButton from '../common/CustomButton';
-import CustomInput from '../common/CustomInput';
+// import { editUserProfile } from '../../api/auth'; // 🔁 주석 유지
 
-// 프로필 편집 화면 (기존 입력 데이터 수정 화면)
 export default function EditProfileScreen() {
   const navigation = useNavigation();
   const { user, setUser } = useContext(UserContext);
 
-  // 기존 사용자 정보로 초기화
-  const [image, setImage] = useState(user?.image || null); // 프로필 이미지 상태
-  const [nickname, setNickname] = useState(user?.nickname || ''); // 닉네임 상태 (최대 12자)
-  const [age, setAge] = useState(user?.age || ''); // 나이 상태 (10~99 범위)
-  const [gender, setGender] = useState(user?.gender || ''); // 성별 상태 ('남성', '여성')
-  const [mbti, setMbti] = useState(user?.mbti || ''); // MBTI 상태 (선택사항)
+  const [image, setImage] = useState(user?.image || null);
+  const [nickname, setNickname] = useState(user?.nickname || '');
+  const [age, setAge] = useState(user?.age || '');
+  const [gender, setGender] = useState(user?.gender || '');
+  const [mbti, setMbti] = useState(user?.mbti || '');
 
-  // 필수 항목 입력 여부 확인
   const isValid = nickname.length > 0 && gender && age >= 10 && age <= 99;
 
-  // 저장 버튼 클릭 시 실행
   const handleSubmit = async () => {
     const updatedUser = { nickname, age, gender, mbti, image };
 
     try {
-      setUser(updatedUser); // 전역 상태 저장
-      await AsyncStorage.setItem('user', JSON.stringify(updatedUser)); // 로컬 저장
+      setUser(updatedUser);
+      await AsyncStorage.setItem('user', JSON.stringify(updatedUser));
       Alert.alert('성공', '프로필이 수정되었습니다.');
       navigation.goBack();
+
+      // 🔁 Axios 연동용 주석 시작
+      /*
+      const token = await AsyncStorage.getItem('jwtToken');
+      const userData = {
+        nickname,
+        gender,
+        age: parseInt(age),
+        mbti,
+      };
+      await editUserProfile(userData, image, token);
+      */
+      // 🔁 Axios 연동용 주석 끝
+
     } catch (e) {
       console.error('프로필 저장 실패:', e);
       Alert.alert('실패', '프로필 저장에 실패했습니다.');
@@ -51,115 +63,239 @@ export default function EditProfileScreen() {
 
   return (
     <SafeAreaView style={styles.safe}>
-      <ScrollView contentContainerStyle={styles.container}>
-        {/* 제목 및 필수항목 안내 */}
-        
-        <Text style={styles.notice}>*는 필수입력 사항입니다</Text>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
+        <View style={styles.headerContainer}>
+          <Text style={styles.headerText}>프로필 편집</Text>
+          <View style={styles.headerLine} />
+        </View>
 
-        {/* 프로필 이미지 선택 */}
-        <ProfileImagePicker defaultImage={image} onChange={setImage} />
+        <ScrollView contentContainerStyle={styles.container}>
+          {/* <Text style={styles.notice}>*는 필수입력 사항입니다</Text> 필요시 추가. */}
 
-        {/* 닉네임 입력 */}
-        <CustomInput
-          label="닉네임 *"
-          placeholder="닉네임을 입력하세요"
-          value={nickname}
-          onChangeText={(text) => {
-            if (text.length <= 12) setNickname(text);
-          }}
-        />
+          <ProfileImagePicker defaultImage={image} onChange={setImage} />
 
-        {/* 나이 입력 */}
-        <CustomInput
-          label="나이 *"
-          placeholder="나이를 입력하세요"
-          value={age.toString()}
-          keyboardType="numeric"
-          onChangeText={(text) => {
-            const num = parseInt(text);
-            if (!isNaN(num) && num >= 0 && num <= 99) setAge(num);
-            else if (text === '') setAge('');
-          }}
-        />
+          <View style={styles.formGrouped}>
+            <Text style={styles.label}>닉네임 *</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="닉네임을 입력해 주세요"
+              placeholderTextColor="#A0A0A0"
+              value={nickname}
+              onChangeText={(text) => {
+                if (text.length <= 12) setNickname(text);
+              }}
+            />
+          </View>
 
-        {/* 성별 선택 */}
-        <Text style={styles.label}>성별 * </Text>
-        <ToggleSelector
-          options={['남성', '여성']}
-          selected={gender}
-          setSelected={(value) => {
-            if (gender === value) {
-              setGender(''); // 같은 항목 다시 누르면 해제
-            } else {
-              setGender(value);
-            }
-          }}
-          align="left"
-          theme="dark"
-        />
+          <Text style={styles.labels}>성별 *</Text>
+          <View style={styles.genderContainer}>
+            <TouchableOpacity
+              style={[styles.genderButton, gender === '남성' && styles.genderSelected]}
+              onPress={() => setGender(gender === '남성' ? '' : '남성')}
+            >
+              <Text style={[styles.genderText, gender === '남성' && styles.genderTextSelected]}>
+                남성
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.genderButton, gender === '여성' && styles.genderSelected]}
+              onPress={() => setGender(gender === '여성' ? '' : '여성')}
+            >
+              <Text style={[styles.genderText, gender === '여성' && styles.genderTextSelected]}>
+                여성
+              </Text>
+            </TouchableOpacity>
+          </View>
 
-        {/* MBTI 선택 (선택사항) */}
-        <Dropdown
-          label="MBTI 선택"
-          selectedValue={mbti}
-          onValueChange={setMbti}
-          items={[
-            { label: '선택하지 않음', value: '' },
-            { label: 'INTJ', value: 'INTJ' },
-            { label: 'INTP', value: 'INTP' },
-            { label: 'ENTJ', value: 'ENTJ' },
-            { label: 'ENTP', value: 'ENTP' },
-            { label: 'INFJ', value: 'INFJ' },
-            { label: 'INFP', value: 'INFP' },
-            { label: 'ENFJ', value: 'ENFJ' },
-            { label: 'ENFP', value: 'ENFP' },
-            { label: 'ISTJ', value: 'ISTJ' },
-            { label: 'ISFJ', value: 'ISFJ' },
-            { label: 'ESTJ', value: 'ESTJ' },
-            { label: 'ESFJ', value: 'ESFJ' },
-            { label: 'ISTP', value: 'ISTP' },
-            { label: 'ISFP', value: 'ISFP' },
-            { label: 'ESTP', value: 'ESTP' },
-            { label: 'ESFP', value: 'ESFP' },
-          ]}
-        />
+          <View style={styles.formGroup}>
+            <Text style={styles.label}>나이 *</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="나이를 입력해 주세요"
+              placeholderTextColor="#A0A0A0"
+              keyboardType="numeric"
+              value={age.toString()}
+              onChangeText={(text) => {
+                const num = parseInt(text);
+                if (!isNaN(num) && num >= 0 && num <= 99) setAge(num);
+                else if (text === '') setAge('');
+              }}
+            />
+          </View>
 
-        {/* 저장 버튼 */}
-        <CustomButton
-          label="저장하기"
-          onPress={handleSubmit}
-          disabled={!isValid}
-        />
-      </ScrollView>
+          <View style={styles.formGroups}>
+            <Text style={styles.mbtiLabel}>MBTI 선택</Text>
+            <Dropdown
+              selectedValue={mbti}
+              onValueChange={setMbti}
+              items={[
+                { label: '선택하지 않음', value: '' },
+                { label: 'INTJ', value: 'INTJ' },
+                { label: 'INTP', value: 'INTP' },
+                { label: 'ENTJ', value: 'ENTJ' },
+                { label: 'ENTP', value: 'ENTP' },
+                { label: 'INFJ', value: 'INFJ' },
+                { label: 'INFP', value: 'INFP' },
+                { label: 'ENFJ', value: 'ENFJ' },
+                { label: 'ENFP', value: 'ENFP' },
+                { label: 'ISTJ', value: 'ISTJ' },
+                { label: 'ISFJ', value: 'ISFJ' },
+                { label: 'ESTJ', value: 'ESTJ' },
+                { label: 'ESFJ', value: 'ESFJ' },
+                { label: 'ISTP', value: 'ISTP' },
+                { label: 'ISFP', value: 'ISFP' },
+                { label: 'ESTP', value: 'ESTP' },
+                { label: 'ESFP', value: 'ESFP' },
+              ]}
+            />
+          </View>
+        </ScrollView>
+
+        {/* ✅ UserInfoScreen과 동일한 버튼 */}
+        <View style={styles.footer}>
+          <TouchableOpacity
+            style={[styles.submitButton, !isValid && styles.buttonDisabled]}
+            onPress={handleSubmit}
+            disabled={!isValid}
+          >
+            <Text style={styles.submitText}>저장하기</Text>
+          </TouchableOpacity>
+        </View>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
 
-// 스타일 가이드 적용
 const styles = StyleSheet.create({
+  safe: { flex: 1, backgroundColor: '#FAFAFA' },
+  headerContainer: { alignItems: 'center' },
+  headerText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+    marginTop: 32,
+    marginBottom: 8,
+  },
+  headerLine: {
+    width: '90%',
+    marginBottom: 30,
+    marginTop: 10,
+    height: 1,
+    backgroundColor: '#999',
+  },
   notice: {
     fontSize: 14,
-    color: '#EF4444', // 빨간색 강조
+    color: '#EF4444',
     marginBottom: 16,
-  },
-  safe: {
-    flex: 1,
-    backgroundColor: '#fff',
   },
   container: {
-    paddingHorizontal: 24,
-    paddingTop: 20,
-    paddingBottom: 40,
+    paddingHorizontal: 20,
+    paddingTop: 30,
+    paddingBottom: 150,
   },
-  header: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 16,
+  formGroup: {
+    marginBottom: 25,
+    borderRadius: 8,
+    width: '100%',
+    paddingHorizontal: 10,
+    paddingVertical: 12,
+    minHeight: 60,
+  },
+  formGroups: {
+    marginBottom: 30,
+    marginTop: -8,
+    borderRadius: 8,
+    width: '100%',
+    paddingHorizontal: 10,
+    paddingVertical: 12,
+  },
+  formGrouped: {
+    marginBottom: 30,
+    borderRadius: 8,
+    width: '100%',
+    paddingHorizontal: 10,
+    paddingVertical: 12,
+    minHeight: 60,
   },
   label: {
-    fontSize: 20,
-    fontWeight: '500',
-    marginBottom: 6,
-    color: '#374151',
+    fontSize: 18,
+    color: '#373737',
+    marginBottom: 8,
+    lineHeight: 22,
+  },
+  labels: {
+    fontSize: 16,
+    color: '#373737',
+    marginBottom: 8,
+    lineHeight: 22,
+    left: 10,
+  },
+  input: {
+    paddingHorizontal: 10,
+    paddingVertical: 12,
+    borderWidth: 1,
+    borderColor: '#ccc',
+    borderRadius: 8,
+    backgroundColor: '#fff',
+    fontSize: 16,
+  },
+  genderContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '100%',
+    marginBottom: 30,
+    paddingHorizontal: 5,
+  },
+  genderButton: {
+    flex: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 12,
+    marginHorizontal: 5,
+    borderWidth: 1,
+    borderColor: '#ccc',
+    borderRadius: 8,
+    alignItems: 'center',
+    backgroundColor: '#ffffff',
+  },
+  genderSelected: {
+    backgroundColor: '#b3a4f7',
+  },
+  genderText: {
+    color: '#999',
+    fontSize: 18,
+  },
+  genderTextSelected: {
+    color: '#fff',
+  },
+  mbtiLabel: {
+    fontSize: 18,
+    color: '#373737',
+    marginBottom: 8,
+  },
+  submitButton: {
+    backgroundColor: '#4F46E5',
+    paddingVertical: 20,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    alignItems: 'center',
+    width: '94%',
+    marginLeft: 10,
+  },
+  buttonDisabled: {
+    backgroundColor: '#ccc',
+  },
+  submitText: {
+    color: '#ffffff',
+    fontSize: 16,
+  },
+  footer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    paddingHorizontal: 20,
   },
 });

@@ -1,28 +1,33 @@
 // 📁 components/auth/LoginScreen.jsx
 import { StatusBar } from 'expo-status-bar';
 import React, { useContext } from 'react';
-import { View, Alert, StyleSheet, Text, TouchableOpacity, Image } from 'react-native'; // ✅ Image 추가
+import { View, Alert, StyleSheet, Text, TouchableOpacity, Image } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { UserContext } from '../../contexts/UserContext';
 import { loginUserWithOAuth } from '../../api/auth';
 import { useNavigation } from '@react-navigation/native';
+import { useFonts } from 'expo-font';
+import { KaushanScript_400Regular } from '@expo-google-fonts/kaushan-script';
 
-// ✅ 이미지 require 로 불러오기
+// ✅ 이미지 불러오기
 const kakaoIcon = require('../../assets/icons/kakaotalk_icon.png');
 const googleIcon = require('../../assets/icons/google_icon.png');
-const logoIcon = require('../../assets/icons/logo_icon.png'); // ✅ 로고 아이콘 추가
+const logoIcon = require('../../assets/icons/logo_icon.png'); // ✅ 로고 아이콘 사용은 남겨둠 (추후 활용 가능)
 
 export default function LoginScreen() {
   const { setUser } = useContext(UserContext);
   const navigation = useNavigation();
+  const [fontsLoaded] = useFonts({ KaushanScript: KaushanScript_400Regular });
+
+  if (!fontsLoaded) return null;
 
   const handleOAuthLogin = async (provider) => {
     try {
-      const response = await loginUserWithOAuth(provider, 'dummyCode');
+      const response = await loginUserWithOAuth(provider, 'dummyCode'); // ✅ API 로직 유지
       const user = response.data;
       setUser(user);
       await AsyncStorage.setItem('user', JSON.stringify(user));
-      navigation.replace('BottomTab');  // 하단 탭 이동(이후 바로 홈화면)
+      navigation.replace('BottomTab');
     } catch (error) {
       if (
         error?.response?.status >= 400 &&
@@ -39,39 +44,37 @@ export default function LoginScreen() {
   };
 
   const handleMockLogin = async () => {
-  // 수정: mock 유저 정보 직접 입력을 위해 자동 저장 로직 제거
-  // → UserInfoScreen으로 이동하여 사용자가 직접 입력하게 설정
-  navigation.replace('UserInfo', { isMock: true });
-};
+    navigation.replace('UserInfo', { isMock: true });
+  };
 
   return (
     <View style={styles.container}>
       <StatusBar style="auto" />
 
-      <View style={styles.logoContainer}> {/* ✅ 앱 로고 상단 마진 추가 */}
-        <Image source={logoIcon} style={styles.logoIcon} />
+      <View style={styles.logoContainer}>
+        {/* ✅ 병합된 UI 리팩토링: Kaushan Script 폰트 적용 */}
         <Text style={styles.appName}>moyeo</Text>
       </View>
 
-      <View style={styles.buttonContainer}> {/* ✅ 버튼 그룹 마진/정렬 조정 */}
-        <TouchableOpacity 
-          style={[styles.loginButton, styles.kakaoButton]} // ✅ 카카오 버튼 색상 적용
+      <View style={styles.buttonContainer}>
+        <TouchableOpacity
+          style={[styles.loginButton, styles.kakaoButton]}
           onPress={() => handleOAuthLogin('kakao')}
         >
           <Image source={kakaoIcon} style={styles.icon} />
           <Text style={styles.loginButtonText}>카카오 로그인</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity 
-          style={styles.loginButton} // ✅ 기본(구글) 스타일 유지
+        <TouchableOpacity
+          style={[styles.loginButton, styles.googleButton]}
           onPress={() => handleOAuthLogin('google')}
         >
           <Image source={googleIcon} style={styles.icon} />
           <Text style={styles.loginButtonText}>구글 로그인</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity 
-          style={[styles.loginButton, styles.mockButton]} // ✅ mock 버튼 색상 적용
+        <TouchableOpacity
+          style={[styles.loginButton, styles.mockButton]}
           onPress={handleMockLogin}
         >
           <Text style={styles.mockButtonText}>테스트 로그인(mock)</Text>
@@ -93,46 +96,48 @@ const styles = StyleSheet.create({
     marginTop: 100,
     marginBottom: 40,
   },
-  logoIcon: {
-    width: 120,
-    height: 120,
-    resizeMode: 'contain',
-    marginBottom: 10,
-  },
   appName: {
-    fontSize: 36,
+    fontSize: 90, // ✅ 병합된 스타일: 팀원 폰트 적용
     fontWeight: 'bold',
-    color: '#FFFFFF',
+    color: '#4F46E5',
+    fontFamily: 'KaushanScript', // ✅ 병합된 폰트
+    lineHeight: 200,
+    marginBottom: 50,
+    marginRight: 10,
   },
   buttonContainer: {
     width: '80%',
     alignItems: 'center',
   },
-  loginButton: { // ✅ 모든 버튼에 동일한 스타일 적용 (기본값: 흰 배경)
+  loginButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#FFFFFF',
     paddingVertical: 14,
     paddingHorizontal: 20,
-    borderRadius:12,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: '#DDDDDD',
-    width: '100%',
+    width: '110%',
     marginBottom: 12,
   },
-  kakaoButton: { // ✅ 카카오 버튼 색상 스타일
+  kakaoButton: {
     backgroundColor: '#FEE500',
   },
-  mockButton: { // ✅ mock 버튼 색상 스타일
-    backgroundColor: '#4C5FD5', // 파란색
+  googleButton: {
+    backgroundColor: '#FFFFFF',
   },
-  loginButtonText: { // ✅ 공통 텍스트 스타일 (기본: 검정 글씨)
+  mockButton: {
+    backgroundColor: '#4C5FD5',
+  },
+  loginButtonText: {
     fontSize: 18,
     fontWeight: 'bold',
     color: '#000000',
+    marginLeft: 10, // ✅ 기존 marginRight/marginLeft 비정상값 수정
   },
-  mockButtonText: { // ✅ mock 버튼 전용 흰 글씨 스타일
+  mockButtonText: {
     fontSize: 18,
     fontWeight: 'bold',
     color: '#FFFFFF',
@@ -140,6 +145,6 @@ const styles = StyleSheet.create({
   icon: {
     width: 22,
     height: 22,
-    marginRight: 10,
+    marginRight: 10, // ✅ 카카오/구글 통일
   },
 });

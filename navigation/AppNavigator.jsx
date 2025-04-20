@@ -14,11 +14,15 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import LoginScreen from '../components/auth/LoginScreen';
 import UserInfoScreen from '../components/auth/UserInfoScreen';
 import EditProfileScreen from '../components/profile/EditProfileScreen';
+import ProfileHomeScreen from '../components/profile/ProfileHomeScreen'; // ✅ 프로필 홈 화면 추가
 import BottomTabNavigator from './BottomTabNavigator'; // ✅ 하단탭 연결 (하단탭 - 홈화면)
+import PlannerScreen from '../components/planner/PlannerScreen';
+import MatchingScreen from '../components/matching/MatchingScreen';   // 매칭, 여행 플랜 임시화면 (개발이후 수정필요)
 
 const Stack = createNativeStackNavigator();
 
 export default function AppNavigator({ isLoggedIn }) {
+  
   return (
     <NavigationContainer>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
@@ -26,14 +30,19 @@ export default function AppNavigator({ isLoggedIn }) {
         {!isLoggedIn && (
           <>
             <Stack.Screen name="Login" component={LoginScreen} />
-            <Stack.Screen name="UserInfo" component={UserInfoScreen} options={{ title: '정보 입력' }} />
+            <Stack.Screen name="UserInfo" component={UserInfoScreen} options={{ title: '회원 가입' }} />
           </>
         )}
 
         {/* 메인 앱 영역 (하단 탭 내비게이터 연결) */}
         <Stack.Screen name="BottomTab" component={BottomTabNavigator} />
 
+        {/* 주요 기능 2개 (여행 매칭, 플랜) 임시화면 (개발이후 수정필요) */}
+        <Stack.Screen name="Planner" component={PlannerScreen} options={{ title: '여행 플랜 생성' }} />
+        <Stack.Screen name="Matching" component={MatchingScreen} options={{ title: '여행자 매칭' }} />
+
         {/* 추가 화면들 */}
+        <Stack.Screen name="ProfileHome" component={ProfileHomeScreen} options={{ title: '프로필 홈' }} />
         <Stack.Screen name="EditProfile" component={EditProfileScreen} options={{ title: '프로필 편집' }} />
       </Stack.Navigator>
     </NavigationContainer>

@@ -24,7 +24,7 @@ import CommunityScreen from '../components/community/CommunityScreen';
 
 const Tab = createBottomTabNavigator();
 
-export default function BottomTabNavigator() {  //하단탭이 홈화면 및 라우터 기능 탑재.
+export default function BottomTabNavigator() {
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
@@ -35,6 +35,7 @@ export default function BottomTabNavigator() {  //하단탭이 홈화면 및 라
           paddingTop: 6,
           backgroundColor: '#FFFFFF',
           borderTopWidth: 0,
+          
 
           // ✅ 상단 둥글게 처리
           borderTopLeftRadius: 20,
@@ -102,7 +103,23 @@ export default function BottomTabNavigator() {  //하단탭이 홈화면 및 라
 }
 
 const styles = StyleSheet.create({
+  // ✅ 선택된 탭 라벨에만 적용되는 텍스트 그림자 스타일
+  textShadowStyle: {
+    textShadowColor: '#4F46E5',
+    textShadowRadius: 4,
+    textShadowOffset: { width: 0, height: 1 },
+  },
 
+  // ✅ 모든 아이콘에 그림자 효과 적용
+  iconShadowContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
 
-
+    // 🔽 여기서 자유롭게 조절하세요
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,   // IOS 더 진하게
+    shadowRadius: 4,      // IOS 더 퍼지게
+    elevation: 6,         // Android 그림자
+  },
 });
