@@ -12,6 +12,10 @@
       "tsconfigPaths": true
     },
 
+    "experimental": {
+      "newArchEnabled": true
+    },
+
     "plugins": [],
 
     "orientation": "portrait",

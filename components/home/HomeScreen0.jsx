@@ -38,7 +38,7 @@ export default function HomeScreen() {
 
       {/* 상단 헤더 (탭바 컬러 적용 대상) */}
       <View style={styles.headerWrapper}> 
-        <Text style={styles.logo}>moyeo</Text>
+        <Text style={styles.logo}>moyeo </Text>
         <View style={styles.profileContainer}>
           <TouchableOpacity onPress={() => navigation.navigate('EditProfile', user)}>
             {user?.image ? (
