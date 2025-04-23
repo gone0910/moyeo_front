@@ -17,7 +17,7 @@ import Feather from 'react-native-vector-icons/Feather'; // 아이콘 2
 import { View, Text, StyleSheet } from 'react-native';
 
 // 각 탭에서 연결될 화면 컴포넌트들
-import HomeScreen from '../components/home/HomeScreen';
+import HomeNavigator from './HomeNavigator'; 
 import MyTripsScreen from '../components/trip/MyTripsScreen';
 import ChatScreen from '../components/chat/ChatScreen';
 import CommunityScreen from '../components/community/CommunityScreen';
@@ -93,7 +93,7 @@ export default function BottomTabNavigator() {  //하단탭이 홈화면 및 라
         tabBarInactiveTintColor: '#A1A1AA',
       })}
     >
-      <Tab.Screen name="Home" component={HomeScreen} />
+      <Tab.Screen name="Home" component={HomeNavigator} />
       <Tab.Screen name="MyTrips" component={MyTripsScreen} />
       <Tab.Screen name="Chat" component={ChatScreen} />
       <Tab.Screen name="Community" component={CommunityScreen} />

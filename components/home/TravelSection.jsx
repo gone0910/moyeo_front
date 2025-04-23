@@ -59,9 +59,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.15,
     shadowRadius: 8,
-    elevation: 3,
+    elevation: 2,
   },
   noPlanText: {
     fontFamily: 'Roboto',
@@ -83,12 +83,12 @@ const styles = StyleSheet.create({
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.15,
-    shadowRadius: 20,
-    elevation: 4,
+    shadowRadius: 1,
+    elevation: 2,
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 36,
-    marginTop: 35,
+    marginTop: 15,
     marginHorizontal: 0,           // 양옆 딱 맞추기
   },
   plusCircle: {

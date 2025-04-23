@@ -17,13 +17,15 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function ProfileHomeScreen({ route }) {
   const navigation = useNavigation();
-  const { user: contextUser, setUser } = useContext(UserContext);
-  const user = route?.params || contextUser;
+  // const { user: contextUser, setUser } = useContext(UserContext);
+  // const user = route?.params || contextUser; // 초기 화면전환 시 1회성 사용자 정보 반영
+  const { user, setUser } = useContext(UserContext); // ✅ 항상 최신 상태의 사용자 정보 사용
+
 
   // ✅ 실제 로그아웃 처리
   const handleLogout = async () => {
     try {
-      await AsyncStorage.clear(); // 저장된 토큰 등 삭제
+      await AsyncStorage.clear(); // 저장된 토큰 등 삭제 ( mock 포함)
       setUser(null);              // UserContext 초기화
       navigation.reset({
         index: 0,
@@ -74,8 +76,8 @@ export default function ProfileHomeScreen({ route }) {
       <View style={styles.contentWrapper}>
         {/* 프로필 이미지 */}
         <View style={styles.imageContainer}>
-          {user?.image ? (
-            <Image source={{ uri: user.image }} style={styles.profileImage} />
+          {user?.profileImageUrl ? (
+            <Image source={{ uri: user.profileImageUrl }} style={styles.profileImage} /> // 사진은 profileImageUrl 일괄적용.
           ) : (
             <View style={styles.placeholderImage} />
           )}
@@ -92,7 +94,9 @@ export default function ProfileHomeScreen({ route }) {
             </View>
             <View style={styles.infoColumn}>
               <Text style={styles.value}>{user?.nickname || '-'}</Text>
-              <Text style={styles.value}>{user?.gender || '-'}</Text>
+              <Text style={styles.value}>
+                {user?.gender === 'MALE' ? '남성' : user?.gender === 'FEMALE' ? '여성' : '-'}
+                </Text>
               <Text style={styles.value}>{user?.age || '-'}</Text>
               <Text style={styles.value}>{user?.mbti || '-'}</Text>
             </View>

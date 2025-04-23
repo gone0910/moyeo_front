@@ -4,10 +4,8 @@ import { View, Image, TouchableOpacity, Text, StyleSheet } from 'react-native';
 
 /**
  * 프로필 사진 선택 컴포넌트
- * - 원형 이미지 UI
- * - 이미지 선택 시 상위 컴포넌트로 uri 전달
- * ✅ 안내 텍스트 제거
- * ✅ marginTop: -45 적용 (⚠️ 기기 해상도에 따라 이미지 깨짐 위험 있음)
+ * - Expo ImagePicker 기반
+ * - 선택한 이미지의 uri, name, type 정보를 상위로 전달함
  */
 export default function ProfileImagePicker({ onChange, defaultImage }) {
   const [imageUri, setImageUri] = useState(defaultImage || null);
@@ -26,15 +24,22 @@ export default function ProfileImagePicker({ onChange, defaultImage }) {
     });
 
     if (!result.canceled) {
-      const uri = result.assets[0].uri;
-      setImageUri(uri);
-      onChange && onChange(uri);
+      const asset = result.assets[0];
+
+      // ✅ Axios에서 multipart/form-data로 전송 가능한 구조로 가공
+      const imageObject = {
+        uri: asset.uri,
+        name: asset.fileName || 'profile.jpg',   // fileName이 없을 수도 있으니 기본값 설정
+        type: asset.type || 'image/jpeg',        // type도 없으면 기본값 설정
+      };
+
+      setImageUri(asset.uri);
+      onChange && onChange(imageObject); // ✅ 전체 이미지 객체 전달
     }
   };
 
   return (
     <View style={styles.container}>
-      {/* 안내 텍스트 제거됨 */}
       <TouchableOpacity onPress={pickImage}>
         {imageUri ? (
           <Image source={{ uri: imageUri }} style={styles.image} />
@@ -65,7 +70,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#E5E7EB',
     alignItems: 'center',
     justifyContent: 'center',
-    // marginTop : -45는  특정 해상도에서 이미지 깨질 수 있음 (주의) 나 깨짐.
+    // marginTop -45은  안드로이드에서 화면 밖 나감.
   },
   placeholderText: {
     fontSize: 12,

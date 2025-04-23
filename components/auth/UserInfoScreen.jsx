@@ -1,3 +1,4 @@
+// 📁 components/auth/UserInfoScreen.jsx
 import React, { useState, useContext, useEffect } from 'react';
 import {
   View,
@@ -13,11 +14,12 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
+import * as Linking from 'expo-linking'; // ✅ 딥링크 파싱용 추가
 
 import { UserContext } from '../../contexts/UserContext';
 import ProfileImagePicker from '../common/ProfileImagePicker';
 import Dropdown from '../common/Dropdown';  // DropdownPicker 기반 Dropdown
-// import { registerUser } from '../../api/auth'; // 🔁 나중에 사용 시 주석 해제
+import { registerUser, getUserInfo } from '../../api/auth'; // 🔁 나중에 사용 시 주석 해제
 
 export default function UserInfoScreen() {
   const navigation = useNavigation();
@@ -29,40 +31,75 @@ export default function UserInfoScreen() {
   const [gender, setGender] = useState('');
   const [mbti, setMbti] = useState('');
 
-  const isValid = nickname.length > 0 && gender && age >= 10 && age <= 99;
+  const parsedAge = parseInt(age);
+  const isValid = nickname.length > 0 && gender && !isNaN(parsedAge) && parsedAge >= 10 && parsedAge <= 99;
 
+  useEffect(() => {
+    const handleInitialLink = async () => {
+      const url = await Linking.getInitialURL();
+      if (!url) return;
+
+      const { queryParams } = Linking.parse(url);
+      const mode = queryParams?.mode;
+      const token = queryParams?.token;
+
+      if (mode === 'register' && token) {
+        await AsyncStorage.setItem('jwt', token);
+        console.log('✅ 신규 사용자 토큰 저장 완료');
+      }
+    };
+
+    handleInitialLink();
+  }, []);
+   
+  // 가입 시작하기
   const handleSubmit = async () => {
-    const newUser = { nickname, age, gender, mbti, image };
+    const token = await AsyncStorage.getItem('jwt');
+    const isMock = await AsyncStorage.getItem('mock');
+
+    const userData = {
+      nickname,
+      gender: gender === '남성' ? 'MALE' : gender === '여성' ? 'FEMALE' : '',
+      age: parseInt(age),
+      mbti,
+    };
+
+    if (isMock === 'true') {
+      const mockUser = {
+        ...userData,
+        profileImageUrl: image?.uri || null,
+      };
+      setUser(mockUser);
+      await AsyncStorage.setItem('user', JSON.stringify(mockUser));
+      navigation.replace('BottomTab');
+      return;
+    }
 
     try {
+      const result = await registerUser(userData, image, token);
+      console.log(' registerUser 응답:', result);
+
+      const newToken = result.token || token;
+      if (result.token) {
+        console.log('✅ 정식 JWT 토큰이 응답에 포함됨:', result.token);
+      } else {
+        console.warn('⚠️ 응답에 정식 토큰 없음 → 임시 토큰 계속 사용');
+      }
+
+      const newUser = await getUserInfo(newToken);
+
       setUser(newUser);
       await AsyncStorage.setItem('user', JSON.stringify(newUser));
-
-      // 🔁 Axios 연동용 주석 시작
-      /*
-      const token = await AsyncStorage.getItem('jwtToken');
-      const userData = {
-        nickname,
-        gender,
-        age: parseInt(age),
-        mbti,
-      };
-      await registerUser(userData, image, token);
-      */
-      // 🔁 Axios 연동용 주석 끝
+      await AsyncStorage.setItem('jwt', newToken);
 
       Alert.alert('완료', '회원가입이 완료되었습니다.');
       navigation.replace('BottomTab');
     } catch (e) {
-      console.error('저장 오류:', e);
-      Alert.alert('오류', '회원가입이 실패하였습니다.');
+      console.error('❌ 회원가입 실패:', e);
+      Alert.alert('오류', '회원가입에 실패했습니다.');
+      navigation.reset({ index: 0, routes: [{ name: 'Login' }] });
     }
   };
-
-  useEffect(() => {
-    const unsubscribe = navigation.addListener('beforeRemove', (e) => {});
-    return unsubscribe;
-  }, [navigation]);
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -75,7 +112,7 @@ export default function UserInfoScreen() {
           <View style={styles.headerLine} />
         </View>
 
-        <ScrollView contentContainerStyle={styles.container}>
+        <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled" nestedScrollEnabled={true}>
           <ProfileImagePicker defaultImage={image} onChange={setImage} />
 
           <View style={styles.formGrouped}>
@@ -97,17 +134,13 @@ export default function UserInfoScreen() {
               style={[styles.genderButton, gender === '남성' && styles.genderSelected]}
               onPress={() => setGender(gender === '남성' ? '' : '남성')}
             >
-              <Text style={[styles.genderText, gender === '남성' && styles.genderTextSelected]}>
-                남성
-              </Text>
+              <Text style={[styles.genderText, gender === '남성' && styles.genderTextSelected]}>남성</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.genderButton, gender === '여성' && styles.genderSelected]}
               onPress={() => setGender(gender === '여성' ? '' : '여성')}
             >
-              <Text style={[styles.genderText, gender === '여성' && styles.genderTextSelected]}>
-                여성
-              </Text>
+              <Text style={[styles.genderText, gender === '여성' && styles.genderTextSelected]}>여성</Text>
             </TouchableOpacity>
           </View>
 
@@ -127,7 +160,7 @@ export default function UserInfoScreen() {
             />
           </View>
 
-          <View style={styles.formGroups}>
+          <View style={[styles.formGroups]}>
             <Text style={styles.mbtiLabel}>MBTI 선택</Text>
             <Dropdown
               selectedValue={mbti}
@@ -176,7 +209,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#333',
-    marginTop: 32, // 회원가입 텍스트가 너무 올라가서 marginTop 추가.
+    marginTop: 32,
     marginBottom: 8,
   },
   headerLine: {
@@ -185,6 +218,11 @@ const styles = StyleSheet.create({
     marginTop: 10,
     height: 1,
     backgroundColor: '#999',
+  },
+  notice: {
+    fontSize: 14,
+    color: '#EF4444',
+    marginBottom: 16,
   },
   container: {
     paddingHorizontal: 20,

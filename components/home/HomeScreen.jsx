@@ -1,70 +1,62 @@
-// 📁 components/home/HomeScreen.jsx (스크롤 조건부 적용 포함)
-import React, { useContext, useEffect } from 'react';
-import { View, Text, TouchableOpacity, Image, StyleSheet, ScrollView } from 'react-native';
+// 📁 components/home/HomeScreen.jsx (병합 버전)
+import React, { useContext, useEffect, useState } from 'react';
+import { View, Text, TouchableOpacity, Image, StyleSheet, ScrollView, Alert, Modal } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { UserContext } from '../../contexts/UserContext';
-import { MaterialIcons } from '@expo/vector-icons';
+import { MaterialIcons, Ionicons, Feather } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import TravelSection from './TravelSection';
+import SplashScreen from '../common/SplashScreen'; // 🔁 팀원 코드 병합
 
-// 🔁 Axios 연동용 (주석 해제 시 사용)
-// import { getUserInfo, getNearestTrip } from '../../api/auth';
-// import AsyncStorage from '@react-native-async-storage/async-storage';
-
-// (📌 임시 데이터 → Axios로 대체 예정)
-const dummyTravelList = [  // []; 처리를 하면 여행 공백과 플랜추가 메세지 출력
-   {
-     id: 1,
-     title: '경주 여행',
-     period: '2025.04.20 ~ 2025.04.30',
-     dDay: 'D-5',
-     route: ['첨성대', '국밥', '불국사', '카페', '해변']
-   },
-   {
-     id: 2,
-     title: '부산 여행',
-     period: '2025.05.05 ~ 2025.05.07',
-     dDay: 'D-20',
-     route: ['광안리', '밀면', '해운대']
-   }
+// (📌 임시 데이터)
+const dummyTravelList = [
+  // { id: 1, title: '경주 여행', period: '2025.04.20 ~ 2025.04.30', dDay: 'D-5', route: ['첨성대', '국밥'] },
+  // { id: 2, title: '부산 여행', period: '2025.05.05 ~ 2025.05.07', dDay: 'D-20', route: ['광안리', '해운대'] }
 ];
 
 export default function HomeScreen() {
   const navigation = useNavigation();
-  const { user } = useContext(UserContext);
+  const { user, setUser } = useContext(UserContext);
   const nickname = user?.nickname || '사용자';
-  const isLong = nickname.length > 4;  // 닉네임이 5글자 넘으면 다르게 출력.
+  const isLong = nickname.length > 4;
 
+  const [showSplash, setShowSplash] = useState(false); // ✅ 팀원 기능: splash
 
+  const handleLogout = async () => {
+    try {
+      await AsyncStorage.removeItem('user');
+      setUser(null);
+    } catch (e) {
+      Alert.alert('로그아웃 실패', '다시 시도해주세요.');
+    }
+  };
 
   useEffect(() => {
     if (!user) navigation.replace('Login');
-
-    // 🔁 Axios 연동용 주석 시작 (사용자 정보 + 다가오는 여행 불러오기)
-    /*
-    const fetchData = async () => {
-      const token = await AsyncStorage.getItem('jwtToken');
-      const userData = await getUserInfo(token);         // 프로필 사진 요청
-      const travel = await getNearestTrip(token);        // 다가오는 일정, 추후 개발 시 영역역
-      setUser(userData);
-      setNearestTravel(travel);
-    };
-    fetchData();
-    */
-    // 🔁 Axios 연동용 주석 끝
   }, [user]);
 
   return (
     <View style={styles.container}>
+      {/* ✅ Splash 모달 */}
+      <Modal visible={showSplash} transparent animationType="fade">
+        <SplashScreen />
+      </Modal>
+
       {/* 헤더 */}
       <View style={styles.headerWrapper}>
-        <Text style={styles.logo} numberOfLines={1} adjustsFontSizeToFit>moyeo</Text>
-        <TouchableOpacity onPress={() => navigation.navigate('ProfileHome', user)}>
-          {user?.image ? (
-            <Image source={{ uri: user.image }} style={styles.profileImage} />
-          ) : (
-            <View style={styles.profilePlaceholder} />
-          )}
-        </TouchableOpacity>
+        <Text style={styles.logo} numberOfLines={1} adjustsFontSizeToFit>moyeo </Text>
+        <View style={styles.profileContainer}>
+          <TouchableOpacity onPress={() => navigation.navigate('ProfileHome', user)}>
+            {user?.profileImageUrl ? (
+              <Image source={{ uri: user.profileImageUrl }} style={styles.profileImage} />
+            ) : (
+              <View style={styles.profilePlaceholder} />
+            )}
+          </TouchableOpacity>
+          {/* <TouchableOpacity onPress={handleLogout}>
+            <Feather name="log-out" size={24} color="#4B5563" />
+          </TouchableOpacity> */}
+        </View>
       </View>
 
       <View style={styles.divider} />
@@ -72,33 +64,31 @@ export default function HomeScreen() {
       {/* 사용자 인사말 */}
       <View style={styles.greetingWrapper}>
         {isLong ? (
-            <>
-              <Text style={styles.greetingText}>{nickname}님</Text>
-              <Text style={styles.greetingText}>좋은 하루 보내세요</Text>
-            </>
-          ) : (
-            <Text style={styles.greetingText}>{nickname}님 좋은 하루 보내세요</Text>
-          )}
-        <Text style={styles.subGreetingText}>
-          오늘은 어디로 떠나고 싶으세요?
-        </Text>
+          <>
+            <Text style={styles.greetingText}>{nickname}님</Text>
+            <Text style={styles.greetingText}>좋은 하루 보내세요</Text>
+          </>
+        ) : (
+          <Text style={styles.greetingText}>{nickname}님 좋은 하루 보내세요</Text>
+        )}
+        <Text style={styles.subGreetingText}>오늘은 어디로 떠나고 싶으세요?</Text>
       </View>
 
       {/* 기능 카드 */}
       <View style={styles.featureRow}>
         <TouchableOpacity style={styles.featureItem} onPress={() => navigation.navigate('Planner')}>
           <View style={styles.featureCard}>
-            <View style={[styles.iconCircle, { backgroundColor: '#E9CDFF' }]}> {/* ⚠️ 컬러 수정됨 */}
+            <View style={[styles.iconCircle, { backgroundColor: '#E9CDFF' }]}>
               <MaterialIcons name="route" size={64} color="#533E92" />
             </View>
             <Text style={styles.featureTitle}>AI 여행 플랜 제작</Text>
-            <Text style={styles.featureDesc} numberOfLines={1}>나에게 맞춘 여행계획을 세워볼까요?</Text>
+            <Text style={styles.featureDesc}>나에게 맞춘 여행계획을 세워볼까요?</Text>
           </View>
         </TouchableOpacity>
 
         <TouchableOpacity style={styles.featureItem} onPress={() => navigation.navigate('Matching')}>
           <View style={styles.featureCard}>
-            <View style={[styles.iconCircle, { backgroundColor: '#FFF1A8' }]}> {/* ⚠️ 컬러 수정됨 */}
+            <View style={[styles.iconCircle, { backgroundColor: '#FFF1A8' }]}>
               <MaterialIcons name="person-outline" size={64} color="#928023" />
             </View>
             <Text style={styles.featureTitle}>여행 동행자 찾기</Text>
@@ -107,41 +97,45 @@ export default function HomeScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* 여행 플랜 섹션 고정 텍스트 */}
+      {/* 여행 플랜 타이틀 */}
       <View style={styles.travelHeader}>
         <Text style={styles.travelTitle}>다가오는 여행</Text>
-
-        {dummyTravelList.length > 0 && (  // 플랜 없을때 "전체보기" 버튼 삭제.
+        {dummyTravelList.length > 0 && (
           <TouchableOpacity onPress={() => navigation.navigate('Planner')}>
-            <Text style={styles.travelViewAll}>여행 전체보기</Text>   
+            <Text style={styles.travelViewAll}>여행 전체보기</Text>
           </TouchableOpacity>
         )}
       </View>
       <Text style={styles.travelDesc}>곧 떠날 여행 플랜</Text>
 
-      {/* 여행 카드 리스트 영역 조건부 ScrollView */}
-      {dummyTravelList.length > 1 ? (          // TravelCard가 2개이상이면 스크롤 활성화.
+      {/* 여행 카드 리스트 */}
+      {dummyTravelList.length > 1 ? (
         <ScrollView
           style={styles.travelScrollArea}
           contentContainerStyle={{ paddingBottom: 120 }}
           showsVerticalScrollIndicator={false}
         >
-          <TravelSection
-            travelList={dummyTravelList}
-            onPressCreate={() => navigation.navigate('Planner')}
-          />
+          <TravelSection travelList={dummyTravelList} onPressCreate={() => navigation.navigate('Planner')} />
         </ScrollView>
       ) : (
         <View style={styles.travelScrollArea}>
-          <TravelSection
-            travelList={dummyTravelList}
-            onPressCreate={() => navigation.navigate('Planner')}
-          />
+          <TravelSection travelList={dummyTravelList} onPressCreate={() => navigation.navigate('Planner')} />
         </View>
       )}
+
+      {/* ✅ 하단 우측 버튼 */}
+      <View style={{ position: 'absolute', right: 20, bottom: 20, flexDirection: 'row', gap: 12 }}>
+        <TouchableOpacity style={styles.chatbotButton} onPress={() => console.log('챗봇 열기')}>
+          <Feather name="plus" size={24} color="white" />
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.splashButton} onPress={() => setShowSplash(true)}>
+          <Ionicons name="rocket-outline" size={24} color="white" />
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }
+
 
 const styles = StyleSheet.create({
   container: {

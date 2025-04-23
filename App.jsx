@@ -1,3 +1,4 @@
+// App.jsx
 import { useEffect, useState, useContext } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import AppNavigator from './navigation/AppNavigator';
@@ -29,11 +30,11 @@ export default function App() {
 // AsyncStorage	로그인 정보 로컬 저장소.
 // UserContext	user 상태 전역 공유
 
-
 //  실제 사용자 로그인 상태를 판단하여 분기하는 내부 루트 컴포넌트
 function Root() {
   const { user, setUser } = useContext(UserContext);
   const [loading, setLoading] = useState(true); //  자동 로그인 여부 확인 중 로딩 표시용
+  const [forceUserInfo, setForceUserInfo] = useState(false); // ✅ 추가: 정보입력 유도 여부
 
   // ✅ Google Fonts 불러오기 상태
   const [kaushanLoaded] = useKaushan({ KaushanScript_400Regular });
@@ -51,7 +52,19 @@ function Root() {
       try {
         const stored = await AsyncStorage.getItem('user');
         if (stored) {
-          setUser(JSON.parse(stored)); //  저장된 유저 정보를 Context에 반영
+          const parsedUser = JSON.parse(stored);
+          setUser(parsedUser); //  저장된 유저 정보를 Context에 반영
+
+          // ✅ mock 유저 또는 필수 정보 누락된 경우 → UserInfo로 유도
+          if (
+            parsedUser.id === 'mockUser' ||
+            !parsedUser.nickname ||
+            !parsedUser.age ||
+            !parsedUser.gender ||
+            !parsedUser.mbti
+          ) {
+            setForceUserInfo(true);
+          }
         }
       } catch (e) {
         console.log('자동 로그인 로딩 실패:', e);
@@ -69,5 +82,5 @@ function Root() {
   }
 
   //  user가 있으면 홈 화면, 없으면 로그인/회원가입 흐름으로 분기됨
-  return <AppNavigator isLoggedIn={!!user} />;
+  return <AppNavigator isLoggedIn={!!user} forceUserInfo={forceUserInfo} />; // ✅ 추가 전달
 }

@@ -17,12 +17,13 @@ import EditProfileScreen from '../components/profile/EditProfileScreen';
 import ProfileHomeScreen from '../components/profile/ProfileHomeScreen'; // ✅ 프로필 홈 화면 추가
 import BottomTabNavigator from './BottomTabNavigator'; // ✅ 하단탭 연결 (하단탭 - 홈화면)
 import PlannerScreen from '../components/planner/PlannerScreen';
-import MatchingScreen from '../components/matching/MatchingScreen';   // 매칭, 여행 플랜 임시화면 (개발이후 수정필요)
+import MatchingScreen from '../components/matching/MatchingScreen';
+import MatchingHome from '../components/matching/MatchingHome';
+import MatchingInfoScreen from '../components/matching/MatchingInfoScreen'; // 🔁 팀원 코드 병합
 
 const Stack = createNativeStackNavigator();
 
 export default function AppNavigator({ isLoggedIn }) {
-  
   return (
     <NavigationContainer>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
@@ -30,18 +31,16 @@ export default function AppNavigator({ isLoggedIn }) {
         {!isLoggedIn && (
           <>
             <Stack.Screen name="Login" component={LoginScreen} />
-            <Stack.Screen name="UserInfo" component={UserInfoScreen} options={{ title: '회원 가입' }} />
+            <Stack.Screen name="UserInfo" component={UserInfoScreen} />
           </>
         )}
 
-        {/* 메인 앱 영역 (하단 탭 내비게이터 연결) */}
+        {/* 로그인 이후 화면: 항상 포함시키되, 로그인 안 된 경우 접근 안 되게! */}
         <Stack.Screen name="BottomTab" component={BottomTabNavigator} />
-
-        {/* 주요 기능 2개 (여행 매칭, 플랜) 임시화면 (개발이후 수정필요) */}
         <Stack.Screen name="Planner" component={PlannerScreen} options={{ title: '여행 플랜 생성' }} />
         <Stack.Screen name="Matching" component={MatchingScreen} options={{ title: '여행자 매칭' }} />
-
-        {/* 추가 화면들 */}
+        <Stack.Screen name="MatchingHome" component={MatchingHome} options={{ title: '여행자 매칭 홈' }} />
+        <Stack.Screen name="MatchingInfo" component={MatchingInfoScreen} options={{ title: '여행자 매칭 기입' }} />
         <Stack.Screen name="ProfileHome" component={ProfileHomeScreen} options={{ title: '프로필 홈' }} />
         <Stack.Screen name="EditProfile" component={EditProfileScreen} options={{ title: '프로필 편집' }} />
       </Stack.Navigator>
