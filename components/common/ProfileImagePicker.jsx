@@ -4,8 +4,8 @@ import { View, Image, TouchableOpacity, Text, StyleSheet } from 'react-native';
 
 /**
  * 프로필 사진 선택 컴포넌트
- * - 원형 이미지 UI
- * - 이미지 선택 시 상위 컴포넌트로 uri 전달
+ * - Expo ImagePicker 기반
+ * - 선택한 이미지의 uri, name, type 정보를 상위로 전달함
  */
 export default function ProfileImagePicker({ onChange, defaultImage }) {
   const [imageUri, setImageUri] = useState(defaultImage || null);
@@ -24,22 +24,25 @@ export default function ProfileImagePicker({ onChange, defaultImage }) {
     });
 
     if (!result.canceled) {
-      const uri = result.assets[0].uri;
-      setImageUri(uri);
-      onChange && onChange(uri);
+      const asset = result.assets[0];
+
+      // ✅ Axios에서 multipart/form-data로 전송 가능한 구조로 가공
+      const imageObject = {
+        uri: asset.uri,
+        name: asset.fileName || 'profile.jpg',   // fileName이 없을 수도 있으니 기본값 설정
+        type: asset.type || 'image/jpeg',        // type도 없으면 기본값 설정
+      };
+
+      setImageUri(asset.uri);
+      onChange && onChange(imageObject); // ✅ 전체 이미지 객체 전달
     }
   };
 
   return (
     <View style={styles.container}>
-      <Text style={styles.guideText}>프로필 사진을 선택하세요.</Text>
-
       <TouchableOpacity onPress={pickImage}>
         {imageUri ? (
-          <Image
-            source={{ uri: imageUri }}
-            style={styles.image}
-          />
+          <Image source={{ uri: imageUri }} style={styles.image} />
         ) : (
           <View style={styles.placeholder}>
             <Text style={styles.placeholderText}>선택</Text>
@@ -55,26 +58,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 24,
   },
-  guideText: {
-    fontSize: 20,
-    color: '#4B5563', // gray-600
-    marginBottom: 8,
-  },
   image: {
     width: 120,
     height: 120,
-    borderRadius: 60, // 원형 이미지
+    borderRadius: 60,
   },
   placeholder: {
     width: 120,
     height: 120,
-    borderRadius: 60, // 원형
-    backgroundColor: '#E5E7EB', // gray-200
+    borderRadius: 60,
+    backgroundColor: '#E5E7EB',
     alignItems: 'center',
     justifyContent: 'center',
+    // marginTop -45은  안드로이드에서 화면 밖 나감.
   },
   placeholderText: {
     fontSize: 12,
-    color: '#9CA3AF', // gray-400
+    color: '#9CA3AF',
   },
 });

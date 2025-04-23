@@ -1,97 +1,113 @@
+// 📁 components/common/ToggleSelector.jsx
+// MatchingInfoScreen.jsx 전용 - '선택없음' 선택 시 다른 항목 비활성화 지원
+
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
 
-/**
- * 범용 토글형 선택 컴포넌트
- * 
- * @param {Array<string>} options - 선택 항목 리스트
- * @param {string} selected - 현재 선택된 값
- * @param {function} setSelected - 선택 변경 시 호출되는 함수
- * @param {string} align - 정렬 방식 ('center', 'left') 중 선택
- * @param {string} theme - 색상 테마 ('dark'이면 검정 강조)
- */
 export default function ToggleSelector({
-  options = [],
-  selected,
-  setSelected,
-  align = 'center',
-  theme = 'light',
+  items,
+  selectedItem,
+  onSelect,
+  size = 'large',
+  disableOnNone = true, // ✅ 기본값 true: '선택없음' 선택 시 나머지 비활성화
 }) {
-  const isNoneSelected = selected === '선택 안함';
-  const containerAlign =
-    align === 'left' ? 'flex-start' : 'center';
-
   return (
-    <View style={[styles.container, { justifyContent: containerAlign }]}>
-      {options.map((option) => {
-        const isSelected = selected === option;
-        const isDisabled = isNoneSelected && option !== '선택 안함';
-        const isNoneToggle = option === '선택 안함' && isNoneSelected;
+    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.scrollView}>
+      {items.map((item) => {
+        const isSelected = selectedItem === item;
+        const isDisabled =
+          disableOnNone && selectedItem === '선택없음' && item !== '선택없음'; // ✅ 조건부 비활성화
 
         return (
           <TouchableOpacity
-            key={option}
-            style={[
-              styles.option,
-              isSelected && (theme === 'dark' ? styles.selectedDark : styles.selectedLight),
-              isDisabled && styles.disabledOption,
-            ]}
+            key={item}
             onPress={() => {
-              if (isNoneToggle) {
-                setSelected(''); // '선택 안함' 다시 누르면 해제
-              } else if (!isDisabled) {
-                setSelected(option);
+              if (item === '선택없음') {
+                // '선택없음'을 다시 누르면 선택 초기화
+                if (isSelected) {
+                  onSelect('');
+                } else {
+                  onSelect('선택없음');
+                }
+                return;
               }
+
+              // 일반 항목 클릭
+              onSelect(item);
             }}
+            style={[
+              styles.toggle,
+              size === 'small' ? styles.small : styles.large,
+              isSelected && styles.selectedToggle,
+              isDisabled && styles.disabledToggle,
+            ]}
+            activeOpacity={0.7}
+            disabled={isDisabled} // ✅ 실제 클릭 방지
           >
             <Text
               style={[
-                styles.text,
+                styles.toggleText,
+                size === 'small' ? styles.smallText : styles.largeText,
                 isSelected && styles.selectedText,
                 isDisabled && styles.disabledText,
               ]}
             >
-              {option}
+              {item}
             </Text>
           </TouchableOpacity>
         );
       })}
-    </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginBottom: 16,
+  scrollView: {
+    marginTop: 8,
+    paddingLeft: 1,
   },
-  option: {
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 12,
-    backgroundColor: '#E5E7EB', // 기본 회색
-    marginRight: 12,
-    marginBottom: 8,
+  toggle: {
+    borderWidth: 1,
+    borderColor: '#726BEA',
+    backgroundColor: '#FFFFFF',
+    marginRight: 6,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  selectedLight: {
-    backgroundColor: '#3B82F6', // 파랑
+  selectedToggle: {
+    backgroundColor: '#B3A4F7',
+    borderColor: '#726BEA',
   },
-  selectedDark: {
-    backgroundColor: '#000000', // 검정
+  large: {
+    width: 95,
+    height: 40,
+    borderRadius: 20,
   },
-  disabledOption: {
-    backgroundColor: '#D1D5DB', // 더 흐린 회색
+  small: {
+    width: 76,
+    height: 32,
+    borderRadius: 16,
   },
-  text: {
-    fontSize: 20,
-    color: '#374151',
+  toggleText: {
+    fontFamily: 'Roboto',
+    color: '#373737',
+    fontWeight: '400',
+  },
+  largeText: {
+    fontSize: 14,
+  },
+  smallText: {
+    fontSize: 12,
   },
   selectedText: {
-    color: '#fff',
+    color: '#FFFFFF',
     fontWeight: 'bold',
   },
+  disabledToggle: {
+    backgroundColor: '#F5F4FA',
+    borderColor: '#DDD9F5',
+  },
   disabledText: {
-    color: '#9CA3AF',
+    color: '#B3B3B3',
   },
 });
