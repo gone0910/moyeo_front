@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import * as ImagePicker from 'expo-image-picker';
 import { View, Image, TouchableOpacity, Text, StyleSheet } from 'react-native';
 
@@ -8,7 +8,19 @@ import { View, Image, TouchableOpacity, Text, StyleSheet } from 'react-native';
  * - 선택한 이미지의 uri, name, type 정보를 상위로 전달함
  */
 export default function ProfileImagePicker({ onChange, defaultImage }) {
-  const [imageUri, setImageUri] = useState(defaultImage || null);
+   //  defaultImage가 string이면 그대로, 객체면 uri만 추출
+  const [imageUri, setImageUri] = useState(
+    typeof defaultImage === 'string' ? defaultImage : defaultImage?.uri || null);
+
+
+  useEffect(() => {
+    const uri = typeof defaultImage === 'string' ? defaultImage : defaultImage?.uri;
+    setImageUri(uri || null);
+  }, [defaultImage]);
+
+  // 렌더링:
+  <Image source={{ uri: imageUri }} style={styles.image} />
+    
 
   const pickImage = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -33,7 +45,7 @@ export default function ProfileImagePicker({ onChange, defaultImage }) {
         type: asset.type || 'image/jpeg',        // type도 없으면 기본값 설정
       };
 
-      setImageUri(asset.uri);
+      setImageUri(asset.uri);             // ✅ 로컬에서 이미지 미리 보기용
       onChange && onChange(imageObject); // ✅ 전체 이미지 객체 전달
     }
   };

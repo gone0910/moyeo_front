@@ -1,3 +1,4 @@
+// components/profile/EditProfileScreen.jsx
 /* 프로필 편집 화면 */
 import React, { useState, useContext, useEffect } from 'react';
 import {
@@ -18,50 +19,77 @@ import { useNavigation } from '@react-navigation/native';
 import { UserContext } from '../../contexts/UserContext';
 import ProfileImagePicker from '../common/ProfileImagePicker';
 import Dropdown from '../common/Dropdown'; // DropDownPicker 기반
-// import { editUserProfile, getUserInfo } from '../../api/auth'; // api 오프 시시 주석 유지, getUserInfo 추가
 import { editUserProfileWithFetch, getUserInfoWithFetch } from '../../api/auth_fetch'; // ✅ fetch 기반 API 사용
 
 export default function EditProfileScreen() {
   const navigation = useNavigation();
   const { user, setUser } = useContext(UserContext);
 
-  //  백엔드에서 받은 프로필 이미지 URL 기준으로 초기화
-  const [image, setImage] = useState(user?.profileImageUrl || null);
-  const [nickname, setNickname] = useState(user?.nickname || '');
-  const [age, setAge] = useState(user?.age || '');
-  //  수정된 경우 (서버에서 받은 영어 → 토글이 이해할 수 있는 한국어로 변환)
-  const [gender, setGender] = useState(
-    user?.gender === 'MALE' ? '남성' : user?.gender === 'FEMALE' ? '여성' : ''
-  );
-  const [mbti, setMbti] = useState(user?.mbti || '');
-  const isValid = nickname.length > 0 && gender && age >= 13 && age <= 99;
+  const [image, setImage] = useState(null);
+  const [nickname, setNickname] = useState('');
+  const [age, setAge] = useState('');
+  const [gender, setGender] = useState('');
+  const [mbti, setMbti] = useState('');
 
-  // 프로필 편집 완료 버튼
+  useEffect(() => {
+    const init = async () => {
+      const token = await AsyncStorage.getItem('jwt');
+      const isMock = await AsyncStorage.getItem('mock');
+
+      if (isMock === 'true') {
+        // ✅ mock 모드: context에서 사용자 정보 직접 사용
+        setNickname(user?.nickname || '');
+        setGender(user?.gender === 'MALE' ? '남성' : user?.gender === 'FEMALE' ? '여성' : '');
+        setAge(user?.age?.toString() || '');
+        setMbti(user?.mbti || '');
+        setImage(user?.profileImageUrl || null); // ✅ string URL
+      } else {
+        try {
+          const freshUser = await getUserInfoWithFetch(token); // ✅ 서버에서 최신 사용자 정보 조회
+          setNickname(freshUser.nickname || '');
+          setGender(freshUser.gender === 'MALE' ? '남성' : freshUser.gender === 'FEMALE' ? '여성' : '');
+          setAge(freshUser.age?.toString() || '');
+          setMbti(freshUser.mbti || '');
+          setImage(freshUser.profileImageUrl || null); // ✅ 서버에서 받은 string URL
+        } catch (e) {
+          console.error('❌ 사용자 정보 조회 실패:', e);
+          Alert.alert('오류', '사용자 정보를 불러올 수 없습니다.');
+        }
+      }
+    };
+    init();
+  }, []);
+
+  const isValid = nickname.length > 0 && gender && Number(age) >= 13 && Number(age) <= 99;
+
   const handleSubmit = async () => {
-    //  백엔드가 요구하는 형식: 숫자 age + gender/mbti는 서버 포맷 (예: 'MALE', 'INFP')
     const token = await AsyncStorage.getItem('jwt');
     const isMock = await AsyncStorage.getItem('mock');
 
     const userData = {
       nickname,
-      gender: gender === '남성' ? 'MALE' : gender === '여성' ? 'FEMALE' : '',
-      age: parseInt(age),
+      gender,
+      age: Number(age),
       mbti,
-      profileImageUrl: image?.uri || null,
     };
 
     if (isMock === 'true') {
-      // ✅ mock 모드일 경우 직접 상태 및 저장소 갱신
-      setUser(userData);
-      await AsyncStorage.setItem('user', JSON.stringify(userData));
+      // ✅ mock 모드: 이미지 URL 그대로 저장
+      const mockUserData = {
+        ...userData,
+        profileImageUrl: image,
+      };
+      setUser(mockUserData);
+      await AsyncStorage.setItem('user', JSON.stringify(mockUserData));
       Alert.alert('성공', '프로필이 수정되었습니다.');
       navigation.goBack();
       return;
     }
 
     try {
-      await editUserProfileWithFetch(userData, token); // ✅ fetch로 수정 요청
-      const updated = await getUserInfoWithFetch(token); // ✅ fetch로 사용자 정보 다시 조회
+      // ✅ 실제 사용자: 이미지 파일과 함께 수정 요청 전송
+      await editUserProfileWithFetch(userData, image, token);
+      const updated = await getUserInfoWithFetch(token);
       setUser(updated);
       await AsyncStorage.setItem('user', JSON.stringify(updated));
       Alert.alert('성공', '프로필이 수정되었습니다.');
@@ -71,20 +99,6 @@ export default function EditProfileScreen() {
       Alert.alert('실패', '프로필 저장에 실패했습니다.');
     }
   };
-
-  //   // 기존 axios api 함수인 editUserProfile
-  //   try {
-  //     await editUserProfile(userData, image, token);
-  //     const updated = await getUserInfo(token);
-  //     setUser(updated);
-  //     await AsyncStorage.setItem('user', JSON.stringify(updated));
-  //     Alert.alert('성공', '프로필이 수정되었습니다.');
-  //     navigation.goBack();
-  //   } catch (e) {
-  //     console.error('프로필 저장 실패:', e);
-  //     Alert.alert('실패', '프로필 저장에 실패했습니다.');
-  //   }
-  // };
 
   return (
     <SafeAreaView style={styles.safe}>
