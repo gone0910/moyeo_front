@@ -18,7 +18,8 @@ import { useNavigation } from '@react-navigation/native';
 import { UserContext } from '../../contexts/UserContext';
 import ProfileImagePicker from '../common/ProfileImagePicker';
 import Dropdown from '../common/Dropdown'; // DropDownPicker 기반
-import { editUserProfile, getUserInfo } from '../../api/auth'; // api 오프 시시 주석 유지, getUserInfo 추가
+// import { editUserProfile, getUserInfo } from '../../api/auth'; // api 오프 시시 주석 유지, getUserInfo 추가
+import { editUserProfileWithFetch, getUserInfoWithFetch } from '../../api/auth_fetch'; // ✅ fetch 기반 API 사용
 
 export default function EditProfileScreen() {
   const navigation = useNavigation();
@@ -59,17 +60,32 @@ export default function EditProfileScreen() {
     }
 
     try {
-      await editUserProfile(userData, image, token);
-      const updated = await getUserInfo(token);
+      await editUserProfileWithFetch(userData, token); // ✅ fetch로 수정 요청
+      const updated = await getUserInfoWithFetch(token); // ✅ fetch로 사용자 정보 다시 조회
       setUser(updated);
       await AsyncStorage.setItem('user', JSON.stringify(updated));
       Alert.alert('성공', '프로필이 수정되었습니다.');
       navigation.goBack();
     } catch (e) {
-      console.error('프로필 저장 실패:', e);
+      console.error('❌ 프로필 저장 실패:', e);
       Alert.alert('실패', '프로필 저장에 실패했습니다.');
     }
   };
+
+  //   // 기존 axios api 함수인 editUserProfile
+  //   try {
+  //     await editUserProfile(userData, image, token);
+  //     const updated = await getUserInfo(token);
+  //     setUser(updated);
+  //     await AsyncStorage.setItem('user', JSON.stringify(updated));
+  //     Alert.alert('성공', '프로필이 수정되었습니다.');
+  //     navigation.goBack();
+  //   } catch (e) {
+  //     console.error('프로필 저장 실패:', e);
+  //     Alert.alert('실패', '프로필 저장에 실패했습니다.');
+  //   }
+  // };
+
   return (
     <SafeAreaView style={styles.safe}>
       <KeyboardAvoidingView

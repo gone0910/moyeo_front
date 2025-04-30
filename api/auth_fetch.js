@@ -1,9 +1,8 @@
 // 📁 api/auth_fetch.js
-// ✅ fetch 기반 회원가입, 사용자 조회, 프로필 수정 API 모음
-// - Axios 사용 없이 모든 요청을 fetch API로 구성함
-// - FormData 및 JSON 방식 요청 모두 대응
-// - JWT는 Authorization 헤더로 전달됨
-// - 프론트에서 이미지 포함 multipart 전송 및 JSON 수정 요청을 분리 처리
+// ✅ fetch 기반으로 구성된 API 함수 모음
+// - React Native (Expo Go 호환)
+// - 회원가입은 multipart/form-data 방식 + JSON을 파일처럼 처리
+// - 사용자 정보 조회 및 수정도 포함
 
 import * as Linking from 'expo-linking';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -36,13 +35,21 @@ export const redirectToOAuthWithFetch = async (provider) => {
 // ✅ fetch 기반 회원가입 API (multipart/form-data, key 분해 방식)
 export const registerUserWithFetch = async (userData, image, token) => {
   try {
-    console.log('🟡 [fetch] registerUser() 진입');
-    console.log('📦 userInfo:', userData);
-    console.log('🪪 token:', token);
-    console.log('🖼 image:', image ? image.uri : '없음');
-
     const formData = new FormData();
-    formData.append('userInfo', JSON.stringify(userData));
+
+    // ✅ JSON을 파일처럼 추가 (Base64 방식 , expo go에서는 RNfs 사용불가)
+    formData.append('userInfo', {
+      uri: 'data:application/json;base64,' + btoa(unescape(encodeURIComponent(JSON.stringify(userData)))),
+      type: 'application/json',
+      name: 'userInfo.json',
+    });
+    // console.log('🟡 [fetch] registerUser() 진입');
+    // console.log('📦 userInfo:', userData);
+    // console.log('🪪 token:', token);
+    // console.log('🖼 image:', image ? image.uri : '없음');
+
+    // const formData = new FormData();
+    // formData.append('userInfo', JSON.stringify(userData));
 
     if (image) {
       formData.append('profileImage', {
@@ -121,10 +128,13 @@ export const getUserInfoWithFetch = async (token) => {
  * @param {string} token - JWT 토큰
  * @returns {Object} 서버 응답 (수정된 사용자 정보)
  */
-export const editUserProfileWithFetch = async (userInfo, image, token) => {
+export const editUserProfileWithFetch = async (userData, token) => {
   const requestBody = {
-    userInfo,
-    profileImage: image, // null 또는 { uri: ... } 형식
+    nickname: userData.nickname,
+    gender: userData.gender,
+    age: userData.age,
+    mbti: userData.mbti,
+    profileImageUrl: userData.profileImageUrl || null, //  프로필 이미지 URL (없으면 null)
   };
 
   const response = await fetch(`${BASE_URL}/user/edit`, {
@@ -132,6 +142,7 @@ export const editUserProfileWithFetch = async (userInfo, image, token) => {
     headers: {
       Authorization: `Bearer ${token}`,
       'Content-Type': 'application/json',
+      Accept: 'application/json',
     },
     body: JSON.stringify(requestBody),
   });
