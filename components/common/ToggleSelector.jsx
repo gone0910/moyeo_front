@@ -37,7 +37,11 @@ export default function ToggleSelector({
             }}
             style={[
               styles.toggle,
-              size === 'small' ? styles.small : styles.large,
+              size === 'small'
+                ? styles.small
+                : size === 'middle'
+                ? styles.middle
+                : styles.large, // Fixed conditional for size
               isSelected && styles.selectedToggle,
               isDisabled && styles.disabledToggle,
             ]}
@@ -47,7 +51,11 @@ export default function ToggleSelector({
             <Text
               style={[
                 styles.toggleText,
-                size === 'small' ? styles.smallText : styles.largeText,
+                size === 'small'
+                  ? styles.smallText
+                  : size === 'middle'
+                  ? styles.middleText
+                  : styles.largeText, // Fixed conditional for size
                 isSelected && styles.selectedText,
                 isDisabled && styles.disabledText,
               ]}
@@ -86,7 +94,12 @@ const styles = StyleSheet.create({
   small: {
     width: 76,
     height: 32,
-    borderRadius: 16,
+    borderRadius: 20,
+  },
+  middle: { // Added middle size style
+    width: 95,
+    height: 40,
+    borderRadius: 12,
   },
   toggleText: {
     fontFamily: 'Roboto',
@@ -98,6 +111,9 @@ const styles = StyleSheet.create({
   },
   smallText: {
     fontSize: 12,
+  },
+  middleText: { // Added middle text style
+    fontSize: 14,
   },
   selectedText: {
     color: '#FFFFFF',

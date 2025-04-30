@@ -172,7 +172,7 @@ const styles = StyleSheet.create({
   },
   divider: {
     borderBottomWidth: 1,
-    borderColor: '#D3D3D3',
+    borderColor: '#999',
     marginTop: 1,
     marginBottom: 24,
   },
@@ -184,14 +184,16 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   profileImage: {
-    width: 171,
-    height: 171,
-    borderRadius: 85.5,
+    width: 200,
+    height: 200,
+    borderRadius: 120,
+    marginTop:30,
   },
   placeholderImage: {
-    width: 171,
-    height: 171,
-    borderRadius: 85.5,
+    width: 200,
+    height: 200,
+    borderRadius: 120,
+    marginTop:30,
     backgroundColor: '#D1D5DB',
   },
   infoContainer: {

@@ -11,6 +11,7 @@ import { KaushanScript_400Regular } from '@expo-google-fonts/kaushan-script';
 import SplashScreen from '../common/SplashScreen'; 
 import { Ionicons } from '@expo/vector-icons';
 import * as Linking from 'expo-linking'; // ✅ 변경
+import Feather from 'react-native-vector-icons/Feather';
 
 //아이콘 필요시 추가
 const kakaoIcon = require('../../assets/icons/kakaotalk_icon.png');
@@ -125,7 +126,7 @@ export default function LoginScreen() {
       </Modal>
 
       <View style={styles.logoContainer}>
-        <Text style={styles.appName}>moyeo</Text>
+        <Text style={styles.appName}>moyeo </Text>
       </View>
 
       <View style={styles.buttonContainer}>
@@ -155,6 +156,20 @@ export default function LoginScreen() {
           }}
         >
           <Text style={styles.mockButtonText}>임시 로그인 (테스트용)</Text>
+        </TouchableOpacity>
+      </View>
+      <View style={{ position: 'absolute', right: 20, bottom: 20, flexDirection: 'row', gap: 12 }}>
+        <TouchableOpacity
+          style={styles.chatbotButton}
+          onPress={() => console.log('챗봇 열기')}
+        >
+          <Feather name="plus" size={24} color="white" />
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.splashButton}
+          onPress={() => setShowSplash(true)} 
+        >
+          <Ionicons name="rocket-outline" size={24} color="white" />
         </TouchableOpacity>
       </View>
     </View>

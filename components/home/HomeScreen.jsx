@@ -155,22 +155,24 @@ const styles = StyleSheet.create({
     color: '#4F46E5',
     lineHeight: 80,
     letterSpacing: 0,
+    top:5,
   },
   profileImage: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    marginTop: 22,
+    marginTop: 20,
   },
   profilePlaceholder: {
     width: 44,
     height: 44,
     borderRadius: 22,
+    marginTop: 20,
     backgroundColor: '#D1D5DB',
   },
   divider: {
     borderBottomWidth: 1,
-    borderColor: '#D3D3D3',
+    borderColor: '#999',
     marginTop: 1,
   },
   greetingWrapper: {
