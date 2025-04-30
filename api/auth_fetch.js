@@ -1,15 +1,14 @@
 // 📁 api/auth_fetch.js
-// ✅ fetch 기반 회원가입, 사용자 조회, 프로필 수정 API 모음
-// - Axios 사용 없이 모든 요청을 fetch API로 구성함
-// - FormData 및 JSON 방식 요청 모두 대응
-// - JWT는 Authorization 헤더로 전달됨
-// - 프론트에서 이미지 포함 multipart 전송 및 JSON 수정 요청을 분리 처리
+// ✅ fetch 기반으로 구성된 API 함수 모음
+// - React Native (Expo Go 호환)
+// - 회원가입은 multipart/form-data 방식 + JSON을 파일처럼 처리
+// - 사용자 정보 조회 및 수정도 포함
 
 import * as Linking from 'expo-linking';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// ✅ 백엔드 서버 주소 설정
-const BASE_URL = 'http://ec2-15-164-231-5.ap-northeast-2.compute.amazonaws.com:8080';
+// ✅ 백엔드 서버 주소 설정 auth.js도 똑같이 바꿔줘야함함
+const BASE_URL = 'http://ec2-3-35-49-87.ap-northeast-2.compute.amazonaws.com:8080';
 
 /**
  * 1. OAuth2.0 로그인 요청
@@ -36,20 +35,41 @@ export const redirectToOAuthWithFetch = async (provider) => {
 // ✅ fetch 기반 회원가입 API (multipart/form-data, key 분해 방식)
 export const registerUserWithFetch = async (userData, image, token) => {
   try {
-    console.log('🟡 [fetch] registerUser() 진입');
-    console.log('📦 userInfo:', userData);
-    console.log('🪪 token:', token);
-    console.log('🖼 image:', image ? image.uri : '없음');
-
     const formData = new FormData();
-    formData.append('userInfo', JSON.stringify(userData));
+
+    // 1. JSON 데이터 → Blob-like 가짜 파일처럼 첨부
+    const jsonString = JSON.stringify(userData);
+    const base64Encoded = btoa(unescape(encodeURIComponent(jsonString)));
+    
+    formData.append('userInfo', {
+      uri: `data:application/json;base64,${base64Encoded}`, // ❗ uri는 여전히 필요함
+      type: 'application/json',
+      name: 'userInfo.json',
+    });
 
     if (image) {
+      console.log('📸 이미지 정보 확인');
+      console.log('uri:', image.uri);
+      console.log('type:', image.type);
+      console.log('name:', image.name);
+
       formData.append('profileImage', {
         uri: image.uri,
-        type: image.type || 'image/jpeg',
+        type: image.type?.includes('image') ? 'image/jpeg' : image.type || 'image/jpeg', // 💡 fallback 처리
         name: image.name || 'profile.jpg',
       });
+    }
+
+    // ✅ 디버깅 도구는 여기에 삽입
+    for (let pair of formData._parts) {
+      console.log(`🧾 FormData 항목: ${pair[0]}`);
+      if (typeof pair[1] === 'object' && pair[1]?.uri) {
+        console.log(`📦   name: ${pair[1].name}`);
+        console.log(`📦   type: ${pair[1].type}`);
+        console.log(`📦   uri: ${pair[1].uri}`);
+      } else {
+        console.log(`📄   value: ${pair[1]}`);
+      }
     }
 
     const response = await fetch(`${BASE_URL}/auth/signup`, {
@@ -112,37 +132,71 @@ export const getUserInfoWithFetch = async (token) => {
 };
 
 /**
- * 4. 사용자 프로필 수정 요청 (JSON 형식)
- * - 프로필 정보 수정 및 이미지 URI 포함 가능
- * - Multipart가 아닌 JSON 요청이며, 이미지가 null이면 기본 이미지 유지
+ * 사용자 프로필 수정 요청 (multipart/form-data)
+ * - userInfo는 JSON → Base64 → JSON 파일로 전송
+ * - profileImage는 새로 선택한 경우에만 FormData에 append
+ * - 기존 이미지 유지 시에는 profileImage 필드를 아예 전송하지 않음
  *
- * @param {Object} userInfo - { nickname, gender, age, mbti }
- * @param {Object|null} image - 선택적 프로필 이미지 (URI만 전달됨)
+ * @param {Object} userData - { nickname, gender, age, mbti }
+ * @param {Object|string|null} image - 새로 선택된 이미지 객체 or 기존 string or null
  * @param {string} token - JWT 토큰
- * @returns {Object} 서버 응답 (수정된 사용자 정보)
+ * @returns {Object} 응답 데이터 or 빈 객체
  */
-export const editUserProfileWithFetch = async (userInfo, image, token) => {
-  const requestBody = {
-    userInfo,
-    profileImage: image, // null 또는 { uri: ... } 형식
-  };
+export const editUserProfileWithFetch = async (userData, image, token) => {
+  const formData = new FormData();
 
-  const response = await fetch(`${BASE_URL}/user/edit`, {
-    method: 'PUT',
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(requestBody),
+  // ✅ 사용자 정보 → JSON → Base64 → 파일처럼 전송
+  const userInfoJson = JSON.stringify({
+    nickname: userData.nickname,
+    gender: userData.gender === '남성' ? 'MALE' : 'FEMALE',
+    age: typeof userData.age === 'string' ? parseInt(userData.age) : userData.age,
+    mbti: userData.mbti,
   });
 
-  if (!response.ok) {
-    const errText = await response.text();
-    console.error('❌ 프로필 수정 실패:', response.status, errText);
-    throw new Error(`수정 실패 (${response.status}): ${errText}`);
+  formData.append('userInfo', {
+    uri: 'data:application/json;base64,' + btoa(unescape(encodeURIComponent(userInfoJson))),
+    type: 'application/json',
+    name: 'userInfo.json',
+  });
+
+  // ✅ 새 이미지가 선택된 경우에만 파일 전송
+  if (image?.uri) {
+    formData.append('profileImage', {
+      uri: image.uri,
+      name: image.name || 'profile.jpg',
+      type: image.type?.includes('image') ? 'image/jpeg' : image.type || 'image/jpeg',
+    });
+  }
+  // ❌ image가 string(URL) or null이면 아무 것도 전송하지 않음
+  // → 백엔드에서는 profileImage 필드가 없으면 null 처리되기에 default 이미지로 변경.
+
+  // ✅ 디버깅 로그
+  console.log('📦 전송할 FormData 항목들:');
+  for (let [key, value] of formData.entries()) {
+    console.log(`${key}:`, typeof value === 'object' ? value.uri || '[object]' : value);
   }
 
-  const data = await response.json();
-  console.log('✅ 프로필 수정 성공:', data);
-  return data;
+  try {
+    const response = await fetch(`${BASE_URL}/user/edit`, {
+      method: 'PUT',
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      body: formData,
+    });
+
+    const text = await response.text();
+    const data = text ? JSON.parse(text) : {};
+
+    if (!response.ok) {
+      console.error('❌ 프로필 수정 실패:', response.status, text);
+      throw new Error(`수정 실패 (${response.status}): ${text}`);
+    }
+
+    console.log('✅ 프로필 수정 성공:', data);
+    return data;
+  } catch (error) {
+    console.error('❌ 네트워크 오류 발생:', error.message);
+    throw error;
+  }
 };
