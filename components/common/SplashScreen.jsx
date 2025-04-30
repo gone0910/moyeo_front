@@ -36,7 +36,7 @@ export default function CombinedSplashScreen() {
         <LoginScreen />
       </Modal>
 
-      <Text style={styles.title}>moyeo</Text>
+      <Text style={styles.title}>moyeo </Text>
 
       <View style={styles.buttonContainer}>
         <TouchableOpacity

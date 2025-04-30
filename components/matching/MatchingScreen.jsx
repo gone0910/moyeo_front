@@ -21,9 +21,7 @@ export default function MatchingScreen() {
     <View style={styles.container}>
       {/* Header Section */}
       <View style={styles.headerWrapper}>
-        <Text style={styles.logo} numberOfLines={1} adjustsFontSizeToFit>
-          moyeo 
-        </Text>
+        <Text style={styles.logo} numberOfLines={1} adjustsFontSizeToFit>moyeo </Text>
         <TouchableOpacity onPress={() => navigation.navigate('ProfileHome', user)}>
           {user?.profileImageUrl ? (
             <Image source={{ uri: user.profileImageUrl }} style={styles.profileImage} />
@@ -79,16 +77,18 @@ const styles = StyleSheet.create({
     height: 44,
     borderRadius: 22,
     marginTop: 22,
+    top:-5,
   },
   profilePlaceholder: {
     width: 44,
     height: 44,
     borderRadius: 22,
+    top:5,
     backgroundColor: '#D1D5DB',
   },
   divider: {
     height: 1,
-    backgroundColor: '#E5E5E5',
+    backgroundColor: '#999',
     marginVertical: 8,
     top:-10,
   },

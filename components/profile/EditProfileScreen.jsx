@@ -12,6 +12,7 @@ import {
   Platform,
   TouchableOpacity,
 } from 'react-native';
+import { MaterialIcons } from '@expo/vector-icons'; // ✅ 뒤로가기 + 로그아웃 아이콘 공용 사용
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
 
@@ -80,6 +81,13 @@ export default function EditProfileScreen() {
           <Text style={styles.headerText}>프로필 편집</Text>
           <View style={styles.headerLine} />
         </View>
+
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => navigation.goBack()}   // HomeScreen.jsx로 이동
+        >
+          <MaterialIcons name="arrow-back-ios" size={20} color="#4F46E5" />
+        </TouchableOpacity>
 
         <ScrollView contentContainerStyle={styles.container}>
           {/* <Text style={styles.notice}>*는 필수입력 사항입니다</Text> 필요시 추가. */}
@@ -202,8 +210,15 @@ const styles = StyleSheet.create({
   },
   container: {
     paddingHorizontal: 20,
-    paddingTop: 30,
+    paddingTop: -10,
     paddingBottom: 150,
+  },
+  backButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    position: 'relative',
+    paddingLeft: 30,
+    top:-65,
   },
   formGroup: {
     marginBottom: 25,

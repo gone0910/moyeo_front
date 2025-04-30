@@ -93,7 +93,7 @@ const styles = StyleSheet.create({
   headerWrapper: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   logo: { fontSize: 40, fontFamily: 'KaushanScript', color: '#4F46E5', lineHeight: 80 },
   profileImage: { width: 44, height: 44, borderRadius: 22, marginTop: 22 },
-  profilePlaceholder: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#D1D5DB' },
+  profilePlaceholder: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#D1D5DB', marginTop: 22 },
   divider: { height: 1, backgroundColor: '#999999', marginVertical: 8, top: -10 },
   centerWrapper: { flex: 1, justifyContent: 'flex-start', alignItems: 'center', marginTop: 20 },
   title: { fontSize: 20, color: '#000000', textAlign: 'center', fontFamily: 'Inter_400Regular', marginBottom: 8, top:-10 },
