@@ -1,27 +1,38 @@
+// components/matching/MatchingInfoScreen.jsx  매칭 정보 기입 화면
 import React, { useState, useContext } from 'react';
-import {
-  View,
-  Text,
-  Image,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-} from 'react-native';
+import { View,Text,Image,StyleSheet,ScrollView, TouchableOpacity, Alert,} from 'react-native';
 import { Calendar } from 'react-native-calendars';
 import { UserContext } from '../../contexts/UserContext';
 import { useNavigation } from '@react-navigation/native';
 import AccordionCardInfo from '../common/AccordionCardInfo';
 import ToggleSelector from '../common/ToggleSelector';
 import ToggleSelector2 from '../common/ToggleSelector2';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { convertMatchingInputToDto } from './utils/matchingUtils';
+import { submitMatchingProfile } from '../../api/matching';
 
 export default function MatchingInfoScreen() {
+  // 🔐 로그인한 사용자 정보 가져오기
   const { user } = useContext(UserContext);
-  const [startDate, setStartDate] = useState(null);
-  const [endDate, setEndDate] = useState(null);
-  const [selectedRegion, setSelectedRegion] = useState('');
-  const [selectedCity, setSelectedCity] = useState('');
   const navigation = useNavigation();
 
+  // 📆 날짜 선택 상태값
+  const [startDate, setStartDate] = useState(null);
+  const [endDate, setEndDate] = useState(null);
+
+  // 📍 지역(도/시군) 선택 상태값
+  const [selectedRegion, setSelectedRegion] = useState('');
+  const [selectedCity, setSelectedCity] = useState('');
+
+  // 👥 사용자 조건(성향, 인원, 나이대, 성별 등) 상태값
+  const [selectedItems, setSelectedItems] = useState({
+    group: '',
+    tripstyle: '',
+    gender: '',
+    age: '',
+  });
+
+  // 📌 날짜 클릭 시 처리 로직 (start → end 순서로 선택됨)
   const handleDayPress = (day) => {
     const selected = day.dateString;
     if (!startDate || (startDate && endDate)) {
@@ -36,13 +47,7 @@ export default function MatchingInfoScreen() {
     }
   };
 
-  const [selectedItems, setSelectedItems] = useState({
-    group: '',
-    tripstyle: '',
-    gender: '',
-    age: '',
-  });
-
+  // 📌 ToggleSelector에서 선택된 항목 저장
   const handleSelect = (key) => (value) => {
     setSelectedItems((prev) => ({
       ...prev,
@@ -50,9 +55,9 @@ export default function MatchingInfoScreen() {
     }));
   };
 
+  // 📅 Calendar 컴포넌트용 마킹 날짜 설정
   const getMarkedDates = () => {
     if (!startDate) return {};
-
     const marked = {
       [startDate]: {
         startingDay: true,
@@ -61,7 +66,6 @@ export default function MatchingInfoScreen() {
         textColor: '#fff',
       },
     };
-
     if (startDate && endDate) {
       let current = new Date(startDate);
       const end = new Date(endDate);
@@ -78,14 +82,55 @@ export default function MatchingInfoScreen() {
         textColor: '#fff',
       };
     }
-
     return marked;
   };
 
+  // 📆 날짜 포맷 변환 (YYYY-MM-DD → YYYY.MM.DD)
   const formatDate = (dateStr) => {
     if (!dateStr) return '';
     const [y, m, d] = dateStr.split('-');
     return `${y}.${m}.${d}`;
+  };
+
+  // 📨 매칭 조건 제출 핸들러 (mock 대응 + 실제 axios 연동)
+  const handleSubmit = async () => {
+    const isMock = await AsyncStorage.getItem('mock');
+
+    // 🧪 mock 모드일 경우 서버 호출 없이 화면 이동
+    if (isMock === 'true') {
+      console.log('[🧪 MOCK] 조건 입력 완료 → 리스트 화면으로 이동');
+      navigation.navigate('MatchingList');
+      return;
+    }
+
+    try {
+      // 📌 JWT 토큰 가져오기
+      const token = await AsyncStorage.getItem('jwt');
+
+      // ✏️ 입력값을 서버 DTO 형식으로 변환
+      const rawInput = {
+        startDate,
+        endDate,
+        province: selectedRegion,
+        selectedCities: selectedCity ? [selectedCity] : [],
+        groupType: selectedItems.group,
+        ageRange: selectedItems.age,
+        travelStyles: selectedItems.tripstyle ? [selectedItems.tripstyle] : [],
+      };
+
+      const dto = convertMatchingInputToDto(rawInput);
+      console.log('📦 백엔드 전송 DTO:', dto); // ✅ 전송 전 로그
+
+      // 🔁 axios 전송 → 백엔드에 매칭 조건 저장 요청
+      const response = await submitMatchingProfile(dto, token);
+      console.log('✅ 백엔드 응답 성공:', response?.data || response); // ✅ 성공 로그
+
+      // 🔜 리스트 화면으로 이동
+      navigation.navigate('MatchingList');
+    } catch (error) {
+      console.error('❌ 매칭 정보 전송 실패:', error); // 🔴 실패 로그
+      Alert.alert('오류', '매칭 조건 전송에 실패했습니다.');
+    }
   };
 
   return (
@@ -243,7 +288,7 @@ export default function MatchingInfoScreen() {
       <View style={styles.fixedButtonContainer}>
         <TouchableOpacity
           style={styles.fixedButton}
-          onPress={() => navigation.navigate('MatchingList')}
+          onPress={handleSubmit}  // ✅ mock / 실제 API 모두 대응
         >
           <Text style={styles.fixedButtonText}>함께할 여행자 찾아보기</Text>
         </TouchableOpacity>

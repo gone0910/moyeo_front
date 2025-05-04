@@ -44,7 +44,13 @@ export default function HomeScreen() {
 
       {/* 헤더 */}
       <View style={styles.headerWrapper}>
-        <Text style={styles.logo} numberOfLines={1} adjustsFontSizeToFit>moyeo </Text>
+        <Text style={styles.logoText} numberOfLines={1} adjustsFontSizeToFit>moyeo </Text>
+
+              <TouchableOpacity onPress={handleLogout} style={{ marginRight: 12 }}>
+          {/* 🔁 프로필 좌측에 로그아웃 버튼 임시 추가 */}
+          <Feather name="log-out" size={24} color="#4B5563" />
+        </TouchableOpacity>
+
         <View style={styles.profileContainer}>
           <TouchableOpacity onPress={() => navigation.navigate('ProfileHome', user)}>
             {user?.profileImageUrl ? (
@@ -59,7 +65,7 @@ export default function HomeScreen() {
         </View>
       </View>
 
-      <View style={styles.divider} />
+      <View style={styles.headerLine} />
 
       {/* 사용자 인사말 */}
       <View style={styles.greetingWrapper}>
@@ -149,13 +155,12 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  logo: {
+  logoText: {
     fontSize: 40,
     fontFamily: 'KaushanScript_400Regular',
     color: '#4F46E5',
     lineHeight: 80,
     letterSpacing: 0,
-    top:5,
   },
   profileImage: {
     width: 44,
@@ -170,7 +175,7 @@ const styles = StyleSheet.create({
     marginTop: 20,
     backgroundColor: '#D1D5DB',
   },
-  divider: {
+  headerLine: {
     borderBottomWidth: 1,
     borderColor: '#999',
     marginTop: 1,

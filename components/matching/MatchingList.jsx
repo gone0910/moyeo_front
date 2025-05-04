@@ -1,78 +1,91 @@
-import React, { useContext, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image, ScrollView, Modal } from 'react-native';
+// components/matching/MatchingList.jsx   매칭 동행자 리스트
+// 매칭 결과 시 Matchinglist, 없는 결과시 NoneList.jsx 로 이동.
+// - API 연동일 경우: 백엔드에서 사용자 리스트 조회 후 표시
+// - 카드 클릭 시 상세정보를 모달로 출력
+// ✅ MatchingList.jsx - UI 전체 복원 및 API 연동 완성본
+import React, { useEffect, useState, useContext } from 'react';
+import {
+  View,
+  Text,
+  Image,
+  TouchableOpacity,
+  Modal,
+  ScrollView,
+  Alert,
+  StyleSheet,
+} from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { getMatchingList, getUserMatchingDetail } from '../../api/matching';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { UserContext } from '../../contexts/UserContext';
-import { KaushanScript_400Regular } from '@expo-google-fonts/kaushan-script';
-import { useFonts } from 'expo-font';
-import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
+import { Ionicons } from '@expo/vector-icons';
 
-export default function MatchingList() {
+// 🟡 더미 데이터 (mock 모드에서만 사용)
+const dummyMatches = [
+  {
+    name: '김모여',
+    date: '2025/4/20 ~ 2025/5/3',
+    tags: ['액티비티', '문화/관광', '맛집'],
+    image: 'https://via.placeholder.com/60x60.png?text=1',
+    gender: '남성',
+    travelStyle: ['액티비티', '문화/관광', '맛집'],
+    destination: '충북/청주시',
+    mbti: '선택안함',
+  },
+];
+
+const MatchingList = () => {
+  const [matches, setMatches] = useState([]); // 🔹 동행자 리스트 상태
+  const [selectedMatch, setSelectedMatch] = useState(null); // 🔹 선택한 유저 상세정보 상태 (모달용)
   const navigation = useNavigation();
-  const { user } = useContext(UserContext);
-  const [fontsLoaded] = useFonts({ KaushanScript: KaushanScript_400Regular });
-  const [selectedMatch, setSelectedMatch] = useState(null);
+  const { user } = useContext(UserContext); // 🔹 사용자 컨텍스트 (프로필 이미지 등에 사용)
 
-  if (!fontsLoaded) return null;
+  // ✅ 매칭 결과 리스트 불러오기 (mock 또는 실제 API)
+  useEffect(() => {
+    const fetchData = async () => {
+      const isMock = await AsyncStorage.getItem('mock');
+      if (isMock === 'true') {
+        console.log('[mock] 더미 데이터 사용');
+        setMatches(dummyMatches);
+        return;
+      }
 
-  const matches = [
-    {
-      name: '김모여',
-      date: '2025/4/20 ~ 2025/5/3',
-      tags: ['#액티비티', '#문화/관광', '#맛집'],
-      image: 'https://via.placeholder.com/60x60.png?text=1',
-      gender: '남성',
-      travelStyle: ['액티비티', '문화/관광', '맛집'],
-      destination: '충북/청주시',
-      mbti: '선택안함',
-    },
-    {
-      name: '신세휘',
-      date: '2025/4/20 ~ 2025/5/3',
-      tags: ['#액티비티', '#문화/관광', '#맛집'],
-      image: 'https://via.placeholder.com/60x60.png?text=2',
-      gender: '남성',
-      travelStyle: ['액티비티', '문화/관광'],
-      destination: '충북/청주시',
-      mbti: '선택안함',
-    },
-    {
-      name: '김신록',
-      date: '2025/4/20 ~ 2025/5/3',
-      tags: ['#액티비티'],
-      image: 'https://via.placeholder.com/60x60.png?text=2',
-      gender: '남성',
-      travelStyle: ['액티비티'],
-      destination: '충북/청주시',
-      mbti: '선택안함',
-    },
-    {
-      name: '구교환',
-      date: '2025/4/20 ~ 2025/5/3',
-      tags: ['#액티비티', '#문화/관광'],
-      image: 'https://via.placeholder.com/60x60.png?text=2',
-      gender: '남성',
-      travelStyle: ['액티비티', '문화/관광'],
-      destination: '충북/청주시',
-      mbti: '선택안함',
-    },
-    {
-      name: '김모여',
-      date: '2025/4/20 ~ 2025/5/3',
-      tags: ['#액티비티', '#문화/관광'],
-      image: 'https://via.placeholder.com/60x60.png?text=2',
-      gender: '남성',
-      travelStyle: ['액티비티', '문화/관광'],
-      destination: '충북/청주시',
-      mbti: '선택안함',
+      const token = await AsyncStorage.getItem('jwt');
+      const result = await getMatchingList(token);
+      console.log('[api 응답 확인] /matching/result:', result);
+
+      if (result === null) {
+        Alert.alert('에러', '서버 연결에 실패했습니다.');
+      } else if (result.length === 0) {
+        console.log('[api 결과] 조건에 맞는 동행자 없음 → NoneList 이동');
+        navigation.navigate('NoneList');
+      } else {
+        console.log('[api 결과] 동행자 리스트:', result);
+        setMatches(result);
+      }
+    };
+    fetchData();
+  }, []);
+
+  // ✅ 상세 정보 API 요청 및 모달 표시
+  const handleCardPress = async (nickname) => {
+    try {
+      const token = await AsyncStorage.getItem('jwtToken');
+      const detail = await getUserMatchingDetail(nickname, token);
+      console.log(`[api 응답 확인] /matching/profile (${nickname}):`, detail);
+      setSelectedMatch(detail);
+    } catch (error) {
+      Alert.alert('상세정보 조회 실패', '다시 시도해주세요.');
+      console.error('[에러] /matching/profile 호출 실패:', error);
     }
-  ];
+  };
 
   return (
     <View style={styles.container}>
-      {/* Header Section */}
+      {/* ✅ 상단 헤더 (로고 + 프로필 이미지) */}
       <View style={styles.headerWrapper}>
-        <Text style={styles.logo} numberOfLines={1} adjustsFontSizeToFit>moyeo </Text>
+        <Text style={styles.logoText} numberOfLines={1} adjustsFontSizeToFit>moyeo </Text>
         <TouchableOpacity onPress={() => navigation.navigate('ProfileHome', user)}>
           {user?.profileImageUrl ? (
             <Image source={{ uri: user.profileImageUrl }} style={styles.profileImage} />
@@ -81,35 +94,36 @@ export default function MatchingList() {
           )}
         </TouchableOpacity>
       </View>
-      <View style={styles.divider} />
+      <View style={styles.headerLine} />
 
+      {/* ✅ 안내 문구 + 리스트 출력 */}
       <View style={{ flex: 1, backgroundColor: '#F9F9F9' }}>
         <ScrollView contentContainerStyle={{ paddingTop: 10, paddingHorizontal: 16, paddingBottom: 100 }}>
+          {/* 🔹 안내 메시지 박스 */}
           <View style={{ backgroundColor: '#CECCF5', padding: 16, borderRadius: 12, marginBottom: 26 }}>
             <Text style={{ color: '#616161', fontSize: 16, textAlign: 'center' }}>나와 여행 스타일이 유사한 사용자들이에요</Text>
             <Text style={{ color: '#616161', fontSize: 16, textAlign: 'center', top: 5 }}>함께 여행갈 사람을 찾아볼까요?</Text>
           </View>
 
+          {/* 🔹 NoneList로 이동 (테스트용 버튼) */}
           <View style={styles.buttonContainer}>
-            <TouchableOpacity /*로켓 모양 누르면 MatchingList로 돌아감*/
-            style={styles.NoneListButton}
-            onPress={() => navigation.navigate('NoneList')}
-            >
-          <Ionicons name="rocket-outline" size={24} color="white" />
-          </TouchableOpacity>
+            <TouchableOpacity style={styles.NoneListButton} onPress={() => navigation.navigate('NoneList')}>
+              <Ionicons name="rocket-outline" size={24} color="white" />
+            </TouchableOpacity>
           </View>
 
+          {/* 🔹 동행자 리스트 출력 */}
           {matches.map((item, index) => (
-            <TouchableOpacity key={index} onPress={() => setSelectedMatch(item)}>
+            <TouchableOpacity key={index} onPress={() => handleCardPress(item.nickname || item.name)}>
               <View style={styles.matchBox}>
-                <Image source={{ uri: item.image }} style={styles.matchImage} />
+                <Image source={{ uri: item.image || item.imageUrl }} style={styles.matchImage} />
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.matchName}>{item.name}</Text>
-                  <Text style={styles.matchDate}>{item.date}</Text>
+                  <Text style={styles.matchName}>{item.name || item.nickname}</Text>
+                  <Text style={styles.matchDate}>{item.date || `${item.startDate} ~ ${item.endDate}`}</Text>
                   <View style={styles.tagsContainer}>
-                    {item.tags.map((tag, i) => (
+                    {(item.tags || item.travelStyles)?.map((tag, i) => (
                       <View key={i} style={styles.tag}>
-                        <Text style={styles.tagText}>{tag}</Text>
+                        <Text style={styles.tagText}>#{tag}</Text>
                       </View>
                     ))}
                   </View>
@@ -120,61 +134,76 @@ export default function MatchingList() {
         </ScrollView>
       </View>
 
-      {/* ✅ Modal for Match Details */}
-      <Modal visible={!!selectedMatch} transparent animationType="fade" onRequestClose={() => setSelectedMatch(null)}>
-  <BlurView intensity={60} tint="DARK" style={StyleSheet.absoluteFill}>
-    <View style={styles.modalCenter}>
-      <View style={styles.modalBoxUpdated}>
-        {selectedMatch && (
-          <>
-            <TouchableOpacity style={styles.modalCloseIcon} onPress={() => setSelectedMatch(null)}>
-              <Ionicons name="close" size={24} color="#333" />
-            </TouchableOpacity>
+      {/* ✅ 모달 (선택한 사용자 상세정보 출력) */}
+      <Modal
+        visible={!!selectedMatch}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setSelectedMatch(null)}
+      >
+        <BlurView intensity={60} tint="dark" style={StyleSheet.absoluteFill}>
+          <View style={styles.modalCenter}>
+            <View style={styles.modalBoxUpdated}>
+              {selectedMatch && (
+                <>
+                  {/* 🔹 모달 닫기 버튼 */}
+                  <TouchableOpacity style={styles.modalCloseIcon} onPress={() => setSelectedMatch(null)}>
+                    <Ionicons name="close" size={24} color="#333" />
+                  </TouchableOpacity>
 
-            <View style={styles.modalHeader}>
-              <Image source={{ uri: selectedMatch.image }} style={styles.modalProfileImageUpdated} />
-              <View style={{ marginLeft: 16 }}>
-                <Text style={styles.modalUserName}>{selectedMatch.name}</Text>
-                <Text style={styles.modalDate}>{selectedMatch.date}</Text>
-              </View>
+                  {/* 🔹 모달 상단 유저 이미지/닉네임 */}
+                  <View style={styles.modalHeader}>
+                    <Image source={{ uri: selectedMatch.image || selectedMatch.imageUrl }} style={styles.modalProfileImageUpdated} />
+                    <View style={{ marginLeft: 16 }}>
+                      <Text style={styles.modalUserName}>{selectedMatch.name || selectedMatch.nickname}</Text>
+                      <Text style={styles.modalDate}>{selectedMatch.date || `${selectedMatch.startDate} ~ ${selectedMatch.endDate}`}</Text>
+                    </View>
+                  </View>
+
+                  {/* 🔹 성별 */}
+                  <View style={styles.infoRow}>
+                    <Text style={styles.infoLabel}>성별</Text>
+                    <Text style={styles.infoTag1}>{selectedMatch.gender}</Text>
+                  </View>
+
+                  {/* 🔹 여행 성향 */}
+                  <View style={styles.infoRow}>
+                    <Text style={styles.infoLabel}>여행 성향</Text>
+                    <View style={styles.tagGroup}>
+                      {(selectedMatch.travelStyle || selectedMatch.travelStyles)?.map((style, idx) => (
+                        <Text key={idx} style={styles.infoTag2}>#{style}</Text>
+                      ))}
+                    </View>
+                  </View>
+
+                  {/* 🔹 목적지 */}
+                  <View style={styles.infoRow}>
+                    <Text style={styles.infoLabel}>목적지</Text>
+                    <Text style={styles.infoTag3}>{selectedMatch.destination || `${selectedMatch.province} / ${selectedMatch.cities?.join(', ')}`}</Text>
+                  </View>
+
+                  {/* 🔹 MBTI */}
+                  <View style={styles.infoRow}>
+                    <Text style={styles.infoLabel}>MBTI</Text>
+                    <Text style={styles.infoTag4}>{selectedMatch.mbti}</Text>
+                  </View>
+
+                  {/* 🔹 채팅 버튼 */}
+                  <TouchableOpacity style={styles.chatButton}>
+                    <Text style={styles.chatButtonText}>동행을 위해 채팅하기</Text>
+                  </TouchableOpacity>
+                </>
+              )}
             </View>
-
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>성별</Text>
-              <Text style={styles.infoTag1}>{selectedMatch.gender}</Text>
-            </View>
-
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>여행 성향</Text>
-              <View style={styles.tagGroup}>
-                {selectedMatch.travelStyle.map((style, idx) => (
-                  <Text key={idx} style={styles.infoTag2}>{style}</Text>
-                ))}
-              </View>
-            </View>
-
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>목적지</Text>
-              <Text style={styles.infoTag3}>{selectedMatch.destination}</Text>
-            </View>
-
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>MBTI</Text>
-              <Text style={styles.infoTag4}>{selectedMatch.mbti}</Text>
-            </View>
-
-            <TouchableOpacity style={styles.chatButton}>
-              <Text style={styles.chatButtonText}>동행을 위해 채팅하기</Text>
-            </TouchableOpacity>
-          </>
-        )}
-      </View>
-    </View>
-  </BlurView>
-</Modal>
+          </View>
+        </BlurView>
+      </Modal>
     </View>
   );
-}
+};
+
+export default MatchingList;
+
 
 const styles = StyleSheet.create({
   container: {
@@ -188,7 +217,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  logo: {
+  logoText: {
     fontSize: 40,
     fontFamily: 'KaushanScript',
     color: '#4F46E5',
@@ -209,7 +238,7 @@ const styles = StyleSheet.create({
     top: 5,
     backgroundColor: '#D1D5DB',
   },
-  divider: {
+  headerLine: {
     height: 1,
     backgroundColor: '#999',
     marginVertical: 8,

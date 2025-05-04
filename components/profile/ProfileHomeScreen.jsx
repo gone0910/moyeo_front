@@ -70,7 +70,7 @@ export default function ProfileHomeScreen({ route }) {
         </View>
       </View>
 
-      <View style={styles.divider} />
+      <View style={styles.headerLine} />
 
       {/* 본문 영역 */}
       <View style={styles.contentWrapper}>
@@ -170,7 +170,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     padding: 4,
   },
-  divider: {
+  headerLine: {
     borderBottomWidth: 1,
     borderColor: '#999',
     marginTop: 1,
