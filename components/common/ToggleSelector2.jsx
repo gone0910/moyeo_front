@@ -6,7 +6,7 @@ export default function ToggleSelector2({ items, selectedItem, onSelect, size = 
   return (
     <View style={styles.container}>
       {items.map((item) => {
-        const isSelected = selectedItem === item;
+        const isSelected = selectedItem.includes(item); // ✅ 배열 기반 체크
         return (
           <TouchableOpacity
             key={item}
