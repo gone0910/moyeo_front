@@ -70,6 +70,14 @@ const MatchingList = () => {
 
   // ✅ 상세 정보 API 요청 및 모달 표시
   const handleCardPress = async (nickname) => {
+
+    const isMock = await AsyncStorage.getItem('mock');
+    if (isMock === 'true') {
+      // ✅ 더미 상세정보 반환
+      const dummyDetail = dummyMatches.find((item) => item.name === nickname);
+      setSelectedMatch(dummyDetail);
+      return;
+    }
     try {
       const token = await AsyncStorage.getItem('jwtToken');
       const detail = await getUserMatchingDetail(nickname, token);
@@ -308,6 +316,7 @@ const styles = StyleSheet.create({
   tagGroup: {
     flexDirection: 'row',
     flexWrap: 'wrap',
+    
   },
   infoTag1: { 
     backgroundColor: '#E1D8FD', 

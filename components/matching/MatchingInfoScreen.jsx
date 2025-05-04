@@ -5,11 +5,13 @@ import { Calendar } from 'react-native-calendars';
 import { UserContext } from '../../contexts/UserContext';
 import { useNavigation } from '@react-navigation/native';
 import AccordionCardInfo from '../common/AccordionCardInfo';
-import ToggleSelector from '../common/ToggleSelector';
+import RegionSelector from '../common/RegionSelector';
 import ToggleSelector2 from '../common/ToggleSelector2';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { convertMatchingInputToDto } from './utils/matchingUtils';
 import { submitMatchingProfile } from '../../api/matching';
+import { REGION_MAP, PROVINCE_MAP } from '../common/regionMap';
+
 
 export default function MatchingInfoScreen() {
   // 🔐 로그인한 사용자 정보 가져오기
@@ -20,17 +22,21 @@ export default function MatchingInfoScreen() {
   const [startDate, setStartDate] = useState(null);
   const [endDate, setEndDate] = useState(null);
 
-  // 📍 지역(도/시군) 선택 상태값
-  const [selectedRegion, setSelectedRegion] = useState('');
+  // 📍 지역(도/시) 선택 상태값
+  const [selectedProvince, setSelectedProvince] = useState('');
   const [selectedCity, setSelectedCity] = useState('');
+
+
 
   // 👥 사용자 조건(성향, 인원, 나이대, 성별 등) 상태값
   const [selectedItems, setSelectedItems] = useState({
     group: '',
-    tripstyle: '',
+    tripstyle: [], // ✅ 배열로 변경 (다중 선택 가능)
     gender: '',
     age: '',
   });
+
+  const [isSubmitting, setIsSubmitting] = useState(false); // ✅ 전송 중 여부 상태 추가
 
   // 📌 날짜 클릭 시 처리 로직 (start → end 순서로 선택됨)
   const handleDayPress = (day) => {
@@ -53,6 +59,17 @@ export default function MatchingInfoScreen() {
       ...prev,
       [key]: value,
     }));
+  };
+
+    // 액티비티 선택 다중 처리
+  const handleMultiSelect = (key) => (value) => {
+    setSelectedItems((prev) => {
+      const current = prev[key];
+      const updated = current.includes(value)
+        ? current.filter((item) => item !== value) // 이미 선택된 값이면 제거
+        : [...current, value]; // 없으면 추가
+      return { ...prev, [key]: updated };
+    });
   };
 
   // 📅 Calendar 컴포넌트용 마킹 날짜 설정
@@ -95,7 +112,6 @@ export default function MatchingInfoScreen() {
   // 📨 매칭 조건 제출 핸들러 (mock 대응 + 실제 axios 연동)
   const handleSubmit = async () => {
     const isMock = await AsyncStorage.getItem('mock');
-
     // 🧪 mock 모드일 경우 서버 호출 없이 화면 이동
     if (isMock === 'true') {
       console.log('[🧪 MOCK] 조건 입력 완료 → 리스트 화면으로 이동');
@@ -103,33 +119,44 @@ export default function MatchingInfoScreen() {
       return;
     }
 
-    try {
-      // 📌 JWT 토큰 가져오기
-      const token = await AsyncStorage.getItem('jwt');
-
+      setIsSubmitting(true); // ✅ 전송 중 시작
+      try {
+        const token = await AsyncStorage.getItem('jwt');  // 토큰 가져오기
+        // 도에 해당하는 시 목록을 REGION_MAP에서 가져오기 (없을 경우 빈 배열)
+        const provinceData = REGION_MAP[selectedProvince] || [];    
+        // 시 선택 여부에 따라 cities 값 설정 (도만 선택 시 'NONE' 전송)
+        const selectedCityCodes = selectedCity
+          ? [provinceData.find((c) => c.name === selectedCity)?.code]
+          : ['NONE'];
+    
       // ✏️ 입력값을 서버 DTO 형식으로 변환
       const rawInput = {
         startDate,
         endDate,
-        province: selectedRegion,
-        selectedCities: selectedCity ? [selectedCity] : [],
+        province: selectedProvince || 'NONE', //이미 ENUM
+        selectedCities: selectedCity ? [selectedCity] : ['NONE'], // 이미 ENUM
         groupType: selectedItems.group,
         ageRange: selectedItems.age,
-        travelStyles: selectedItems.tripstyle ? [selectedItems.tripstyle] : [],
+        travelStyles: Array.isArray(selectedItems.tripstyle)
+          ? selectedItems.tripstyle.length > 0
+            ? selectedItems.tripstyle
+            : ['NONE']
+          : selectedItems.tripstyle
+          ? [selectedItems.tripstyle]
+          : ['NONE'],
       };
 
       const dto = convertMatchingInputToDto(rawInput);
-      console.log('📦 백엔드 전송 DTO:', dto); // ✅ 전송 전 로그
+      console.log('📦 백엔드 전송 DTO:', dto);
 
-      // 🔁 axios 전송 → 백엔드에 매칭 조건 저장 요청
-      const response = await submitMatchingProfile(dto, token);
-      console.log('✅ 백엔드 응답 성공:', response?.data || response); // ✅ 성공 로그
-
-      // 🔜 리스트 화면으로 이동
+      await submitMatchingProfile(dto, token);
+      console.log('✅ 백엔드 응답 성공');
       navigation.navigate('MatchingList');
     } catch (error) {
-      console.error('❌ 매칭 정보 전송 실패:', error); // 🔴 실패 로그
+      console.error('❌ 매칭 정보 전송 실패:', error);
       Alert.alert('오류', '매칭 조건 전송에 실패했습니다.');
+    } finally {
+      setIsSubmitting(false); // ✅ 전송 완료 or 실패 시 해제
     }
   };
 
@@ -215,37 +242,14 @@ export default function MatchingInfoScreen() {
             )}
           </View>
         )}
-
-        <AccordionCardInfo title="이번 여행, 어디로 떠나시나요?">
-          <ToggleSelector
-            items={["선택없음", "서울", "제주", "경기도", "강원도", "충청북도", "충청남도", "전라북도", "전라남도", "경상북도", "경상남도"]}
-            selectedItem={selectedRegion}
-            onSelect={setSelectedRegion}
-            size="large"
+        {/* 지역 토글을 전부 관리하는 RegionSelector.jsx 호출 */}
+        <AccordionCardInfo title="이번 여행, 어디로 떠나시나요?"> 
+          <RegionSelector
+            selectedProvince={selectedProvince}
+            selectedCity={selectedCity}
+            onProvinceChange={setSelectedProvince}
+            onCityChange={setSelectedCity}
           />
-          {/* 지역에 따른 세부 토글들 */}
-          {selectedRegion === '서울' && (
-            <View style={{ marginTop: 4 }}>
-              <ToggleSelector
-                items={["강남구", "강동구", "강북구", "강서구", "관악구", "광진구", "구로구", "금천구", "노원구", "도봉구", "동대문구", "동작구", "마포구", "서대문구", "서초구", "성동구", "성북구", "송파구", "양천구", "영등포구", "용산구", "은평구", "종로구", "중구", "중랑구"]}
-                selectedItem={selectedCity}
-                onSelect={setSelectedCity}
-                size="small"
-              />
-            </View>
-          )}
-          {selectedRegion === '제주' && (
-            <View style={{ marginTop: 4 }}>
-              <ToggleSelector
-                items={["제주시", "서귀포시"]}
-                selectedItem={selectedCity}
-                onSelect={setSelectedCity}
-                size="small"
-              />
-            </View>
-          )}
-          {/* 다른 지역들도 동일하게 추가됨 */}
-          {/* ... */}
         </AccordionCardInfo>
 
         <AccordionCardInfo title="나의 여행, 몇명이 좋을까요?">
@@ -259,9 +263,9 @@ export default function MatchingInfoScreen() {
 
         <AccordionCardInfo title="나의 여행 스타일을 알려주세요">
           <ToggleSelector2
-            items={["선택없음", "액티비티", "문화/관광", "힐링", "맛집", "도심", "자연"]}
+            items={["액티비티", "문화/관광", "힐링", "맛집", "도심", "자연"]}
             selectedItem={selectedItems.tripstyle}
-            onSelect={handleSelect('tripstyle')}
+            onSelect={handleMultiSelect('tripstyle')}
             size="large"
           />
         </AccordionCardInfo>
@@ -287,8 +291,10 @@ export default function MatchingInfoScreen() {
 
       <View style={styles.fixedButtonContainer}>
         <TouchableOpacity
-          style={styles.fixedButton}
-          onPress={handleSubmit}  // ✅ mock / 실제 API 모두 대응
+          style={[styles.fixedButton, (isSubmitting || !startDate || !endDate) && { opacity: 0.5 }]} // 일정 미입력 시에도 비활성화
+          onPress={handleSubmit}
+          disabled={
+            isSubmitting || !startDate || !endDate} // 날짜 입력 필수 처리, 중복 전송송 방지
         >
           <Text style={styles.fixedButtonText}>함께할 여행자 찾아보기</Text>
         </TouchableOpacity>

@@ -1,4 +1,6 @@
 // 📁 components/auth/UserInfoScreen.jsx
+
+// 회원가입 요쳥과 유저 정보 재조회는 fetch를 사용.
 import React, { useState, useContext, useEffect } from 'react';
 import {
   View,
@@ -19,7 +21,7 @@ import * as Linking from 'expo-linking'; // ✅ 딥링크 파싱용 추가
 import { UserContext } from '../../contexts/UserContext';
 import ProfileImagePicker from '../common/ProfileImagePicker';
 import Dropdown from '../common/Dropdown';  // DropdownPicker 기반 Dropdown
-import { registerUser, getUserInfo } from '../../api/auth'; // 🔁 나중에 사용 시 주석 해제
+import { registerUserWithFetch, getUserInfoWithFetch } from '../../api/auth_fetch'; // 회원가입은 fetch 사용
 
 export default function UserInfoScreen() {
   const navigation = useNavigation();
@@ -52,7 +54,7 @@ export default function UserInfoScreen() {
     handleInitialLink();
   }, []);
    
-  // 가입 시작하기
+  // 가입 시작하기 (회원가입 요청)
   const handleSubmit = async () => {
     const token = await AsyncStorage.getItem('jwt');
     const isMock = await AsyncStorage.getItem('mock');
@@ -76,7 +78,7 @@ export default function UserInfoScreen() {
     }
 
     try {
-      const result = await registerUser(userData, image, token);
+      const result = await registerUserWithFetch(userData, image, token);  // fetch 함수 호출
       console.log(' registerUser 응답:', result);
 
       const newToken = result.token || token;
@@ -86,7 +88,7 @@ export default function UserInfoScreen() {
         console.warn('⚠️ 응답에 정식 토큰 없음 → 임시 토큰 계속 사용');
       }
 
-      const newUser = await getUserInfo(newToken);
+      const newUser = await getUserInfoWithFetch(newToken); // fetch 함수 사용
 
       setUser(newUser);
       await AsyncStorage.setItem('user', JSON.stringify(newUser));

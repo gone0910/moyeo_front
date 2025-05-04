@@ -49,7 +49,11 @@ export default function LoginScreen() {
         }
         await AsyncStorage.setItem('jwt', token);
         console.log('💾 토큰 저장 완료');
-        
+
+        // ✅ mock 상태 삭제
+        await AsyncStorage.removeItem('mock');
+        console.log('🧹 mock 상태 제거 완료');
+                
         // ✅ 저장된 토큰을 다시 읽어서 확인
         const savedToken = await AsyncStorage.getItem('jwt');
         console.log('🔁 저장된 토큰 재확인:', savedToken);
@@ -126,7 +130,7 @@ export default function LoginScreen() {
       </Modal>
 
       <View style={styles.logoContainer}>
-        <Text style={styles.logoText}>moyeo </Text>
+        <Text style={styles.appName}>moyeo </Text>
       </View>
 
       <View style={styles.buttonContainer}>
@@ -188,7 +192,7 @@ const styles = StyleSheet.create({
     marginTop: 100,
     marginBottom: 40,
   },
-  logoText: {
+  appName: {
     fontSize: 90, // ✅ 병합된 스타일: 팀원 폰트 적용
     fontWeight: 'bold',
     color: '#4F46E5',
