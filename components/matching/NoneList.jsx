@@ -91,19 +91,19 @@ const styles = StyleSheet.create({
       },
 
       NoneListText1: {
-        fontSize: 22,
+        fontSize: 24,
         color: '#1E1E1E',
         textAlign: 'center',
         marginVertical: 12,
-        top:150,
+        top:170,
       },
 
       NoneListText2: {
-        fontSize: 16,
+        fontSize: 18,
         color: '#7E7E7E',
         textAlign: 'center',
         marginVertical: 12,
-        top:150,
+        top:170,
       },
       contentContainer: {
         padding: 25,

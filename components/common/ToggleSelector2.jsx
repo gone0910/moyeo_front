@@ -39,6 +39,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 8,  // 아래 여백
     marginRight:8,
+    marginTop:-1
   },
   selectedToggle: {
     backgroundColor: '#B3A4F7',

@@ -89,7 +89,7 @@ const styles = StyleSheet.create({
   large: {
     width: 95,
     height: 40,
-    borderRadius: 20,
+    borderRadius: 12,
   },
   small: {
     width: 76,

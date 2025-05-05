@@ -241,13 +241,17 @@ export default function MatchingInfoScreen() {
       </ScrollView>
 
       <View style={styles.fixedButtonContainer}>
-        <TouchableOpacity
-          style={styles.fixedButton}
-          onPress={() => navigation.navigate('MatchingList')}
-        >
-          <Text style={styles.fixedButtonText}>함께할 여행자 찾아보기</Text>
-        </TouchableOpacity>
-      </View>
+  <TouchableOpacity
+    style={[
+      styles.fixedButton,
+      (!startDate || !endDate) && styles.disabledButton
+    ]}
+    onPress={() => navigation.navigate('MatchingList')}
+    disabled={!startDate || !endDate}
+  >
+    <Text style={styles.fixedButtonText}>함께할 여행자 찾아보기</Text>
+  </TouchableOpacity>
+</View>
     </View>
   );
 }
@@ -384,5 +388,8 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontWeight: '500',
     lineHeight: 22,
+  },
+  disabledButton: {
+    backgroundColor: '#CCCCCC',
   },
 });

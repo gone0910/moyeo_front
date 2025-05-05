@@ -86,8 +86,8 @@ export default function MatchingList() {
       <View style={{ flex: 1, backgroundColor: '#F9F9F9' }}>
         <ScrollView contentContainerStyle={{ paddingTop: 10, paddingHorizontal: 16, paddingBottom: 100 }}>
           <View style={{ backgroundColor: '#CECCF5', padding: 16, borderRadius: 12, marginBottom: 26 }}>
-            <Text style={{ color: '#616161', fontSize: 16, textAlign: 'center' }}>나와 여행 스타일이 유사한 사용자들이에요</Text>
-            <Text style={{ color: '#616161', fontSize: 16, textAlign: 'center', top: 5 }}>함께 여행갈 사람을 찾아볼까요?</Text>
+            <Text style={{ color: '#616161', fontSize: 16, textAlign: 'center',top:-3 }}>나와 여행 스타일이 유사한 사용자들이에요</Text>
+            <Text style={{ color: '#616161', fontSize: 16, textAlign: 'center', top: 3 }}>함께 여행갈 사람을 찾아볼까요?</Text>
           </View>
 
           <View style={styles.buttonContainer}>
@@ -102,7 +102,12 @@ export default function MatchingList() {
           {matches.map((item, index) => (
             <TouchableOpacity key={index} onPress={() => setSelectedMatch(item)}>
               <View style={styles.matchBox}>
-                <Image source={{ uri: item.image }} style={styles.matchImage} />
+              <View style={{ width: 70, height: 70, borderRadius: 12, marginRight: 14,marginLeft:-7, overflow: 'hidden' }}>
+  <Image source={{ uri: item.image }} style={{ width: '100%', height: '100%' }} />
+  <View style={{ ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(128,128,128,0.3)' }} />
+</View>
+
+
                 <View style={{ flex: 1 }}>
                   <Text style={styles.matchName}>{item.name}</Text>
                   <Text style={styles.matchDate}>{item.date}</Text>
@@ -122,50 +127,53 @@ export default function MatchingList() {
 
       {/* ✅ Modal for Match Details */}
       <Modal visible={!!selectedMatch} transparent animationType="fade" onRequestClose={() => setSelectedMatch(null)}>
-  <BlurView intensity={60} tint="DARK" style={StyleSheet.absoluteFill}>
-    <View style={styles.modalCenter}>
-      <View style={styles.modalBoxUpdated}>
-        {selectedMatch && (
-          <>
-            <TouchableOpacity style={styles.modalCloseIcon} onPress={() => setSelectedMatch(null)}>
-              <Ionicons name="close" size={24} color="#333" />
-            </TouchableOpacity>
+        <BlurView intensity={20} tint="dark" style={StyleSheet.absoluteFill}>
+          <View style={styles.modalCenter}>
+            <View style={styles.modalBoxUpdated}>
+              {selectedMatch && (
+                <>
+                  <TouchableOpacity style={styles.modalCloseIcon} onPress={() => setSelectedMatch(null)}>
+                    <Ionicons name="close" size={24} color="#333" />
+                  </TouchableOpacity>
 
-            <View style={styles.modalHeader}>
-              <Image source={{ uri: selectedMatch.image }} style={styles.modalProfileImageUpdated} />
-              <View style={{ marginLeft: 16 }}>
-                <Text style={styles.modalUserName}>{selectedMatch.name}</Text>
-                <Text style={styles.modalDate}>{selectedMatch.date}</Text>
-              </View>
-            </View>
+                  <View style={styles.modalHeader}>
+                  <View style={{ width: 64, height: 64, borderRadius: 12, overflow: 'hidden' }}>
+                  <Image source={{ uri: selectedMatch.image }} style={styles.modalProfileImageUpdated} />
+                  <View style={{ ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(128,128,128,0.3)' }} />
+                  </View>
+                    <View style={{ marginLeft: 16 }}>
+                      <Text style={styles.modalUserName}>{selectedMatch.name}</Text>
+                      <Text style={styles.modalDate}>{selectedMatch.date}</Text>
+                    </View>
+                  </View>
 
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>성별</Text>
-              <Text style={styles.infoTag1}>{selectedMatch.gender}</Text>
-            </View>
+                  <View style={styles.infoRow}>
+                    <Text style={styles.infoLabel}>성별</Text>
+                    <Text style={styles.infoTag1}>{selectedMatch.gender}</Text>
+                  </View>
 
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>여행 성향</Text>
-              <View style={styles.tagGroup}>
-                {selectedMatch.travelStyle.map((style, idx) => (
-                  <Text key={idx} style={styles.infoTag2}>{style}</Text>
-                ))}
-              </View>
-            </View>
+                  <View style={styles.infoRow}>
+                    <Text style={styles.infoLabel}>여행 성향</Text>
+                    <View style={styles.tagGroup}>
+                      {selectedMatch.travelStyle.map((style, idx) => (
+                        <Text key={idx} style={styles.infoTag}>{style}</Text>
+                      ))}
+                    </View>
+                  </View>
 
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>목적지</Text>
-              <Text style={styles.infoTag3}>{selectedMatch.destination}</Text>
-            </View>
+                  <View style={styles.infoRow}>
+                    <Text style={styles.infoLabel}>목적지</Text>
+                    <Text style={styles.infoTag3}>{selectedMatch.destination}</Text>
+                  </View>
 
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>MBTI</Text>
-              <Text style={styles.infoTag4}>{selectedMatch.mbti}</Text>
-            </View>
+                  <View style={styles.infoRow}>
+                    <Text style={styles.infoLabel}>MBTI</Text>
+                    <Text style={styles.infoTag2}>{selectedMatch.mbti}</Text>
+                  </View>
 
-            <TouchableOpacity style={styles.chatButton}>
-              <Text style={styles.chatButtonText}>동행을 위해 채팅하기</Text>
-            </TouchableOpacity>
+                  <TouchableOpacity style={styles.chatButton}>
+                    <Text style={styles.chatButtonText}>동행을 위해 채팅하기</Text>
+                  </TouchableOpacity>
           </>
         )}
       </View>
@@ -259,62 +267,112 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   modalUserName: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: '600',
   },
   modalDate: {
-    fontSize: 14,
+    fontSize: 16,
     color: '#555',
     marginTop: 10,
   },
   infoRow: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
+    width: '100%',
+    marginBottom: 16,
   },
   infoLabel: {
-    fontSize: 18,
+    fontSize: 16,
     color: '#1E1E1E',
-    marginBottom: 20,
+    fontWeight: '500',
   },
   tagGroup: {
     flexDirection: 'row',
     flexWrap: 'wrap',
+    justifyContent: 'flex-end',
+    flex: 1,
+    gap: 6,
   },
-  infoTag1: { 
-    backgroundColor: '#E1D8FD', 
-    paddingHorizontal: 10, 
-    paddingVertical: 4, 
-    borderRadius: 6, 
-    marginRight:-10, 
-    marginBottom: 16, 
-    marginLeft:52
+  infoTag1: {
+    backgroundColor: '#ADB3DD',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 8,
+    fontSize: 14,
+    color: '#fff',
+    minWidth: 60,
+    textAlign: 'center',
+    left:-158
   },
-  infoTag2: { 
-    backgroundColor: '#E1D8FD', 
-    paddingHorizontal: 10, 
-    paddingVertical: 4, 
-    borderRadius: 6, 
-    marginRight:-10, 
-    marginBottom: 20, 
-    marginLeft:20
+  infoRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    width: '100%',
+    marginBottom: 16,
   },
-  infoTag3: { 
-    backgroundColor: '#E1D8FD', 
-    paddingHorizontal: 10, 
-    paddingVertical: 4, 
-    borderRadius: 6, 
-    marginRight:-10, 
-    marginBottom: 18, 
-    marginLeft:38
+  infoLabel: {
+    fontSize: 16,
+    color: '#1E1E1E',
+    fontWeight: '500',
+    width: 60, // 고정 너비로 정렬 기준 맞추기
+    marginTop: 8, // 텍스트 상단 맞춤
   },
-  infoTag4: { 
-    backgroundColor: '#E1D8FD', 
-    paddingHorizontal: 10, 
-    paddingVertical: 4, 
-    borderRadius: 6, 
-    marginRight:-10, 
-    marginBottom: 18, 
-    marginLeft:42
+  tagGroup: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    flex: 1,
+    marginLeft: 12,
+  },
+  infoTag1: {
+    backgroundColor: '#ADB3DD',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 8,
+    fontSize: 14,
+    color: '#fff',
+    minWidth: 60,
+    textAlign: 'center',
+    marginBottom: 6,
+    marginLeft: 12,
+  },
+  infoTag: {
+    backgroundColor: '#B3A4F7',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 8,
+    fontSize: 14,
+    color: '#fff',
+    minWidth: 60,
+    textAlign: 'center',
+    marginBottom: 6,
+  },
+  infoTag2: {
+    backgroundColor: '#F4F4FF',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 8,
+    fontSize: 14,
+    color: '#7E7E7E',
+    minWidth: 60,
+    textAlign: 'center',
+    borderWidth: 1,
+    borderColor: '#D6C9DF',
+    marginBottom: 6,
+    marginLeft: 12,
+  },
+  infoTag3: {
+    backgroundColor: '#B3A4F7',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 8,
+    fontSize: 14,
+    color: '#fff',
+    minWidth: 60,
+    textAlign: 'center',
+    marginBottom: 6,
+    marginLeft: 12,
   },
   chatButton: {
     backgroundColor: '#4F46E5',
