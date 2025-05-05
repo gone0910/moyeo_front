@@ -119,3 +119,15 @@ export const REGION_MAP = {
     '제주도': 'JEJU',
   };
   
+
+  // 백엔드에게 받은 지역 ENUM 값을 다시 한글로 전환
+  // 📦 ENUM → 한글 역매핑 생성
+export const ENUM_TO_PROVINCE_KOR = Object.entries(PROVINCE_MAP).reduce((acc, [kor, eng]) => {
+  acc[eng] = kor;
+  return acc;
+}, {});
+
+export const ENUM_TO_CITY_KOR = Object.values(REGION_MAP).flat().reduce((acc, { name, code }) => {
+  acc[code] = name;
+  return acc;
+}, {});
