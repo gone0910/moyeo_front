@@ -4,22 +4,15 @@
 // - 카드 클릭 시 상세정보를 모달로 출력
 // ✅ MatchingList.jsx - UI 전체 복원 및 API 연동 완성본
 import React, { useEffect, useState, useContext } from 'react';
-import {
-  View,
-  Text,
-  Image,
-  TouchableOpacity,
-  Modal,
-  ScrollView,
-  Alert,
-  StyleSheet,
-} from 'react-native';
+import {  View, Text, Image, TouchableOpacity,  Modal,  ScrollView, Alert, StyleSheet,} from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { getMatchingList, getUserMatchingDetail } from '../../api/matching';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { UserContext } from '../../contexts/UserContext';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
+import { ENUM_TO_PROVINCE_KOR, ENUM_TO_CITY_KOR } from '../common/regionMap';
+
 
 // 🟡 더미 데이터 (mock 모드에서만 사용)
 const dummyMatches = [
@@ -70,6 +63,14 @@ const MatchingList = () => {
 
   // ✅ 상세 정보 API 요청 및 모달 표시
   const handleCardPress = async (nickname) => {
+
+    const isMock = await AsyncStorage.getItem('mock');
+    if (isMock === 'true') {
+      // ✅ 더미 상세정보 반환
+      const dummyDetail = dummyMatches.find((item) => item.name === nickname);
+      setSelectedMatch(dummyDetail);
+      return;
+    }
     try {
       const token = await AsyncStorage.getItem('jwtToken');
       const detail = await getUserMatchingDetail(nickname, token);
@@ -176,10 +177,18 @@ const MatchingList = () => {
                     </View>
                   </View>
 
-                  {/* 🔹 목적지 */}
+                  {/* 🔹 목적지, 백엔드에서 받은 ENUM 값 한글로 변환 */}
                   <View style={styles.infoRow}>
                     <Text style={styles.infoLabel}>목적지</Text>
-                    <Text style={styles.infoTag3}>{selectedMatch.destination || `${selectedMatch.province} / ${selectedMatch.cities?.join(', ')}`}</Text>
+                    <Text style={styles.infoTag3}>
+                      {selectedMatch.destination ||
+                           `${ENUM_TO_PROVINCE_KOR[selectedMatch.province] || selectedMatch.province} / ${
+                            (selectedMatch.cities || [])
+                              .map((code) => ENUM_TO_CITY_KOR[code] || code)
+                              .join(', ')
+                          }`
+                      }
+                    </Text>
                   </View>
 
                   {/* 🔹 MBTI */}
@@ -311,6 +320,7 @@ const styles = StyleSheet.create({
   tagGroup: {
     flexDirection: 'row',
     flexWrap: 'wrap',
+    
     justifyContent: 'flex-end',
     flex: 1,
     gap: 6,

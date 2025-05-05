@@ -14,7 +14,9 @@ export default function ToggleSelector({
   return (
     <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.scrollView}>
       {items.map((item) => {
-        const isSelected = selectedItem === item;
+        const isSelected = 
+        (item === '선택없음' && (selectedItem === '' || selectedItem === '선택없음')) ||
+        selectedItem === item;
         const isDisabled =
           disableOnNone && selectedItem === '선택없음' && item !== '선택없음'; // ✅ 조건부 비활성화
 

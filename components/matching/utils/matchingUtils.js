@@ -2,6 +2,14 @@
 // 사용자의 입력값을 백엔드 DTO 형식으로 변환해주는 함수
 // 목적: React Native의 한글 입력값을 백엔드 ENUM + null 처리 기준에 맞게 변환
 export const convertMatchingInputToDto = (input) => {
+  // 🔹 그룹 유형 한글 → 영문 ENUM
+  const groupTypeMap = {
+    '단둘이': 'ALONE',
+    '같이': 'TOGETHER',
+    '무관': 'FLEXIBLE',
+    '선택없음': null,
+  };
+
   // 🔹 성별 한글 → 영문 ENUM
   const genderMap = {
     '남성': 'MALE',
@@ -11,13 +19,12 @@ export const convertMatchingInputToDto = (input) => {
 
   // 🔹 연령대 한글 → 영문 ENUM
   const ageMap = {
-    '10대': 'TEENS',
-    '20대': 'TWENTIES',
-    '30대': 'THIRTIES',
-    '40대': 'FORTIES',
-    '50대': 'FIFTIES',
-    '60대 이상': 'SIXTIES',
-    '선택없음': 'NONE',
+    '10대': 10,
+    '20대': 20,
+    '30대': 30,
+    '40대': 40,
+    '50대': 50,
+    '60대 이상': 60,
   };
 
   // 🔹 여행 스타일 한글 → 영문 ENUM
@@ -46,14 +53,13 @@ export const convertMatchingInputToDto = (input) => {
         ? ['NONE']
         : input.selectedCities,
 
-    groupType: genderMap[input.groupType] || 'NONE',
-
-    ageRange: ageMap[input.ageRange] || 'NONE',
+    groupType: groupTypeMap[input.groupType] ?? null,
+    ageRange: ageMap[input.ageRange] ?? null,  // 나이는 int 외엔 null
 
     travelStyles:
-      !input.travelStyles || input.travelStyles.includes('선택없음')
-        ? ['NONE']
-        : input.travelStyles.map((s) => styleMap[s] || 'NONE'),
+      !input.travelStyles || input.travelStyles.includes('NONE') // ✅ NONE 감지
+      ? ['NONE']
+      : input.travelStyles.map((s) => styleMap[s] || 'NONE'),
   };
 
   // 🟢 변환 후 DTO 로그 출력

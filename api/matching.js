@@ -4,7 +4,7 @@
 
 import axios from 'axios';
 
-const BASE_URL = 'http://<백엔드주소>'; // ✅ 실제 서버 주소로 교체 필요
+const BASE_URL = 'http://ec2-13-125-81-224.ap-northeast-2.compute.amazonaws.com:8080'; // ✅ 실제 서버 주소로 교체 필요
 
 // ─────────────────────────────────────────────
 // ✅ [1] 매칭 정보 입력/수정
@@ -13,6 +13,8 @@ const BASE_URL = 'http://<백엔드주소>'; // ✅ 실제 서버 주소로 교�
 // - 설명: 사용자가 매칭 조건을 입력하면 서버에 저장됨
 // - 사용 위치: MatchingInfoScreen.jsx (정보 입력 버튼 클릭 시 호출)
 export const submitMatchingProfile = async (data, token) => {
+  console.log('📤 [전송할 매칭 데이터]', data);
+  console.log('🔐 [전송할 토큰]', token);
   try {
     const response = await axios.post(`${BASE_URL}/matching/profile`, data, {
       headers: {
