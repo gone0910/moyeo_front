@@ -44,7 +44,7 @@ export default function HomeScreen() {
 
       {/* 헤더 */}
       <View style={styles.headerWrapper}>
-        <Text style={styles.logo} numberOfLines={1} adjustsFontSizeToFit>moyeo </Text>
+        <Text style={styles.logotext} numberOfLines={1} adjustsFontSizeToFit>moyeo </Text>
         <View style={styles.profileContainer}>
           <TouchableOpacity onPress={() => navigation.navigate('ProfileHome', user)}>
             {user?.profileImageUrl ? (
@@ -59,7 +59,7 @@ export default function HomeScreen() {
         </View>
       </View>
 
-      <View style={styles.divider} />
+      <View style={styles.headerLine} />
 
       {/* 사용자 인사말 */}
       <View style={styles.greetingWrapper}>
@@ -149,7 +149,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  logo: {
+  logotext: {
     fontSize: 40,
     fontFamily: 'KaushanScript_400Regular',
     color: '#4F46E5',
@@ -170,7 +170,7 @@ const styles = StyleSheet.create({
     marginTop: 20,
     backgroundColor: '#D1D5DB',
   },
-  divider: {
+  headerLine: {
     borderBottomWidth: 1,
     borderColor: '#999',
     marginTop: 1,

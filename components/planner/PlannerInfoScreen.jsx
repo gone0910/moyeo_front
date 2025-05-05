@@ -10,11 +10,8 @@ import {
 import { Calendar } from 'react-native-calendars';
 import { UserContext } from '../../contexts/UserContext';
 import { useNavigation } from '@react-navigation/native';
-import AccordionCardInfo from '../common/AccordionCardInfo';
-import ToggleSelector from '../common/ToggleSelector';
-import ToggleSelector2 from '../common/ToggleSelector2';
 
-export default function MatchingInfoScreen() {
+export default function PlannerInfoScreen() {
   const { user } = useContext(UserContext);
   const [startDate, setStartDate] = useState(null);
   const [endDate, setEndDate] = useState(null);
@@ -34,20 +31,6 @@ export default function MatchingInfoScreen() {
         setStartDate(selected);
       }
     }
-  };
-
-  const [selectedItems, setSelectedItems] = useState({
-    group: '',
-    tripstyle: '',
-    gender: '',
-    age: '',
-  });
-
-  const handleSelect = (key) => (value) => {
-    setSelectedItems((prev) => ({
-      ...prev,
-      [key]: value,
-    }));
   };
 
   const getMarkedDates = () => {
@@ -100,12 +83,7 @@ export default function MatchingInfoScreen() {
         <View style={styles.headerLine} />
       </View>
 
-      <ScrollView style={styles.scrollArea} contentContainerStyle={[styles.wrapper, { paddingTop: 115 }]}>
-        <View style={styles.infoBox}>
-          <Text style={styles.infoText}>여행 일정은 필수 입력이에요.</Text>
-          <Text style={styles.infoText}>그 외의 여행 스타일은 자유롭게 선택해주세요.</Text>
-        </View>
-
+      <ScrollView style={styles.scrollArea} contentContainerStyle={[styles.wrapper, { paddingTop: 220 }]}>
         <View style={styles.calendarBox}>
           <Text style={styles.calendarLabel}>일정 선택</Text>
           <Calendar
@@ -170,92 +148,25 @@ export default function MatchingInfoScreen() {
             )}
           </View>
         )}
-
-        <AccordionCardInfo title="이번 여행, 어디로 떠나시나요?">
-          <ToggleSelector
-            items={["선택없음", "서울", "제주", "경기도", "강원도", "충청북도", "충청남도", "전라북도", "전라남도", "경상북도", "경상남도"]}
-            selectedItem={selectedRegion}
-            onSelect={setSelectedRegion}
-            size="large"
-          />
-          {/* 지역에 따른 세부 토글들 */}
-          {selectedRegion === '서울' && (
-            <View style={{ marginTop: 4 }}>
-              <ToggleSelector
-                items={["강남구", "강동구", "강북구", "강서구", "관악구", "광진구", "구로구", "금천구", "노원구", "도봉구", "동대문구", "동작구", "마포구", "서대문구", "서초구", "성동구", "성북구", "송파구", "양천구", "영등포구", "용산구", "은평구", "종로구", "중구", "중랑구"]}
-                selectedItem={selectedCity}
-                onSelect={setSelectedCity}
-                size="small"
-              />
-            </View>
-          )}
-          {selectedRegion === '제주' && (
-            <View style={{ marginTop: 4 }}>
-              <ToggleSelector
-                items={["제주시", "서귀포시"]}
-                selectedItem={selectedCity}
-                onSelect={setSelectedCity}
-                size="small"
-              />
-            </View>
-          )}
-          {/* 다른 지역들도 동일하게 추가됨 */}
-          {/* ... */}
-        </AccordionCardInfo>
-
-        <AccordionCardInfo title="나의 여행, 몇명이 좋을까요?">
-          <ToggleSelector2
-            items={["선택없음", "단둘이", "여럿이"]}
-            selectedItem={selectedItems.group}
-            onSelect={handleSelect('group')}
-            size="large"
-          />
-        </AccordionCardInfo>
-
-        <AccordionCardInfo title="나의 여행 스타일을 알려주세요">
-          <ToggleSelector2
-            items={["선택없음", "액티비티", "문화/관광", "힐링", "맛집", "도심", "자연"]}
-            selectedItem={selectedItems.tripstyle}
-            onSelect={handleSelect('tripstyle')}
-            size="large"
-          />
-        </AccordionCardInfo>
-
-        <AccordionCardInfo title="선호하는 동행자의 성별은?">
-          <ToggleSelector2
-            items={["선택없음", "남성", "여성"]}
-            selectedItem={selectedItems.gender}
-            onSelect={handleSelect('gender')}
-            size="large"
-          />
-        </AccordionCardInfo>
-
-        <AccordionCardInfo title="동행자 나이는 어느 연령대가 편하신가요?">
-          <ToggleSelector2
-            items={["선택없음", "20대", "30대", "40대", "50대", "60대 이상"]}
-            selectedItem={selectedItems.age}
-            onSelect={handleSelect('age')}
-            size="large"
-          />
-        </AccordionCardInfo>
       </ScrollView>
 
-      <View style={styles.fixedButtonContainer}>
-  <TouchableOpacity
-    style={[
-      styles.fixedButton,
-      (!startDate || !endDate) && styles.disabledButton
-    ]}
-    onPress={() => navigation.navigate('MatchingList')}
-    disabled={!startDate || !endDate}
-  >
-    <Text style={styles.fixedButtonText}>함께할 여행자 찾아보기</Text>
-  </TouchableOpacity>
-</View>
+      <View style={styles.fixedButtonContainer1}>
+              <TouchableOpacity
+                style={styles.fixedButton1}
+              >
+                <Text style={styles.fixedButtonText1}>여행플랜 바로 제작</Text>
+              </TouchableOpacity>
+            </View>
+        <View style={styles.fixedButtonContainer2}>
+            <TouchableOpacity
+            style={styles.fixedButton2}
+            >
+            <Text style={styles.fixedButtonText2}>다음 정보 입력하기</Text>
+            </TouchableOpacity>
+            </View>
     </View>
   );
 }
-
 
 const styles = StyleSheet.create({
   container: {
@@ -289,7 +200,7 @@ const styles = StyleSheet.create({
     color: '#4F46E5',
     lineHeight: 80,
     letterSpacing: 0,
-    top:15,
+    top: 15,
   },
   profileImage: {
     width: 40,
@@ -297,7 +208,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     backgroundColor: '#ccc',
     marginTop: 30,
-    top:5,
+    top: 5,
   },
   headerLine: {
     width: '90%',
@@ -313,44 +224,30 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     marginTop: 10,
     marginBottom: 10,
-  },
-  infoBox: {
-    width: 358,
-    height: 67,
-    borderRadius: 10,
-    backgroundColor: '#CECCF5',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    alignSelf: 'center',
-    marginBottom: 16,
-  },
-  infoText: {
-    fontFamily: 'Roboto',
-    fontSize: 14,
-    lineHeight: 24,
-    fontWeight: '400',
-    color: '#616161',
-    textAlign: 'center',
+    top:-108
   },
   calendarBox: {
     paddingHorizontal: 20,
-    marginTop: 10,
+    marginTop: 20,
+    top:-110,
+    marginTop:20
   },
   calendarLabel: {
     fontSize: 16,
     fontWeight: '400',
     fontFamily: 'Roboto',
     lineHeight: 24,
-    color: '#373737',
-    marginBottom: 8,
+    color: '#000',
+    marginBottom: 10,
+    top:-9
+    ,
   },
   dateButtonContainer: {
     flexDirection: 'row',
     justifyContent: 'center',
     gap: 10,
     marginTop: 12,
-    marginBottom : 12,
+    marginBottom: 12,
   },
   dateButton: {
     backgroundColor: '#EAE6FB',
@@ -359,6 +256,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     minWidth: 150,
     alignItems: 'center',
+    top:-105
   },
   dateButtonText: {
     fontSize: 14,
@@ -366,30 +264,52 @@ const styles = StyleSheet.create({
     color: '#373737',
     fontWeight: '500',
   },
-  fixedButtonContainer: {  // 함께할 여행자 찾아보기 버튼
+  fixedButtonContainer1: {  // 함께할 여행자 찾아보기 버튼
     position: 'absolute',
     bottom: 35,            // 하단탭과 겹치지 않게 조정
     left: 16,
     right: 16,
     alignItems: 'center',
   },
-  fixedButton: {
+  fixedButtonContainer2: {  // 함께할 여행자 찾아보기 버튼
+    position: 'absolute',
+    bottom: 35,            // 하단탭과 겹치지 않게 조정
+    left: 16,
+    right: 16,
+    alignItems: 'center',
+  },
+  fixedButton1: {
+    width: 358,
+    height: 58,
+    backgroundColor: '#FFF',
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    top: -50,
+    borderWidth: 2,         
+    borderColor: '#4F46E5', 
+  },
+  fixedButton2: {
     width: 358,
     height: 58,
     backgroundColor: '#4F46E5',
     borderRadius: 10,
     justifyContent: 'center',
     alignItems: 'center',
-    top: 10,
+    top: 20,
   },
-  fixedButtonText: {
+  fixedButtonText1: {
+    fontSize: 16,
+    fontFamily: 'Inter',
+    color: '#4F46E5',
+    fontWeight: '500',
+    lineHeight: 22,
+  },
+  fixedButtonText2: {
     fontSize: 16,
     fontFamily: 'Inter',
     color: '#FFFFFF',
     fontWeight: '500',
     lineHeight: 22,
-  },
-  disabledButton: {
-    backgroundColor: '#CCCCCC',
   },
 });

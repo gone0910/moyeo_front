@@ -21,7 +21,7 @@ export default function MatchingScreen() {
     <View style={styles.container}>
       {/* Header Section */}
       <View style={styles.headerWrapper}>
-        <Text style={styles.logo} numberOfLines={1} adjustsFontSizeToFit>moyeo </Text>
+        <Text style={styles.logotext} numberOfLines={1} adjustsFontSizeToFit>moyeo </Text>
         <TouchableOpacity onPress={() => navigation.navigate('ProfileHome', user)}>
           {user?.profileImageUrl ? (
             <Image source={{ uri: user.profileImageUrl }} style={styles.profileImage} />
@@ -30,7 +30,7 @@ export default function MatchingScreen() {
           )}
         </TouchableOpacity>
       </View>
-      <View style={styles.divider} />
+      <View style={styles.headerLine} />
 
       {/* Main Section */}
       <View style={styles.centerWrapper}>
@@ -65,7 +65,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  logo: {
+  logotext: {
     fontSize: 40,
     fontFamily: 'KaushanScript',
     color: '#4F46E5',
@@ -86,7 +86,7 @@ const styles = StyleSheet.create({
     top:5,
     backgroundColor: '#D1D5DB',
   },
-  divider: {
+  headerLine: {
     height: 1,
     backgroundColor: '#999',
     marginVertical: 8,

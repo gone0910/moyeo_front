@@ -7,7 +7,10 @@ import HomeScreen from '../components/home/HomeScreen';
 import MatchingScreen from '../components/matching/MatchingScreen';
 import MatchingHome from '../components/matching/MatchingHome';
 import MatchingInfoScreen from '../components/matching/MatchingInfoScreen';
-
+import MatchingList from '../components/matching/MatchingList';
+import NoneList from '../components/matching/NoneList';
+import PlannerScreen from '../components/planner/PlannerScreen';
+import PlannerInfoScreen from '../components/planner/PlannerInfoScreen';
 const Stack = createNativeStackNavigator();
 
 export default function HomeNavigator() {
@@ -17,6 +20,10 @@ export default function HomeNavigator() {
       <Stack.Screen name="Matching" component={MatchingScreen} />
       <Stack.Screen name="MatchingHome" component={MatchingHome} /> 
       <Stack.Screen name="MatchingInfo" component={MatchingInfoScreen} />
+      <Stack.Screen name="MatchingList" component={MatchingList} />
+      <Stack.Screen name="NoneList" component={NoneList} />
+      <Stack.Screen name="Planner" component={PlannerScreen} />
+      <Stack.Screen name="PlannerInfo" component={PlannerInfoScreen} />
     </Stack.Navigator>
   );
 }
