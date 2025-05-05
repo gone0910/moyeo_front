@@ -126,7 +126,7 @@ export default function LoginScreen() {
       </Modal>
 
       <View style={styles.logoContainer}>
-        <Text style={styles.logotext}>moyeo </Text>
+        <Text style={styles.logoText}>moyeo </Text>
       </View>
 
       <View style={styles.buttonContainer}>
@@ -188,7 +188,7 @@ const styles = StyleSheet.create({
     marginTop: 100,
     marginBottom: 40,
   },
-  logotext: {
+  logoText: {
     fontSize: 90, // ✅ 병합된 스타일: 팀원 폰트 적용
     fontWeight: 'bold',
     color: '#4F46E5',
