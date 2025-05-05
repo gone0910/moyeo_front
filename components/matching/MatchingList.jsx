@@ -72,7 +72,7 @@ export default function MatchingList() {
     <View style={styles.container}>
       {/* Header Section */}
       <View style={styles.headerWrapper}>
-        <Text style={styles.logo} numberOfLines={1} adjustsFontSizeToFit>moyeo </Text>
+        <Text style={styles.logotext} numberOfLines={1} adjustsFontSizeToFit>moyeo </Text>
         <TouchableOpacity onPress={() => navigation.navigate('ProfileHome', user)}>
           {user?.profileImageUrl ? (
             <Image source={{ uri: user.profileImageUrl }} style={styles.profileImage} />
@@ -81,7 +81,7 @@ export default function MatchingList() {
           )}
         </TouchableOpacity>
       </View>
-      <View style={styles.divider} />
+      <View style={styles.headerLine} />
 
       <View style={{ flex: 1, backgroundColor: '#F9F9F9' }}>
         <ScrollView contentContainerStyle={{ paddingTop: 10, paddingHorizontal: 16, paddingBottom: 100 }}>
@@ -188,7 +188,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  logo: {
+  logotext: {
     fontSize: 40,
     fontFamily: 'KaushanScript',
     color: '#4F46E5',
@@ -209,7 +209,7 @@ const styles = StyleSheet.create({
     top: 5,
     backgroundColor: '#D1D5DB',
   },
-  divider: {
+  headerLine: {
     height: 1,
     backgroundColor: '#999',
     marginVertical: 8,
