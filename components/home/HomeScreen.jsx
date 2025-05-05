@@ -149,13 +149,12 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  logotext: {
+  logoText: {
     fontSize: 40,
     fontFamily: 'KaushanScript_400Regular',
     color: '#4F46E5',
     lineHeight: 80,
     letterSpacing: 0,
-    top:5,
   },
   profileImage: {
     width: 44,

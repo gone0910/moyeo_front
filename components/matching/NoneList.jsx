@@ -17,7 +17,7 @@ export default function NoneList() {
       <View style={styles.container}>
         {/* Header Section */}
         <View style={styles.headerWrapper}>
-          <Text style={styles.logotext} numberOfLines={1} adjustsFontSizeToFit>moyeo </Text>
+          <Text style={styles.logoText} numberOfLines={1} adjustsFontSizeToFit>moyeo </Text>
           <TouchableOpacity onPress={() => navigation.navigate('ProfileHome', user)}>
             {user?.profileImageUrl ? (
               <Image source={{ uri: user.profileImageUrl }} style={styles.profileImage} />
@@ -62,7 +62,7 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
         alignItems: 'center',
       },
-      logotext: {
+      logoText: {
         fontSize: 40,
         fontFamily: 'KaushanScript',
         color: '#4F46E5',

@@ -19,7 +19,7 @@ import { View, Text, StyleSheet } from 'react-native';
 // 각 탭에서 연결될 화면 컴포넌트들
 import HomeNavigator from './HomeNavigator'; 
 import MyTripsScreen from '../components/trip/MyTripsScreen';
-import ChatScreen from '../components/chat/ChatScreen';
+import ChatListScreen from '../components/chat/ChatListScreen';
 import CommunityScreen from '../components/community/CommunityScreen';
 
 const Tab = createBottomTabNavigator();
@@ -95,7 +95,7 @@ export default function BottomTabNavigator() {  //하단탭이 홈화면 및 라
     >
       <Tab.Screen name="Home" component={HomeNavigator} />
       <Tab.Screen name="MyTrips" component={MyTripsScreen} />
-      <Tab.Screen name="Chat" component={ChatScreen} />
+      <Tab.Screen name="Chat" component={ChatListScreen} />
       <Tab.Screen name="Community" component={CommunityScreen} />
     </Tab.Navigator>
   );
