@@ -1,4 +1,4 @@
-import React, { useState, useContext, useRef } from 'react';
+import  { useState, useContext, useRef } from 'react';
 import {
   View,
   Text,
@@ -15,9 +15,18 @@ import { Animated } from 'react-native';
 import ToggleSelector from '../common/ToggleSelector';
 import ToggleSelector3 from '../common/ToggleSelector3';
 import Slider from '@react-native-community/slider';
-
+import { createSchedule } from '../../api/createSchedule';
+import { useEffect } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+// import { planner_create_requst } from '../../api/planner_create_request';
 
 export default function PlannerInfoScreen() {
+  useEffect(() => {
+    AsyncStorage.setItem('token', 'mock-token');
+  }, []);
+  //  useEffect(() => {
+  // AsyncStorage.setItem('token', 'your-real-token-here');
+// }, []);
   const { user } = useContext(UserContext);
   const [startDate, setStartDate] = useState(null);
   const [endDate, setEndDate] = useState(null);
@@ -641,12 +650,12 @@ export default function PlannerInfoScreen() {
     onPress={toggleMbti}
     style={{
       width: '23%',
-            padding: 10,
-            marginBottom: 10,
-            borderRadius: 8,
-            borderWidth: 1,
-            borderColor: '#726BEA',
-            alignItems: 'center',
+      padding: 10,
+      marginBottom: 10,
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: '#726BEA',
+      alignItems: 'center',
       backgroundColor: selectedMbti === 'NONE' ? '#B3A4F7' : '#FFF',
     }}
   >
@@ -659,8 +668,8 @@ export default function PlannerInfoScreen() {
       선택없음
     </Text>
   </TouchableOpacity>
-</View>
-/</View>
+</View> 
+</View> 
 )}
 
 

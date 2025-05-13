@@ -1,7 +1,8 @@
-import axios from 'axios';
+// 🔁 createSchedule.js (mock 버전)
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Alert } from 'react-native';
 
+// 👉 실제 axios 요청 대신 mock 응답
 export const createSchedule = async (
   startDate,
   endDate,
@@ -21,36 +22,34 @@ export const createSchedule = async (
     const requestData = {
       startDate,
       endDate,
-      destination: destination[0],
+      destination: destination[0], // 첫 번째 목적지만 사용
       mbti,
       travelStyle: travelStyle[0],
       peopleGroup,
       budget,
     };
 
-    console.log('📤 실제 요청 데이터:', requestData);
+    console.log('📤 Mock 요청 데이터:', requestData);
 
-    const response = await axios.post(
-      'https://your-api-server.com/gpt/schedule/detail/create',
-      requestData,
-      {
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-      }
-    );
+    // ✅ 여기가 실제 서버 대신 mock 응답
+    const response = {
+      status: 200,
+      data: {
+        message: 'Mock 일정 생성 성공!',
+        scheduleId: 9999,
+      },
+    };
 
     if (response.status === 200) {
-      console.log('✅ 실제 서버 응답:', response.data);
-      Alert.alert('성공', '일정 생성이 완료되었습니다!');
+      console.log('✅ Mock 일정 생성 성공:', response.data);
+      Alert.alert('성공', `일정 생성 성공!\nID: ${response.data.scheduleId}`);
       return response.data;
     } else {
       console.warn('⚠️ 실패 응답:', response.status);
       Alert.alert('실패', '일정 생성 실패');
     }
   } catch (error) {
-    console.error('❌ 예외 발생:', error.response?.data || error.message);
-    Alert.alert('오류', '서버 요청 중 문제가 발생했습니다.');
+    console.error('❌ 예외 발생:', error.message);
+    Alert.alert('오류', '예외가 발생했습니다.');
   }
 };
