@@ -8,6 +8,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import TravelSection from './TravelSection';
 import SplashScreen from '../common/SplashScreen'; // 🔁 팀원 코드 병합
 
+
 // (📌 임시 데이터)
 const dummyTravelList = [
   // { id: 1, title: '경주 여행', period: '2025.04.20 ~ 2025.04.30', dDay: 'D-5', route: ['첨성대', '국밥'] },
@@ -16,11 +17,11 @@ const dummyTravelList = [
 
 export default function HomeScreen() {
   const navigation = useNavigation();
-  const { user, setUser } = useContext(UserContext);
+  const { user, setUser } = useContext(UserContext); //  user 불러옴
   const nickname = user?.nickname || '사용자';
   const isLong = nickname.length > 4;
 
-  const [showSplash, setShowSplash] = useState(false); // ✅ 팀원 기능: splash
+  const [showSplash, setShowSplash] = useState(false); //  팀원 기능: splash
 
   const handleLogout = async () => {
     try {
@@ -44,7 +45,7 @@ export default function HomeScreen() {
 
       {/* 헤더 */}
       <View style={styles.headerWrapper}>
-        <Text style={styles.logotext} numberOfLines={1} adjustsFontSizeToFit>moyeo </Text>
+        <Text style={styles.logoText} numberOfLines={1} adjustsFontSizeToFit>moyeo </Text>
         <View style={styles.profileContainer}>
           <TouchableOpacity onPress={() => navigation.navigate('ProfileHome', user)}>
             {user?.profileImageUrl ? (
@@ -53,9 +54,6 @@ export default function HomeScreen() {
               <View style={styles.profilePlaceholder} />
             )}
           </TouchableOpacity>
-          {/* <TouchableOpacity onPress={handleLogout}>
-            <Feather name="log-out" size={24} color="#4B5563" />
-          </TouchableOpacity> */}
         </View>
       </View>
 
