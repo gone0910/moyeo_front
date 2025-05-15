@@ -2,7 +2,7 @@
 // 사용자의 입력값을 백엔드 DTO 형식으로 변환해주는 함수
 // 목적: React Native의 한글 입력값을 백엔드 ENUM + null 처리 기준에 맞게 변환
 export const convertMatchingInputToDto = (input) => {
-  // 🔹 그룹 유형 한글 → 영문 ENUM
+  // 🔹 한글 → ENUM 변환용 맵
   const groupTypeMap = {
     '단둘이': 'ALONE',
     '같이': 'TOGETHER',
@@ -36,6 +36,23 @@ export const convertMatchingInputToDto = (input) => {
     '자연': 'NATURE',
     '도심': 'CITY',
     '선택없음': 'NONE',
+  };
+
+    // 🔄 ENUM → 한글 역변환 (모달 등에서 사용)
+  const GENDER_ENUM_TO_KOR = {
+    MALE: '남성',
+    FEMALE: '여성',
+    NONE: '선택없음',
+  };
+
+  const STYLE_ENUM_TO_KOR = {
+    HEALING: '힐링',
+    FOOD: '맛집',
+    CULTURE: '문화/관광',
+    ACTIVITY: '액티비티',
+    NATURE: '자연',
+    CITY: '도심',
+    NONE: '선택없음',
   };
 
   // 🟡 변환 전 입력 로그 출력

@@ -20,6 +20,8 @@ import PlannerScreen from '../components/planner/PlannerScreen';
 import MatchingScreen from '../components/matching/MatchingScreen';
 import MatchingHome from '../components/matching/MatchingHome';
 import MatchingInfoScreen from '../components/matching/MatchingInfoScreen'; // 🔁 팀원 코드 병합
+import ChatRoomScreen from '../components/chat/ChatRoomScreen';
+
 
 const Stack = createNativeStackNavigator();
 
@@ -43,6 +45,7 @@ export default function AppNavigator({ isLoggedIn }) {
         <Stack.Screen name="MatchingInfo" component={MatchingInfoScreen} options={{ title: '여행자 매칭 기입' }} />
         <Stack.Screen name="ProfileHome" component={ProfileHomeScreen} options={{ title: '프로필 홈' }} />
         <Stack.Screen name="EditProfile" component={EditProfileScreen} options={{ title: '프로필 편집' }} />
+        <Stack.Screen name="ChatRoomScreen" component={ChatRoomScreen} options={{ title: '채팅방 화면'}}/>
       </Stack.Navigator>
     </NavigationContainer>
   );

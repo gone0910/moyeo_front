@@ -7,6 +7,7 @@ import React, { useEffect, useState, useContext } from 'react';
 import {  View, Text, Image, TouchableOpacity,  Modal,  ScrollView, Alert, StyleSheet,} from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { getMatchingList, getUserMatchingDetail } from '../../api/matching';
+import { createChatRoom } from '../../api/chat';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { UserContext } from '../../contexts/UserContext';
 import { BlurView } from 'expo-blur';
@@ -45,6 +46,7 @@ const MatchingList = () => {
       }
 
       const token = await AsyncStorage.getItem('jwt');
+      console.log('[현재 JWT]', token); // 정식 발급 토큰인지 확인
       const result = await getMatchingList(token);
       console.log('[api 응답 확인] /matching/result:', result);
 
@@ -72,7 +74,7 @@ const MatchingList = () => {
       return;
     }
     try {
-      const token = await AsyncStorage.getItem('jwtToken');
+      const token = await AsyncStorage.getItem('jwt');
       const detail = await getUserMatchingDetail(nickname, token);
       console.log(`[api 응답 확인] /matching/profile (${nickname}):`, detail);
       setSelectedMatch(detail);
@@ -198,7 +200,56 @@ const MatchingList = () => {
                   </View>
 
                   {/* 🔹 채팅 버튼 */}
-                  <TouchableOpacity style={styles.chatButton}>
+                  <TouchableOpacity
+                    style={styles.chatButton}
+                    onPress={async () => {
+                      const isMock = await AsyncStorage.getItem('mock');
+                      if (isMock === 'true') {
+                        // 🔹 mock 모드 → 채팅방 화면으로 더미 정보 전달
+                        navigation.navigate('Chat', {
+                          screen: 'ChatRoomScreen',
+                          params: {
+                            roomId: 'mock-room',
+                            nickname: selectedMatch.nickname || selectedMatch.name,
+                            profileUrl: selectedMatch.image || selectedMatch.imageUrl,
+                          },
+                        });
+                        return;
+                      }
+
+                      try {
+                        const token = await AsyncStorage.getItem('jwt');
+                        const nickname = selectedMatch.nickname.trim(); // ← 이 줄 추가
+
+    console.log('[nickname 전달]', `"${nickname}"`); // ✅ 여기
+    console.log('[nickname 전달]', `"${selectedMatch.nickname}"`);
+    console.log(
+      '[요청 주소]',
+      `http://ec2-54-180-25-3.ap-northeast-2.compute.amazonaws.com:8080/chat/room/create?otherUserNickname=${encodeURIComponent(nickname)}`
+    );
+
+                        const res = await createChatRoom(nickname, token); // 실제 API
+                        console.log('[✅ 응답 전체]', JSON.stringify(res, null, 2));
+                        console.log('[채팅방 생성 응답]', res); // roomid 제대로 지정됐는지 확인필요.
+
+                        navigation.navigate('Chat', {
+                          screen: 'ChatRoomScreen',
+                          params: {
+                            roomId: res.roomId,
+                            nickname: res.nickname,
+                            profileUrl: res.profileUrl,
+                            origin: 'Matching', // ← 뒤로가기 분기용
+                          },
+                        });
+
+                        setSelectedMatch(null); // 이건 navigate 이후에 실행
+
+                      } catch (error) {
+                        Alert.alert('채팅방 생성 실패', '잠시 후 다시 시도해주세요.');
+                        console.error('[에러] 채팅방 생성 실패:', error);
+                      }
+                    }}
+                  >
                     <Text style={styles.chatButtonText}>동행을 위해 채팅하기</Text>
                   </TouchableOpacity>
                 </>
