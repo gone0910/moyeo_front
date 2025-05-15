@@ -5,8 +5,8 @@
 import { Buffer } from 'buffer';
 global.Buffer = Buffer;
 
-import { EventEmitter } from 'events';
-global.EventEmitter = EventEmitter;
+// import { EventEmitter } from 'events';
+// global.EventEmitter = EventEmitter;
 
 // ✅ TextEncoder/Decoder polyfill 등록
 import * as encoding from 'text-encoding';

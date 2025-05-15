@@ -1,6 +1,6 @@
 // components/chat/ChatRoomScreen.jsx
 // ✅ 채팅방 화면 - 백엔드 명세서 기반 리팩토링 (더미 데이터 기준)
-import React, { useContext, useState, useRef, useEffect } from 'react';
+import React, { useContext, useState, useRef, useEffect, useCallback } from 'react';
 import {  View,  Text,  TextInput,  FlatList,  TouchableOpacity,  StyleSheet,  SafeAreaView,  Image,
   KeyboardAvoidingView,
   Platform,
@@ -11,13 +11,27 @@ import { UserContext } from '../../contexts/UserContext';
 import { exitChatRoom,getChatHistory, markAsRead } from '../../api/chat'; // chat.js api 연결
 import { connectStompClient, disconnectStompClient, sendMessage } from '../../api/chatSocket'; // chatSocket.js WebSocket 연결
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useFocusEffect } from '@react-navigation/native'; // 하단탭 이동시 disconnect유지
+import { LogBox } from 'react-native';
 
-
+LogBox.ignoreLogs([
+  'Warning: Text strings must be rendered within a <Text> component',
+]);
 
 const ChatRoomScreen = ({ route, navigation }) => {
   const params = route.params?.params || route.params || {}; // 중첩구조 예상해서
   const { roomId, nickname, profileUrl, origin } = params;  // 중첩구조 예상해서 디버깅용 파라미터
-  const { user } = useContext(UserContext);
+  const { user } = useContext(UserContext); // 하단탭 이동시 disconnect (하단탭 삭제시 userFOcusEffect문 삭제제)
+    useFocusEffect(
+    useCallback(() => {
+      return () => {
+        if (user?.token) {
+          disconnectStompClient(user.token);
+        }
+      };
+    }, [user?.token])
+  );
+
   const myId = user?.id;
   const myName = user?.nickname;
   const myProfile = user?.profileImageUrl;
@@ -48,11 +62,12 @@ const ChatRoomScreen = ({ route, navigation }) => {
       inReadUserCount: 0,
     },
   ]);
+  
 
   const flatListRef = useRef();
   // mock 분기 추가
   const handleReceiveMessage = (msg) => {
-    if (!msg.senderName || !msg.message || !msg.timestamp) {
+    if (!msg.sender || !msg.message || !msg.timestamp) {
       console.warn('❗ 누락된 필드가 있는 메시지 수신됨:', msg);
       return;
     }
@@ -100,25 +115,29 @@ const ChatRoomScreen = ({ route, navigation }) => {
           console.log('✅ [STOMP 연결 성공]');
           setIsConnected(true); // 전송 허용 상태 설정
 
-          try {
-            console.log('📜 [이전 메시지] 로딩 시작...');
-            const history = await getChatHistory(roomId, user.token);
-            setMessages(history);
-            console.log('📜 [이전 메시지] 로딩 완료');
+          setTimeout(() => {
+            flatListRef.current?.scrollToEnd({ animated: false }); // 처음 진입은 부드럽게 말고 즉시 이동
+          }, 100);
 
-            if (history.length > 0) {
-              console.log('✅ [읽음 처리 요청] 이전 메시지 읽음 처리 시도');
-                  // ✅ [여기에 붙이세요] markAsRead 호출부
-                  try {
-                    const res = await markAsRead(roomId, user.token);
-                    console.log('📬 markAsRead 응답:', res);
-                  } catch (err) {
-                    console.error('❌ markAsRead 실패:', err.response?.data || err.message);
-                  }
-                }
-              } catch (err) {
-                console.error('❌ [초기화 실패]', err);
-              }
+          // try {
+          //   console.log('📜 [이전 메시지] 로딩 시작...');
+          //   const history = await getChatHistory(roomId, user.token);
+          //   setMessages(history);
+          //   console.log('📜 [이전 메시지] 로딩 완료');
+
+          //   if (history.length > 0) {
+          //     console.log('✅ [읽음 처리 요청] 이전 메시지 읽음 처리 시도');
+          //         // ✅ [여기에 붙이세요] markAsRead 호출부
+          //         try {
+          //           const res = await markAsRead(roomId, user.token);
+          //           console.log('📬 markAsRead 응답:', res);
+          //         } catch (err) {
+          //           console.error('❌ markAsRead 실패:', err.response?.data || err.message);
+          //         }
+          //       }
+          //     } catch (err) {
+          //       console.error('❌ [초기화 실패]', err);
+          //     }
             });
 
         // 5. 이전 메시지 불러오기
@@ -154,8 +173,12 @@ const ChatRoomScreen = ({ route, navigation }) => {
       Alert.alert('연결 중입니다', '잠시 후 다시 시도해주세요.');
       return;
     }
+    if (!isConnected || !roomId) {
+      Alert.alert('연결 중입니다', '잠시 후 다시 시도해주세요.');
+      return;
+    }
     sendMessage(roomId, newMessage);
-    setMessages((prev) => [...prev, { ...newMessage, inReadUserCount: 1 }]); // ✅ 로컬 렌더링
+    // setMessages((prev) => [...prev, { ...newMessage, inReadUserCount: 1 }]); // ✅ 로컬 렌더링
     setInput('');
     setInputHeight(45);
     setTimeout(() => {
@@ -234,7 +257,9 @@ const ChatRoomScreen = ({ route, navigation }) => {
         <View style={[styles.messageWithTimeWrapper, isMe ? styles.reverseRow : null]}>
           {/* ✅ 말풍선 */}
           <View style={[styles.messageBubble, isMe ? styles.myBubble : styles.otherBubble]}>
-            <Text style={styles.messageText}>{item.message}</Text>
+            <Text style={styles.messageText}>
+              {typeof item.message === 'string' ? item.message : JSON.stringify(item.message)}
+            </Text>
           </View>
 
           {/* ✅ 시간/읽음 - 말풍선 외부 측면 정렬 */}
@@ -243,11 +268,13 @@ const ChatRoomScreen = ({ route, navigation }) => {
               <Text style={styles.readText}>읽음</Text>
             )}
             <Text style={styles.timeText}>
-              {new Date(item.timestamp).toLocaleTimeString('ko-KR', {
-                hour: '2-digit',
-                minute: '2-digit',
-                hour12: false,
-              })}
+              {item.timestamp
+                ? new Date(item.timestamp).toLocaleTimeString('ko-KR', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    hour12: false,
+                  })
+                : ''}
             </Text>
           </View>
         </View>
