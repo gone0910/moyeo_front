@@ -84,14 +84,14 @@ export default function ChatListScreen() {
       const token = await AsyncStorage.getItem('jwt');
       const success = await exitChatRoom(roomId, token);
       if (success) {
-        console.log('[✅ Chat API 나가기 완료]', roomId);
+        console.log('[ Chat API 나가기 완료]', roomId);
         setChatRooms((prev) => prev.filter((chat) => chat.roomId !== roomId));
         Alert.alert('채팅방 나가기 완료', '선택한 채팅방을 나갔습니다.');
       } else {
         Alert.alert('오류', '채팅방 나가기에 실패했습니다.');
       }
     } catch (err) {
-      console.error('[❌ Chat API 나가기 에러]', err);
+      console.error('[ Chat API 나가기 에러]', err);
       Alert.alert('오류', '채팅방을 나가는 중 문제가 발생했습니다.');
     }
   };

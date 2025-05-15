@@ -13,6 +13,7 @@ import { UserContext } from '../../contexts/UserContext';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import { ENUM_TO_PROVINCE_KOR, ENUM_TO_CITY_KOR } from '../common/regionMap';
+import { GENDER_ENUM_TO_KOR, STYLE_ENUM_TO_KOR } from '../matching/utils/matchingUtils';
 
 
 // 🟡 더미 데이터 (mock 모드에서만 사용)
@@ -166,7 +167,7 @@ const MatchingList = () => {
                   {/* 🔹 성별 */}
                   <View style={styles.infoRow}>
                     <Text style={styles.infoLabel}>성별</Text>
-                    <Text style={styles.infoTag1}>{selectedMatch.gender}</Text>
+                    <Text style={styles.infoTag1}>{selectedMatch.gender && GENDER_ENUM_TO_KOR?.[selectedMatch.gender] || '선택없음'}</Text>
                   </View>
 
                   {/* 🔹 여행 성향 */}
@@ -174,7 +175,7 @@ const MatchingList = () => {
                     <Text style={styles.infoLabel}>여행 성향</Text>
                     <View style={styles.tagGroup}>
                       {(selectedMatch.travelStyle || selectedMatch.travelStyles)?.map((style, idx) => (
-                        <Text key={idx} style={styles.infoTag2}>#{style}</Text>
+                        <Text key={idx} style={styles.infoTag2}>#{STYLE_ENUM_TO_KOR?.[style] || '선택없음'}</Text>
                       ))}
                     </View>
                   </View>

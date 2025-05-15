@@ -236,6 +236,13 @@ const ChatRoomScreen = ({ route, navigation }) => {
       new Date(item.timestamp).toDateString() !==
         new Date(messages[index - 1].timestamp).toDateString();
 
+    const formatToKoreanTime = (timestamp) => {
+      const date = new Date(timestamp);
+      const utcTime = date.getTime();
+      const koreaTime = new Date(utcTime + 9 * 60 * 60 * 1000); // KST 강제 보정
+      return koreaTime.toTimeString().slice(0, 5); // HH:MM 형태
+    };
+
     return (
     <View>
       {/* ✅ 날짜 라벨 */}
@@ -268,13 +275,7 @@ const ChatRoomScreen = ({ route, navigation }) => {
               <Text style={styles.readText}>읽음</Text>
             )}
             <Text style={styles.timeText}>
-              {item.timestamp
-                ? new Date(item.timestamp).toLocaleTimeString('ko-KR', {
-                    hour: '2-digit',
-                    minute: '2-digit',
-                    hour12: false,
-                  })
-                : ''}
+              {item.timestamp ? formatToKoreanTime(item.timestamp) : ''}
             </Text>
           </View>
         </View>

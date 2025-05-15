@@ -46,10 +46,6 @@ export default function HomeScreen() {
       {/* 헤더 */}
       <View style={styles.headerWrapper}>
         <Text style={styles.logoText} numberOfLines={1} adjustsFontSizeToFit>moyeo </Text>
-        {/*임시 로그아웃 */}
-        <TouchableOpacity onPress={handleLogout}>
-            <Feather name="log-out" size={24} color="#4B5563" />
-          </TouchableOpacity>
         <View style={styles.profileContainer}>
           <TouchableOpacity onPress={() => navigation.navigate('ProfileHome', user)}>
             {user?.profileImageUrl ? (
