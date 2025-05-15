@@ -18,15 +18,13 @@ import Slider from '@react-native-community/slider';
 import { createSchedule } from '../../api/createSchedule';
 import { useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-// import { planner_create_requst } from '../../api/planner_create_request';
+//import { planner_create_request } from '../../api/planner_create_request';
+import axios from 'axios';
 
 export default function PlannerInfoScreen() {
   useEffect(() => {
     AsyncStorage.setItem('token', 'mock-token');
   }, []);
-  //  useEffect(() => {
-  // AsyncStorage.setItem('token', 'your-real-token-here');
-// }, []);
   const { user } = useContext(UserContext);
   const [startDate, setStartDate] = useState(null);
   const [endDate, setEndDate] = useState(null);
@@ -39,8 +37,9 @@ export default function PlannerInfoScreen() {
     setSelectedMbti((prev) => (prev === 'NONE' ? null : 'NONE'));
   };
   const handleCustomPlan = () => {
-     handleCreateSchedule();
-  goToSlide(currentSlide + 1); // 슬라이드 다음 단계로 이동
+    handleCreateSchedule();
+    navigation.navigate('PlannerResponse');
+    goToSlide(currentSlide + 1); // 슬라이드 다음 단계로 이동
 };
 
   const toggleSelectNone = () => {
@@ -56,6 +55,7 @@ export default function PlannerInfoScreen() {
   
 
   const navigation = useNavigation();
+  
   const [budget, setBudget] = useState(0);
   const [isActive, setIsActive] = useState(false);
   const handleValueChange = (value) => {
@@ -215,7 +215,7 @@ export default function PlannerInfoScreen() {
       '선택안함': 'NONE',
       '액티비티': 'ACTIVITY',
       '문화/관광': 'CULTURE',
-      '힐링': 'HEALING',
+      '힐링': 'RELAXED',
       '맛집': 'FOOD',
       '도심': 'CITY',
       '자연': 'NATURE',
@@ -246,12 +246,52 @@ export default function PlannerInfoScreen() {
     const groupMap = {
       '선택안함': 'NONE',
       '혼자': 'ALONE',
-      '단둘이': 'DUO',
+      '단둘이': 'COUPLE',
       '여럿이': 'GROUP',
     };
     const peopleGroup = groupMap[selectedItems.group] || 'NONE';
+/*
+  const requestData = {
+  startDate,
+  endDate,
+  destination: destination[0],
+  mbti: MBTI,
+  travelStyle,
+  peopleGroup,
+  budget,
+};
 
-  
+    try {
+      const token = await AsyncStorage.getItem('jwt');
+      if (!token) {
+        console.warn('❌ jwt 토큰 없음');
+        Alert.alert('실패', '로그인이 필요합니다.');
+        return;
+      }
+
+      const response = await axios.post(
+        'http://ec2-54-180-25-3.ap-northeast-2.compute.amazonaws.com:8080/gpt/schedule/detail/create',
+        requestData,
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (response.status === 200) {
+        console.log('✅ 일정 생성 성공:', response.data);
+        Alert.alert('성공', '일정 생성이 완료되었습니다!');
+        navigation.navigate('PlannerResponse');
+      } else {
+        Alert.alert('실패', '일정 생성 실패');
+      }
+    } catch (error) {
+      console.error('❌ 예외 발생:', error.response?.data || error.message);
+      Alert.alert('오류', '서버 요청 중 문제가 발생했습니다.');
+    } */
+
     console.log('📤 API 요청 전 데이터:', {
       startDate,
       endDate,
@@ -271,6 +311,15 @@ export default function PlannerInfoScreen() {
       peopleGroup,
       budget
     );
+    /*await planner_create_request(
+      startDate,
+      endDate,
+      destination,
+      MBTI,
+      travelStyle,
+      peopleGroup,
+      budget
+    );*/
   };
   
 
@@ -765,7 +814,10 @@ export default function PlannerInfoScreen() {
           },
         ]}
         disabled={!isDateSelected}
-        onPress={handleCreateSchedule}
+        onPress={() => {
+        handleCreateSchedule();             // ✅ API 요청
+        navigation.navigate('PlannerResponse'); // ✅ 화면 전환
+    }}
       >
         <Text
           style={[
