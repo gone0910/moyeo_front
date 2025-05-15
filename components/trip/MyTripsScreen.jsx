@@ -5,12 +5,12 @@ import {
   StyleSheet,
   TouchableOpacity,
   ScrollView,
+  useWindowDimensions,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import HeaderBar from '../../components/common/HeaderBar';
 import { MaterialIcons } from '@expo/vector-icons';
 
-// ✅ D-Day 계산 함수
 const calculateDday = (startDate) => {
   const today = new Date();
   const target = new Date(startDate);
@@ -20,9 +20,11 @@ const calculateDday = (startDate) => {
 
 export default function MyTripsScreen() {
   const navigation = useNavigation();
+  const { width, height } = useWindowDimensions();
 
   const [isEditing, setIsEditing] = useState(false);
   const [myTrips, setMyTrips] = useState([
+    // 빈 배열로 테스트하려면 이 배열을 []로 바꾸세요.
     {
       title: '경주 여행',
       startDate: '2025-04-20',
@@ -40,24 +42,16 @@ export default function MyTripsScreen() {
     },
   ]);
 
-  const toggleEditMode = () => {
-    setIsEditing(!isEditing);
-  };
+  const containerWidth = Math.min(width * 0.95, 600);
 
-  const handleDeleteTrip = (indexToDelete) => {
-    setMyTrips((prevTrips) => prevTrips.filter((_, i) => i !== indexToDelete));
-  };
-
-  const onPressCreate = () => {
-    navigation.navigate('Home', { screen: 'PlannerInfo' });
-  };
+  const toggleEditMode = () => setIsEditing(!isEditing);
+  const handleDeleteTrip = (index) => setMyTrips(prev => prev.filter((_, i) => i !== index));
+  const onPressCreate = () => navigation.navigate('Home', { screen: 'PlannerInfo' });
 
   return (
     <View style={styles.screen}>
       <HeaderBar />
-
-      {/* 여행 TIP */}
-      <View style={styles.tipContainer}>
+      <View style={[styles.tipContainer, { alignSelf: 'center', width: containerWidth }]}>
         <Text style={styles.tipTitle}>
           오늘의 여행 <Text style={{ fontStyle: 'italic' }}>TIP</Text>
         </Text>
@@ -66,7 +60,7 @@ export default function MyTripsScreen() {
         </Text>
       </View>
 
-      <View style={styles.listContainer}>
+      <View style={[styles.listContainer, { alignSelf: 'center', width: containerWidth }]}>
         <View style={styles.titleRow}>
           <Text style={styles.sectionTitle}>내 여행 리스트</Text>
           <TouchableOpacity onPress={toggleEditMode}>
@@ -74,19 +68,20 @@ export default function MyTripsScreen() {
           </TouchableOpacity>
         </View>
 
-        <ScrollView
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-        >
+        <ScrollView contentContainerStyle={[styles.scrollContent, { alignItems: 'center' }]} showsVerticalScrollIndicator={false}>
           {myTrips.length === 0 ? (
-            <View style={styles.emptyBox}>
-              <Text style={styles.emptyTitle}>제작된 여행 플랜이 없어요</Text>
-              <Text style={styles.emptySub}>나에게 맞춘 여행계획을 세워볼까요?</Text>
-            </View>
-          ) : (
+  <View style={styles.tripRow}>
+    <View style={[styles.tripBox, { width: containerWidth, alignItems: 'center' }]}> 
+      <View style={[styles.tripContent, { flexDirection: 'column', alignItems: 'center' }]}> 
+        <Text style={styles.tripTitle}>제작된 여행 플랜이 없어요</Text>
+        <Text style={[styles.tripDate, { marginTop: 8 }]}>나에게 맞춘 여행계획을 세워볼까요?</Text>
+      </View>
+    </View>
+  </View>
+) : (
             myTrips.map((trip, index) => (
               <View key={index} style={styles.tripRow}>
-                <View style={styles.tripBox}>
+                <View style={[styles.tripBox, { width: containerWidth - (isEditing ? 68 : 0) }]}>
                   <View style={styles.tripContent}>
                     <View>
                       <Text style={styles.tripTitle}>{trip.title}</Text>
@@ -97,12 +92,8 @@ export default function MyTripsScreen() {
                     <Text style={styles.dDayText}>{calculateDday(trip.startDate)}</Text>
                   </View>
                 </View>
-
                 {isEditing && (
-                  <TouchableOpacity
-                    style={styles.deleteButton}
-                    onPress={() => handleDeleteTrip(index)}
-                  >
+                  <TouchableOpacity style={styles.deleteButton} onPress={() => handleDeleteTrip(index)}>
                     <Text style={styles.deleteButtonText}>삭제</Text>
                   </TouchableOpacity>
                 )}
@@ -110,8 +101,7 @@ export default function MyTripsScreen() {
             ))
           )}
 
-          {/* 여행 플랜 만들기 버튼 */}
-          <TouchableOpacity style={styles.createBtn} onPress={onPressCreate}>
+          <TouchableOpacity style={[styles.createBtn, { width: containerWidth }]} onPress={onPressCreate}>
             <View style={styles.plusCircle}>
               <MaterialIcons name="add" size={21} color="#FFFFFF" />
             </View>
@@ -168,47 +158,26 @@ const styles = StyleSheet.create({
   editButton: {
     fontSize: 18,
     color: '#F97575',
-    marginRight: 15
+    marginRight: 15,
   },
   scrollContent: {
     paddingBottom: 40,
   },
-  emptyBox: {
-    borderWidth: 1,
-    borderColor: '#4F46E5',
-    borderRadius: 20,
+  tripRow: {
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    marginBottom: 12,
+    overflow: 'hidden',
+  },
+  tripBox: {
+    flex: 1,
+    backgroundColor: '#fff',
     paddingVertical: 28,
     paddingHorizontal: 20,
-    alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#8F80F3',
+    borderRadius: 12,
   },
-  emptyTitle: {
-    fontSize: 18,
-    fontWeight: '400',
-    color: '#373737',
-    marginBottom: 10,
-  },
-  emptySub: {
-    fontSize: 16,
-    color: '#7E7E7E',
-  },
-  tripRow: {
-  flexDirection: 'row',
-  alignItems: 'stretch',
-  marginBottom: 12,
-  overflow: 'hidden', // 🔹 양쪽 radius를 자연스럽게 이어주기 위함
-},
-
-  tripBox: {
-  flex: 1,
-  backgroundColor: '#fff',
-  paddingVertical: 28,
-  paddingHorizontal: 20,
-  borderWidth: 1,
-  borderColor: '#8F80F3',
-  borderRadius: 12,
-},
   tripContent: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -230,17 +199,17 @@ const styles = StyleSheet.create({
     color: '#4F46E5',
   },
   deleteButton: {
-  width: 60,
-  backgroundColor: '#F97575',
-  justifyContent: 'center',
-  alignItems: 'center',
-  borderRadius: 12,
-},
+    width: 60,
+    backgroundColor: '#F97575',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 12,
+  },
   deleteButtonText: {
     color: '#fff',
     fontSize: 16,
     fontWeight: '400',
-    fontStyle:'Roboto'
+    fontStyle: 'Roboto',
   },
   createBtn: {
     height: 48,
