@@ -30,7 +30,7 @@ export default function CommonHeader({ showDivider = true }) {
 
 const styles = StyleSheet.create({
   headerContainer: {
-    backgroundColor: '#FAFAFA',
+    backgroundColor: '#FFFFFF',
     paddingTop: 24,
     paddingHorizontal: 16,
   },
