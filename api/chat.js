@@ -4,7 +4,7 @@
 import axios from 'axios';
 
 // ✅ 실제 API 주소로 교체 필요
-const BASE_URL = 'http://ec2-54-180-25-3.ap-northeast-2.compute.amazonaws.com:8080';
+const BASE_URL = 'http://ec2-3-35-253-224.ap-northeast-2.compute.amazonaws.com:8080';
 
 // ✅ axios 인스턴스 생성: baseURL과 JSON Content-Type 설정
 const axiosInstance = axios.create({
@@ -50,29 +50,40 @@ export const createChatRoom = async (nickname, token) => {
  * - 현재 로그인한 사용자가 참여 중인 채팅방 리스트를 반환
  */
 export const fetchChatRooms = async (token) => {
-  const res = await axiosInstance.get('/chat/my/rooms', {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-  });
+  console.log('[fetchChatRooms 호출] 전달받은 토큰:', token);
+  try {
+    const res = await axiosInstance.get('/chat/my/rooms', {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
 
-    // ✅ 이 로그를 추가하세요
-  console.log('[원시 응답 원본]', JSON.stringify(res.data, null, 2));
+    // 응답 전체 구조 로깅
+    console.log('[원시 응답 원본]', JSON.stringify(res.data, null, 2));
 
-  // ✅ 백엔드 응답 필드명을 프론트에서 쓰는 형식으로 변환
-  return res.data.map((room) => ({
-    roomId: room.roomId,
-    nickname: room.otherUserNickname,     // ← 변환됨
-    profileUrl: room.otherUserImageUrl,   // ← 변환됨
-    unreadCount: room.unReadCount,        // ← 변환됨
-  }));
+    return res.data.map((room) => ({
+      roomId: room.roomId,
+      nickname: room.otherUserNickname,
+      profileUrl: room.otherUserImageUrl,
+      unreadCount: room.unReadCount,
+    }));
+  } catch (error) {
+    // 오류 로그 추가
+    console.log('[❌ fetchChatRooms 오류]', error);
+    if (error.response) {
+      console.log('[❌ 응답 status]', error.response.status);
+      console.log('[❌ 응답 data]', error.response.data);
+      console.log('[❌ 응답 headers]', error.response.headers);
+    }
+    throw error; // 상위에서 또 잡음
+  }
 };
 
 /**
  * 3. 채팅방 과거 메시지 조회
  * - roomId를 기반으로 과거 채팅 메시지를 조회
- *  응답에는 inReadUserCount가 포함되며, isRead는 프론트에서 계산 필요
- *  isRead = (inReadUserCount === 0
+ *  응답에는 unReadUserCount가 포함되며, isRead는 프론트에서 계산 필요
+ *  isRead = (unReadUserCount === 0
  */
 export const getChatHistory = async (roomId, token) => {
   const res = await axiosInstance.get(

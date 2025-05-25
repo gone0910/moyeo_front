@@ -30,34 +30,41 @@ export default function ChatListScreen() {
   const navigation = useNavigation();
 
   // ✅ 채팅방 리스트 불러오기
-  const loadChatRooms = async () => {
-    try {
-      const isMock = await AsyncStorage.getItem('mock');
-      if (isMock === 'true') {
-        console.log('[mock 모드] 더미 채팅방 사용');
-        setChatRooms(dummyChatRoomsData);
-        return;
-      }
-
-      const token = await AsyncStorage.getItem('jwt');
-      const result = await fetchChatRooms(token);
-
-        // ✅ 여기! 응답 구조 확인을 위해 로그 출력
-      console.log('[채팅방 리스트 응답]', JSON.stringify(result, null, 2));
-      
-      if (!Array.isArray(result)) throw new Error('서버 응답이 배열이 아님');
-      console.log('[✅ Chat API 응답 성공]', result);
-      setChatRooms(result);
-    } catch (err) {
-      console.warn('[❌ Chat API 로딩 실패]', err);
-        console.log('[❌ Chat 요청 URL]', '/chat/my/rooms');
-  console.log('[❌ Chat 요청 토큰]', token);
-  console.log('[❌ 응답 상태]', error.response?.status);
-  console.log('[❌ 응답 메시지]', error.response?.data?.message || error.message);
-      Alert.alert('채팅 목록 오류', '서버와 연결할 수 없어 더미 데이터를 사용합니다.');
+const loadChatRooms = async () => {
+  let token = null;
+  try {
+    const isMock = await AsyncStorage.getItem('mock');
+    if (isMock === 'true') {
+      console.log('[mock 모드] 더미 채팅방 사용');
       setChatRooms(dummyChatRoomsData);
+      return;
     }
-  };
+
+    token = await AsyncStorage.getItem('jwt');
+    console.log('[ChatListScreen] 불러온 토큰:', token);
+
+    const result = await fetchChatRooms(token);
+
+    // ✅ 응답 구조 출력
+    console.log('[채팅방 리스트 응답]', JSON.stringify(result, null, 2));
+
+    if (!Array.isArray(result)) throw new Error('서버 응답이 배열이 아님');
+    setChatRooms(result);
+  } catch (err) {
+    console.warn('[❌ Chat API 로딩 실패]', err);
+    console.log('[❌ Chat 요청 URL]', '/chat/my/rooms');
+    console.log('[❌ Chat 요청 토큰]', token);
+    if (err.response) {
+      console.log('[❌ 응답 상태]', err.response.status);
+      console.log('[❌ 응답 메시지]', err.response.data?.message || err.message);
+    } else {
+      console.log('[❌ 알 수 없는 오류]', err.message);
+    }
+    Alert.alert('채팅 목록 오류', '서버와 연결할 수 없어 더미 데이터를 사용합니다.');
+    setChatRooms(dummyChatRoomsData);
+  }
+};
+
 
   // ✅ 최초 로딩
   useEffect(() => {

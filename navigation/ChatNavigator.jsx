@@ -12,14 +12,7 @@ export default function ChatNavigator() {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen name="ChatListScreen" component={ChatListScreen} />
-      <Stack.Screen
-        name="ChatRoomScreen"
-        component={ChatRoomScreen}
-        options={{
-          // ✅ 하단탭 숨기기
-          presentation: 'card',
-        }}
-      />
+
     </Stack.Navigator>
   );
 }

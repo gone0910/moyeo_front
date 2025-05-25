@@ -8,7 +8,7 @@ import * as Linking from 'expo-linking';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // ✅ 백엔드 서버 주소 설정 auth.js도 똑같이 바꿔줘야함함
-const BASE_URL = 'http://ec2-54-180-25-3.ap-northeast-2.compute.amazonaws.com:8080';
+const BASE_URL = 'http://ec2-3-35-253-224.ap-northeast-2.compute.amazonaws.com:8080';
 
 /**
  * 1. OAuth2.0 로그인 요청

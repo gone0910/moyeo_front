@@ -25,11 +25,12 @@ let stompClient = null;
 /**
  * STOMP WebSocket 연결
  * @param {string} roomId - 채팅방 ID
- * @param {function} onMessage - 메시지 수신 시 호출될 콜백
+ * @param {function} onMessage - 메시지 수신 콜백
  * @param {string} token - JWT 토큰
- * @param {function} onConnected - 연결 성공 시 호출될 콜백
+ * @param {function} onConnected - 연결 완료 콜백
+ * @param {function} onReadNotice - 읽음 알림 수신 콜백 (선택적)
  */
-export const connectStompClient = (roomId, onMessage, token, onConnected) => {
+export const connectStompClient = (roomId, onMessage, token, onConnected, onReadNotice) => {
   console.log('🛰️ connectStompClient 실행됨', { roomId, token });
 
   if (!token) {
@@ -41,7 +42,7 @@ export const connectStompClient = (roomId, onMessage, token, onConnected) => {
     // ✅ RN에서 직접 SockJS 인스턴스를 반환
     webSocketFactory: () => {
       console.log('🌐 SockJS 인스턴스 생성');
-      return new SockJS('http://ec2-54-180-25-3.ap-northeast-2.compute.amazonaws.com:8080/connect');
+      return new SockJS('http://ec2-3-35-253-224.ap-northeast-2.compute.amazonaws.com:8080/connect');
     },
 
     connectHeaders: {
@@ -57,26 +58,25 @@ export const connectStompClient = (roomId, onMessage, token, onConnected) => {
     onConnect: () => {
       console.log('✅ STOMP 연결 성공 → 채팅방 구독 시작');
 
-      // ✅ 메시지 구독
+      // ✅ 메시지 수신 구독
       stompClient.subscribe(`/queue/${roomId}`, (message) => {
         const body = JSON.parse(message.body);
-
         if (!body.message || !body.sender || !body.timestamp) {
           console.warn('❗ 메시지 필드 누락 또는 잘못된 형식:', body);
           return;
         }
-
         console.log('📩 수신된 메시지:', body);
         onMessage(body);
-      },
-      {
-        // ✅ SUBSCRIBE에도 토큰 추가
-        Authorization: `Bearer ${token}`,
-      },
-      {
-        reconnectDelay: 0  // ❌ 자동 재연결 방지
+      }, { Authorization: `Bearer ${token}` });
+
+      // ✅ 📌 읽음 알림 수신 구독 추가
+      if (onReadNotice) {
+        stompClient.subscribe(`/queue/${roomId}/read`, (message) => {
+          const notice = JSON.parse(message.body);
+          console.log('📥 읽음 알림 수신:', notice);
+          onReadNotice(notice);
+        }, { Authorization: `Bearer ${token}` });
       }
-    );
 
       if (onConnected) {
         console.log('🔔 STOMP 연결 콜백 실행');

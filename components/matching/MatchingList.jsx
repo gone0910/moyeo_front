@@ -16,6 +16,7 @@ import { ENUM_TO_PROVINCE_KOR, ENUM_TO_CITY_KOR } from '../common/regionMap';
 import { GENDER_ENUM_TO_KOR, STYLE_ENUM_TO_KOR } from '../matching/utils/matchingUtils';
 
 
+
 // 🟡 더미 데이터 (mock 모드에서만 사용)
 const dummyMatches = [
   {
@@ -127,7 +128,7 @@ const MatchingList = () => {
                   <View style={styles.tagsContainer}>
                     {(item.tags || item.travelStyles)?.map((tag, i) => (
                       <View key={i} style={styles.tag}>
-                        <Text style={styles.tagText}>#{tag}</Text>
+                        <Text style={styles.tagText}>#{STYLE_ENUM_TO_KOR[tag] || tag}</Text>
                       </View>
                     ))}
                   </View>
@@ -233,15 +234,12 @@ const MatchingList = () => {
                         console.log('[✅ 응답 전체]', JSON.stringify(res, null, 2));
                         console.log('[채팅방 생성 응답]', res); // roomid 제대로 지정됐는지 확인필요.
 
-                        navigation.navigate('Chat', {
-                          screen: 'ChatRoomScreen',
-                          params: {
-                            roomId: res.roomId,
-                            nickname: res.nickname,
-                            profileUrl: res.profileUrl,
-                            origin: 'Matching', // ← 뒤로가기 분기용
-                          },
-                        });
+                        navigation.navigate('ChatRoomScreen', {
+                        roomId: res.roomId,
+                        nickname: res.nickname,
+                        profileUrl: res.profileUrl,
+                        origin: 'Matching',
+                      });;
 
                         setSelectedMatch(null); // 이건 navigate 이후에 실행
 
@@ -314,17 +312,27 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   modalBoxUpdated: {
-    width: 340,
+    width: '90%', // 디바이스 폭 90% (or 340 고정도 가능)
+    maxWidth: 400,
     backgroundColor: '#FFF',
-    borderRadius: 18,
-    padding: 20,
-    alignItems: 'flex-start', // 왼쪽 정렬
+    borderRadius: 20,
+    padding: 26,
+    alignItems: 'center', // 내부 모두 중앙정렬(필요시 flex-start로 변경)
+    // 그림자 효과
+    shadowColor: '#888',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.14,
+    shadowRadius: 22,
+    elevation: 9,
     position: 'relative',
   },
   modalProfileImageUpdated: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+    backgroundColor: '#ECECEC',
+    borderWidth: 2,
+    borderColor: '#E0E7FF',
   },
   matchImage: { width: 60, height: 60, borderRadius: 30, marginRight: 12 },
   matchName: { fontSize: 18, color: '#1E1E1E' },
@@ -340,53 +348,60 @@ const styles = StyleSheet.create({
   },
   modalCloseIcon: {
     position: 'absolute',
-    top: 12,
-    right: 12,
+    top: 14,
+    right: 14,
+    zIndex: 2,
   },
   modalHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 18,
+    width: '100%',
+    justifyContent: 'center',
   },
   modalUserName: {
-    fontSize: 20,
-    fontWeight: '600',
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: '#4F46E5',
+    marginLeft: 20,
   },
   modalDate: {
-    fontSize: 16,
-    color: '#555',
-    marginTop: 10,
+    fontSize: 15,
+    color: '#888',
+    marginTop: 6,
+    marginLeft: 20,
   },
   infoRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     width: '100%',
-    marginBottom: 16,
+    marginBottom: 13,
   },
   infoLabel: {
     fontSize: 16,
-    color: '#1E1E1E',
-    fontWeight: '500',
+    color: '#333',
+    fontWeight: '600',
+    width: 70,
+    marginTop: 7,
   },
   tagGroup: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    
-    justifyContent: 'flex-end',
+    gap: 8,
     flex: 1,
-    gap: 6,
+    marginLeft: 8,
   },
   infoTag1: {
     backgroundColor: '#ADB3DD',
     paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 8,
+    paddingVertical: 7,
+    borderRadius: 10,
     fontSize: 14,
     color: '#fff',
     minWidth: 60,
     textAlign: 'center',
-    left:-158
+    marginBottom: 4,
+    marginLeft: 8,
   },
   infoRow: {
     flexDirection: 'row',
@@ -411,64 +426,71 @@ const styles = StyleSheet.create({
   infoTag1: {
     backgroundColor: '#ADB3DD',
     paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 8,
+    paddingVertical: 7,
+    borderRadius: 10,
     fontSize: 14,
     color: '#fff',
     minWidth: 60,
     textAlign: 'center',
-    marginBottom: 6,
-    marginLeft: 12,
-  },
-  infoTag: {
-    backgroundColor: '#B3A4F7',
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 8,
-    fontSize: 14,
-    color: '#fff',
-    minWidth: 60,
-    textAlign: 'center',
-    marginBottom: 6,
+    marginBottom: 4,
+    marginLeft: 8,
   },
   infoTag2: {
+    backgroundColor: '#B3A4F7',
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 10,
+    fontSize: 14,
+    color: '#fff',
+    minWidth: 60,
+    textAlign: 'center',
+    marginBottom: 4,
+    marginLeft: 8,
+  },
+  infoTag3: {
     backgroundColor: '#F4F4FF',
     paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 8,
+    paddingVertical: 7,
+    borderRadius: 10,
     fontSize: 14,
     color: '#7E7E7E',
     minWidth: 60,
     textAlign: 'center',
     borderWidth: 1,
     borderColor: '#D6C9DF',
-    marginBottom: 6,
-    marginLeft: 12,
+    marginBottom: 4,
+    marginLeft: 8,
   },
-  infoTag3: {
+  infoTag4: {
     backgroundColor: '#B3A4F7',
     paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 8,
+    paddingVertical: 7,
+    borderRadius: 10,
     fontSize: 14,
     color: '#fff',
     minWidth: 60,
     textAlign: 'center',
-    marginBottom: 6,
-    marginLeft: 12,
+    marginBottom: 4,
+    marginLeft: 8,
   },
   chatButton: {
     backgroundColor: '#4F46E5',
-    marginTop: 20,
-    borderRadius: 10,
-    paddingVertical: 14,
+    marginTop: 25,
+    borderRadius: 14,
+    paddingVertical: 15,
     width: '100%',
     alignItems: 'center',
+    // 그림자 효과(버튼만)
+    shadowColor: '#7C3AED',
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.18,
+    shadowRadius: 10,
+    elevation: 5,
   },
   chatButtonText: {
     color: 'white',
-    fontSize: 16,
-    fontWeight: '500',
+    fontSize: 17,
+    fontWeight: '700',
   },
   buttonContainer: {
     position: "absolute",

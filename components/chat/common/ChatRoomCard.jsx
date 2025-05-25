@@ -20,28 +20,34 @@ export default function ChatRoomCard({ chat, isEditing, onDeletePress }) {
 
   return (
     <TouchableOpacity style={styles.card} onPress={handlePress}>
-      {/* ✅ 삭제 아이콘 (편집모드일 때만 표시) */}
+      {/* 프로필 이미지 */}
+      <Image source={{ uri: chat.profileUrl }} style={styles.avatar} />
+
+      {/* 닉네임 */}
+      <View style={styles.textWrapper}>
+        <Text style={styles.name}>{chat.nickname}</Text>
+      </View>
+
+      {/* 뱃지: 편집모드일 때만 marginLeft */}
+      {chat.unreadCount > 0 && (
+      <View
+        style={[
+          styles.badge,
+          isEditing && styles.badgeEditing, // 편집모드에서만 marginRight 추가
+        ]}
+      >
+        <Text style={styles.badgeText}>{chat.unreadCount}</Text>
+      </View>
+      )}
+
+      {/* 삭제 아이콘: 편집모드에서만 우측 */}
       {isEditing && (
         <TouchableOpacity onPress={onDeletePress} style={styles.deleteIconWrapper}>
           <MaterialIcons name="remove-circle" size={21} color="#FF7E7E" />
         </TouchableOpacity>
       )}
-
-      {/* ✅ 사용자 프로필 이미지 */}
-      <Image source={{ uri: chat.profileUrl }} style={[styles.avatar, isEditing && styles.avatarEditing]} />
-
-      {/* ✅ 사용자 이름 */}
-      <View style={[styles.textWrapper, isEditing && styles.textEditing]}>
-        <Text style={styles.name}>{chat.nickname}</Text>
-      </View>
-
-      {/* ✅ 안 읽은 메시지 수 뱃지 */}
-      {chat.unreadCount > 0 && (
-        <View style={styles.badge}>
-          <Text style={styles.badgeText}>{chat.unreadCount}</Text>
-        </View>
-      )}
     </TouchableOpacity>
+
   );
 }
 
@@ -57,7 +63,7 @@ const styles = StyleSheet.create({
   deleteIconWrapper: {
     position: 'absolute',
     top: '55%', // ✅ 상하 가운데 정렬을 위해 top 기준 50%
-    left: 8,
+    right: 8,
     zIndex: 1,
   },
   avatar: {
@@ -90,12 +96,8 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     fontSize: 12,
   },
+  badgeEditing: {
+    marginRight: 44,
+  },
 
-  // ✅ 편집 모드일 때만 적용되는 추가 스타일
-  avatarEditing: {
-    marginLeft: 44,
-  },
-  textEditing: {
-    marginLeft: 6,
-  },
 });
