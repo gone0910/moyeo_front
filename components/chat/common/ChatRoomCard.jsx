@@ -1,5 +1,4 @@
 // components/chat/common/ChatRoomCard.jsx  채팅 리스트에서 채팅방들을 카드로 보여주는 컴포넌트
-// components/chat/common/ChatRoomCard.jsx
 import React from 'react';
 import { View, Text, Image, StyleSheet, TouchableOpacity } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
@@ -10,9 +9,11 @@ export default function ChatRoomCard({ chat, isEditing, onDeletePress }) {
 
   const handlePress = () => {
     if (isEditing) return; // ✅ 편집모드일 때 채팅방 진입 방지
+
+    // ✅ 변경: 백엔드 명세서 기반 route.params 키 이름 수정
     navigation.navigate('ChatRoomScreen', {
-      chatId: chat.id,
-      name: chat.name,
+      roomId: chat.roomId, // ✅ 변경된 키 이름 및 값
+      nickname: chat.nickname,        // ✅ 변경된 키 이름
       profileUrl: chat.profileUrl,
     });
   };
@@ -31,7 +32,7 @@ export default function ChatRoomCard({ chat, isEditing, onDeletePress }) {
 
       {/* ✅ 사용자 이름 */}
       <View style={[styles.textWrapper, isEditing && styles.textEditing]}>
-        <Text style={styles.name}>{chat.name}</Text>
+        <Text style={styles.name}>{chat.nickname}</Text>
       </View>
 
       {/* ✅ 안 읽은 메시지 수 뱃지 */}
@@ -60,10 +61,10 @@ const styles = StyleSheet.create({
     zIndex: 1,
   },
   avatar: {
-    width: 60,
-    height: 60,
+    width: 56,
+    height: 56,
     borderRadius: 22,
-    marginRight: 16,
+    marginRight: 36,
     backgroundColor: '#E0E0E0',
   },
   textWrapper: {

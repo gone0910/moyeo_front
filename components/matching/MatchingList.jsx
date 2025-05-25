@@ -3,126 +3,141 @@
 // - API 연동일 경우: 백엔드에서 사용자 리스트 조회 후 표시
 // - 카드 클릭 시 상세정보를 모달로 출력
 // ✅ MatchingList.jsx - UI 전체 복원 및 API 연동 완성본
-
 import React, { useEffect, useState, useContext } from 'react';
-import {View,Text,Image,TouchableOpacity,Modal,ScrollView,Alert, StyleSheet,} from 'react-native';
+import {  View, Text, Image, TouchableOpacity,  Modal,  ScrollView, Alert, StyleSheet,} from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getMatchingList, getUserMatchingDetail } from '../../api/matching';
+import { createChatRoom } from '../../api/chat';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { UserContext } from '../../contexts/UserContext';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
-// 🔹 ENUM → 한글 변환을 위한 매핑 객체들
-import { GENDER_ENUM_TO_KOR, STYLE_ENUM_TO_KOR, AGE_ENUM_TO_KOR } from './utils/matchingUtils';
 import { ENUM_TO_PROVINCE_KOR, ENUM_TO_CITY_KOR } from '../common/regionMap';
+
 
 // 🟡 더미 데이터 (mock 모드에서만 사용)
 const dummyMatches = [
   {
     name: '김모여',
     date: '2025/4/20 ~ 2025/5/3',
+    tags: ['액티비티', '문화/관광', '맛집'],
     image: 'https://via.placeholder.com/60x60.png?text=1',
-    gender: 'MALE',
-    travelStyle: ['ACTIVITY', 'CULTURE', 'FOOD'],
-    ageGroup: 'TWENTIES',
-    mbti: 'INFP',
-    province: 'CHUNGBUK',
-    cities: ['CHEONGJU'],
+    gender: '남성',
+    travelStyle: ['액티비티', '문화/관광', '맛집'],
+    destination: '충북/청주시',
+    mbti: '선택안함',
   },
 ];
 
 const MatchingList = () => {
-  const [matches, setMatches] = useState([]);  // 🔹 동행자 리스트 상태
+  const [matches, setMatches] = useState([]); // 🔹 동행자 리스트 상태
   const [selectedMatch, setSelectedMatch] = useState(null); // 🔹 선택한 유저 상세정보 상태 (모달용)
   const navigation = useNavigation();
-  const { user } = useContext(UserContext); // 🔹 사용자 전역 (프로필 이미지 등에 사용)
+  const { user } = useContext(UserContext); // 🔹 사용자 컨텍스트 (프로필 이미지 등에 사용)
 
-
-  // mock / api 분기 처리: 사용자 리스트 불러오기
+  // ✅ 매칭 결과 리스트 불러오기 (mock 또는 실제 API)
   useEffect(() => {
     const fetchData = async () => {
       const isMock = await AsyncStorage.getItem('mock');
       if (isMock === 'true') {
+        console.log('[mock] 더미 데이터 사용');
         setMatches(dummyMatches);
         return;
       }
+
       const token = await AsyncStorage.getItem('jwt');
+      console.log('[현재 JWT]', token); // 정식 발급 토큰인지 확인
       const result = await getMatchingList(token);
-      if (!result) {
-        Alert.alert('에러', '서버 연결 실패');
+      console.log('[api 응답 확인] /matching/result:', result);
+
+      if (result === null) {
+        Alert.alert('에러', '서버 연결에 실패했습니다.');
       } else if (result.length === 0) {
+        console.log('[api 결과] 조건에 맞는 동행자 없음 → NoneList 이동');
         navigation.navigate('NoneList');
       } else {
+        console.log('[api 결과] 동행자 리스트:', result);
         setMatches(result);
       }
     };
     fetchData();
   }, []);
 
-  // mock / api 분기 처리: 상세 정보 요청 및 모달 표시
+  // ✅ 상세 정보 API 요청 및 모달 표시
   const handleCardPress = async (nickname) => {
+
     const isMock = await AsyncStorage.getItem('mock');
     if (isMock === 'true') {
+      // ✅ 더미 상세정보 반환
       const dummyDetail = dummyMatches.find((item) => item.name === nickname);
       setSelectedMatch(dummyDetail);
       return;
     }
     try {
-      const token = await AsyncStorage.getItem('jwtToken');
+      const token = await AsyncStorage.getItem('jwt');
       const detail = await getUserMatchingDetail(nickname, token);
+      console.log(`[api 응답 확인] /matching/profile (${nickname}):`, detail);
       setSelectedMatch(detail);
     } catch (error) {
-      Alert.alert('상세정보 조회 실패');
+      Alert.alert('상세정보 조회 실패', '다시 시도해주세요.');
+      console.error('[에러] /matching/profile 호출 실패:', error);
     }
-  };
-
-   // 성별, 나이, 여행 성향 ENUM → 한글로  역변환
-  const renderGender = (gender) => GENDER_ENUM_TO_KOR[gender] || gender;
-  const renderAgeGroup = (age) => AGE_ENUM_TO_KOR[age] || age;
-  const renderTravelStyles = (styleList) =>
-    Array.isArray(styleList)
-      ? styleList.map((style, i) => (
-          <Text key={i} style={styles.tagText}>
-            #{STYLE_ENUM_TO_KOR[style] || style}
-          </Text>
-        ))
-      : null;
-
-  // 🔹 지역 정보 ENUM → 한글 변환 (도/시)
-  const renderLocation = (user) => {
-    if (!user?.province || !Array.isArray(user?.cities)) return '지역 정보 없음';
-    const province = ENUM_TO_PROVINCE_KOR[user.province] || user.province;
-    const cityList = user.cities.map((code) => ENUM_TO_CITY_KOR[code] || code).join(', ');
-    return `${province} / ${cityList}`;
   };
 
   return (
     <View style={styles.container}>
-      <ScrollView>
-        {matches.map((item, index) => (
-          <TouchableOpacity
-            key={index}
-            onPress={() => handleCardPress(item.nickname || item.name)}
-          >
-            <View style={styles.matchBox}>
-              <Image
-                source={{ uri: item.image || item.imageUrl }}
-                style={styles.matchImage}
-              />
-              <View style={{ flex: 1 }}>
-                <Text style={styles.matchName}>{item.name || item.nickname}</Text>
-                <Text style={styles.matchDate}>{item.date || `${item.startDate} ~ ${item.endDate}`}</Text>
-                <Text style={styles.matchAge}>{renderAgeGroup(item.ageGroup)}</Text>
-                <View style={styles.tagsContainer}>
-                  {renderTravelStyles(item.travelStyle || item.travelStyles)}
+      {/* ✅ 상단 헤더 (로고 + 프로필 이미지) */}
+      <View style={styles.headerWrapper}>
+        <Text style={styles.logoText} numberOfLines={1} adjustsFontSizeToFit>moyeo </Text>
+        <TouchableOpacity onPress={() => navigation.navigate('ProfileHome', user)}>
+          {user?.profileImageUrl ? (
+            <Image source={{ uri: user.profileImageUrl }} style={styles.profileImage} />
+          ) : (
+            <View style={styles.profilePlaceholder} />
+          )}
+        </TouchableOpacity>
+      </View>
+      <View style={styles.headerLine} />
+
+      {/* ✅ 안내 문구 + 리스트 출력 */}
+      <View style={{ flex: 1, backgroundColor: '#F9F9F9' }}>
+        <ScrollView contentContainerStyle={{ paddingTop: 10, paddingHorizontal: 16, paddingBottom: 100 }}>
+          {/* 🔹 안내 메시지 박스 */}
+          <View style={{ backgroundColor: '#CECCF5', padding: 16, borderRadius: 12, marginBottom: 26 }}>
+            <Text style={{ color: '#616161', fontSize: 16, textAlign: 'center',top:-3 }}>나와 여행 스타일이 유사한 사용자들이에요</Text>
+            <Text style={{ color: '#616161', fontSize: 16, textAlign: 'center', top: 3 }}>함께 여행갈 사람을 찾아볼까요?</Text>
+          </View>
+
+          {/* 🔹 NoneList로 이동 (테스트용 버튼) */}
+          <View style={styles.buttonContainer}>
+            <TouchableOpacity style={styles.NoneListButton} onPress={() => navigation.navigate('NoneList')}>
+              <Ionicons name="rocket-outline" size={24} color="white" />
+            </TouchableOpacity>
+          </View>
+
+          {/* 🔹 동행자 리스트 출력 */}
+          {matches.map((item, index) => (
+            <TouchableOpacity key={index} onPress={() => handleCardPress(item.nickname || item.name)}>
+              <View style={styles.matchBox}>
+                <Image source={{ uri: item.image || item.imageUrl }} style={styles.matchImage} />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.matchName}>{item.name || item.nickname}</Text>
+                  <Text style={styles.matchDate}>{item.date || `${item.startDate} ~ ${item.endDate}`}</Text>
+                  <View style={styles.tagsContainer}>
+                    {(item.tags || item.travelStyles)?.map((tag, i) => (
+                      <View key={i} style={styles.tag}>
+                        <Text style={styles.tagText}>#{tag}</Text>
+                      </View>
+                    ))}
+                  </View>
                 </View>
               </View>
-            </View>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
-      
-      {/* 사용자 모달 화면 */}
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      </View>
+
+      {/* ✅ 모달 (선택한 사용자 상세정보 출력) */}
       <Modal
         visible={!!selectedMatch}
         transparent
@@ -134,49 +149,109 @@ const MatchingList = () => {
             <View style={styles.modalBoxUpdated}>
               {selectedMatch && (
                 <>
-                  <TouchableOpacity
-                    style={styles.modalCloseIcon}
-                    onPress={() => setSelectedMatch(null)}
-                  >
+                  {/* 🔹 모달 닫기 버튼 */}
+                  <TouchableOpacity style={styles.modalCloseIcon} onPress={() => setSelectedMatch(null)}>
                     <Ionicons name="close" size={24} color="#333" />
                   </TouchableOpacity>
 
+                  {/* 🔹 모달 상단 유저 이미지/닉네임 */}
                   <View style={styles.modalHeader}>
-                    <Image
-                      source={{ uri: selectedMatch.image || selectedMatch.imageUrl }}
-                      style={styles.modalProfileImageUpdated}
-                    />
+                    <Image source={{ uri: selectedMatch.image || selectedMatch.imageUrl }} style={styles.modalProfileImageUpdated} />
                     <View style={{ marginLeft: 16 }}>
                       <Text style={styles.modalUserName}>{selectedMatch.name || selectedMatch.nickname}</Text>
                       <Text style={styles.modalDate}>{selectedMatch.date || `${selectedMatch.startDate} ~ ${selectedMatch.endDate}`}</Text>
                     </View>
                   </View>
-                  
-                  {/* 🔹 성별 출력 */}
+
+                  {/* 🔹 성별 */}
                   <View style={styles.infoRow}>
                     <Text style={styles.infoLabel}>성별</Text>
-                    <Text style={styles.infoTag1}>{renderGender(selectedMatch.gender)}</Text>
+                    <Text style={styles.infoTag1}>{selectedMatch.gender}</Text>
                   </View>
 
-                  {/* 🔹 나이 출력 */}
-                  <View style={styles.infoRow}>
-                    <Text style={styles.infoLabel}>나이</Text>
-                    <Text style={styles.infoTag1}>{renderAgeGroup(selectedMatch.ageGroup)}</Text>
-                  </View>
-
-                  {/* 🔹 여행 성향 출력 */}
+                  {/* 🔹 여행 성향 */}
                   <View style={styles.infoRow}>
                     <Text style={styles.infoLabel}>여행 성향</Text>
                     <View style={styles.tagGroup}>
-                      {renderTravelStyles(selectedMatch.travelStyle || selectedMatch.travelStyles)}
+                      {(selectedMatch.travelStyle || selectedMatch.travelStyles)?.map((style, idx) => (
+                        <Text key={idx} style={styles.infoTag2}>#{style}</Text>
+                      ))}
                     </View>
                   </View>
 
-                  {/* 🔹 지역 출력 */}
+                  {/* 🔹 목적지, 백엔드에서 받은 ENUM 값 한글로 변환 */}
                   <View style={styles.infoRow}>
-                    <Text style={styles.infoLabel}>지역</Text>
-                    <Text style={styles.infoTag3}>{renderLocation(selectedMatch)}</Text>
+                    <Text style={styles.infoLabel}>목적지</Text>
+                    <Text style={styles.infoTag3}>
+                      {selectedMatch.destination ||
+                           `${ENUM_TO_PROVINCE_KOR[selectedMatch.province] || selectedMatch.province} / ${
+                            (selectedMatch.cities || [])
+                              .map((code) => ENUM_TO_CITY_KOR[code] || code)
+                              .join(', ')
+                          }`
+                      }
+                    </Text>
                   </View>
+
+                  {/* 🔹 MBTI */}
+                  <View style={styles.infoRow}>
+                    <Text style={styles.infoLabel}>MBTI</Text>
+                    <Text style={styles.infoTag4}>{selectedMatch.mbti}</Text>
+                  </View>
+
+                  {/* 🔹 채팅 버튼 */}
+                  <TouchableOpacity
+                    style={styles.chatButton}
+                    onPress={async () => {
+                      const isMock = await AsyncStorage.getItem('mock');
+                      if (isMock === 'true') {
+                        // 🔹 mock 모드 → 채팅방 화면으로 더미 정보 전달
+                        navigation.navigate('Chat', {
+                          screen: 'ChatRoomScreen',
+                          params: {
+                            roomId: 'mock-room',
+                            nickname: selectedMatch.nickname || selectedMatch.name,
+                            profileUrl: selectedMatch.image || selectedMatch.imageUrl,
+                          },
+                        });
+                        return;
+                      }
+
+                      try {
+                        const token = await AsyncStorage.getItem('jwt');
+                        const nickname = selectedMatch.nickname.trim(); // ← 이 줄 추가
+
+    console.log('[nickname 전달]', `"${nickname}"`); // ✅ 여기
+    console.log('[nickname 전달]', `"${selectedMatch.nickname}"`);
+    console.log(
+      '[요청 주소]',
+      `http://ec2-54-180-25-3.ap-northeast-2.compute.amazonaws.com:8080/chat/room/create?otherUserNickname=${encodeURIComponent(nickname)}`
+    );
+
+                        const res = await createChatRoom(nickname, token); // 실제 API
+                        console.log('[✅ 응답 전체]', JSON.stringify(res, null, 2));
+                        console.log('[채팅방 생성 응답]', res); // roomid 제대로 지정됐는지 확인필요.
+
+                        navigation.navigate('Chat', {
+                          screen: 'ChatRoomScreen',
+                          params: {
+                            roomId: res.roomId,
+                            nickname: res.nickname,
+                            profileUrl: res.profileUrl,
+                            origin: 'Matching', // ← 뒤로가기 분기용
+                          },
+                        });
+
+                        setSelectedMatch(null); // 이건 navigate 이후에 실행
+
+                      } catch (error) {
+                        Alert.alert('채팅방 생성 실패', '잠시 후 다시 시도해주세요.');
+                        console.error('[에러] 채팅방 생성 실패:', error);
+                      }
+                    }}
+                  >
+                    <Text style={styles.chatButtonText}>동행을 위해 채팅하기</Text>
+                  </TouchableOpacity>
                 </>
               )}
             </View>
@@ -188,7 +263,6 @@ const MatchingList = () => {
 };
 
 export default MatchingList;
-
 
 
 const styles = StyleSheet.create({

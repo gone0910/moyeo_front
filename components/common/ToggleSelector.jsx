@@ -96,7 +96,7 @@ const styles = StyleSheet.create({
   small: {
     width: 76,
     height: 32,
-    borderRadius: 12,
+    borderRadius: 20,
   },
   middle: { // Added middle size style
     width: 95,
