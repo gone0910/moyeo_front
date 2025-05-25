@@ -46,10 +46,21 @@ export default function HomeScreen() {
       {/* 헤더 */}
       <View style={styles.headerWrapper}>
         <Text style={styles.logoText} numberOfLines={1} adjustsFontSizeToFit>moyeo </Text>
-        {/*임시 로그아웃 */}
+
+        {/*임시 로그아웃 + 임시 챗봇 */}
+        <TouchableOpacity
+          style={{ marginRight: 8 }} // 적당히 띄우기
+          onPress={() => navigation.navigate('ChatBot')}
+        >
+          <MaterialIcons name="smart-toy" size={24} color="#4F46E5" />
+        </TouchableOpacity>
+
         <TouchableOpacity onPress={handleLogout}>
             <Feather name="log-out" size={24} color="#4B5563" />
           </TouchableOpacity>
+        <View style={styles.profileContainer}>
+          
+        </View>
         <View style={styles.profileContainer}>
           <TouchableOpacity onPress={() => navigation.navigate('ProfileHome', user)}>
             {user?.profileImageUrl ? (

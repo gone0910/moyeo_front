@@ -4,7 +4,7 @@
 import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import ChatListScreen from '../components/chat/ChatListScreen';
-import ChatRoomScreen from '../components/chat/ChatRoomScreen';
+// import ChatRoomScreen from '../components/chat/ChatRoomScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -12,14 +12,7 @@ export default function ChatNavigator() {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen name="ChatListScreen" component={ChatListScreen} />
-      <Stack.Screen
-        name="ChatRoomScreen"
-        component={ChatRoomScreen}
-        options={{
-          // ✅ 하단탭 숨기기
-          presentation: 'card',
-        }}
-      />
+
     </Stack.Navigator>
   );
 }
