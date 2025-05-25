@@ -11,6 +11,8 @@ import MatchingList from '../components/matching/MatchingList';
 import NoneList from '../components/matching/NoneList';
 import PlannerScreen from '../components/planner/PlannerScreen';
 import PlannerInfoScreen from '../components/planner/PlannerInfoScreen';
+import PlannerResponseHome from '../components/planner/PlannerResponseHome';
+import PlaceDetailScreen from '../components/planner/PlaceDetailScreen';
 const Stack = createNativeStackNavigator();
 
 export default function HomeNavigator() {
@@ -24,6 +26,8 @@ export default function HomeNavigator() {
       <Stack.Screen name="NoneList" component={NoneList} />
       <Stack.Screen name="Planner" component={PlannerScreen} />
       <Stack.Screen name="PlannerInfo" component={PlannerInfoScreen} />
+      <Stack.Screen name="PlannerResponse" component={PlannerResponseHome} options={{ tabBarStyle: { display: 'none' } }}/>
+      <Stack.Screen name="PlaceDetail" component={PlaceDetailScreen} />
     </Stack.Navigator>
   );
 }

@@ -29,7 +29,7 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    gap: 8,           // 버튼 사이 여백
+    gap: 4,           // 버튼 사이 여백
   },
   toggle: {
     borderWidth: 1,
@@ -45,7 +45,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#B3A4F7',
   },
   large: {
-    width: 77,
+    width: 80,
     height: 40,
     borderRadius: 12,
   },

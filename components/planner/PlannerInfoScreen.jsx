@@ -15,16 +15,17 @@ import { Animated } from 'react-native';
 import ToggleSelector from '../common/ToggleSelector';
 import ToggleSelector3 from '../common/ToggleSelector3';
 import Slider from '@react-native-community/slider';
-import { createSchedule } from '../../api/createSchedule';
+//import { createSchedule } from '../../api/createSchedule';
 import { useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-//import { planner_create_request } from '../../api/planner_create_request';
+import { planner_create_request } from '../../api/planner_create_request';
+import { saveCacheData, CACHE_KEYS } from '../../caching/cacheService';
 import axios from 'axios';
 
 export default function PlannerInfoScreen() {
-  useEffect(() => {
-    AsyncStorage.setItem('token', 'mock-token');
-  }, []);
+  //useEffect(() => {
+  //  AsyncStorage.setItem('token', 'mock-token');
+  //}, []);
   const { user } = useContext(UserContext);
   const [startDate, setStartDate] = useState(null);
   const [endDate, setEndDate] = useState(null);
@@ -224,33 +225,35 @@ export default function PlannerInfoScreen() {
     // 목적지 선택 (도시 > 지역 우선)
     const destination = [];
 
-    if (selectedRegion && Province[selectedRegion]) {
-      destination.push(Province[selectedRegion]); // 예: 'SEOUL'
-    }
-    
-    if (selectedCity && City[selectedCity]) {
-      destination.push(City[selectedCity]); // 예: 'GANGBUK_GU'
-    }
-    
-    if (destination.length === 0) {
-      destination.push('NONE');
-    }
+if (selectedCity && City[selectedCity]) {
+  // 시/구/군이 선택된 경우
+  destination.push(City[selectedCity]);
+} else if (selectedRegion && Province[selectedRegion]) {
+  // 도/광역시만 선택된 경우
+  // -> 서버에선 허용 X (보내지 말 것)
+  // destination.push(Province[selectedRegion]);  // 주석 처리 또는 제거
+}
+
+if (destination.length === 0) {
+  destination.push('NONE');
+}
     const MBTI = selectedMbti === '선택안함' || !selectedMbti ? 'NONE' : selectedMbti;
 
   
-    const travelStyle = selectedTravelStyles.length === 0
-  ? ['NONE']
-  : selectedTravelStyles.map((style) => TravelStyle[style]).filter(Boolean);
+    const travelStyle =
+  selectedTravelStyles.length === 0
+    ? 'NONE'
+    : TravelStyle[selectedTravelStyles[0]] || 'NONE';
 
   
     const groupMap = {
-      '선택안함': 'NONE',
-      '혼자': 'ALONE',
-      '단둘이': 'COUPLE',
-      '여럿이': 'GROUP',
-    };
+  '선택안함': 'NONE',
+  '혼자': 'SOLO',    // <- ✅
+  '단둘이': 'DUO',   // <- ✅
+  '여럿이': 'GROUP', // (OK)
+};
     const peopleGroup = groupMap[selectedItems.group] || 'NONE';
-/*
+
   const requestData = {
   startDate,
   endDate,
@@ -268,9 +271,10 @@ export default function PlannerInfoScreen() {
         Alert.alert('실패', '로그인이 필요합니다.');
         return;
       }
+      console.log('📤 requestData:', JSON.stringify(requestData, null, 2));
 
       const response = await axios.post(
-        'http://ec2-54-180-25-3.ap-northeast-2.compute.amazonaws.com:8080/gpt/schedule/detail/create',
+        'http://ec2-3-35-253-224.ap-northeast-2.compute.amazonaws.com:8080/schedule/create',
         requestData,
         {
           headers: {
@@ -281,37 +285,27 @@ export default function PlannerInfoScreen() {
       );
 
       if (response.status === 200) {
-        console.log('✅ 일정 생성 성공:', response.data);
-        Alert.alert('성공', '일정 생성이 완료되었습니다!');
-        navigation.navigate('PlannerResponse');
-      } else {
-        Alert.alert('실패', '일정 생성 실패');
+  // [1] 일정 생성 응답 로그
+  console.log('✅ 일정 생성 성공:', response.data);
+
+  // [2] 캐시 저장
+  await saveCacheData(CACHE_KEYS.PLAN_INITIAL, response.data);
+
+  // [3] 캐싱된 값 확인 (디버깅)
+  const check = await AsyncStorage.getItem(CACHE_KEYS.PLAN_INITIAL);
+  console.log('🧐 저장된 PLAN_INITIAL 값:', JSON.stringify(JSON.parse(check), null, 2));
+
+  // [4] 화면 이동
+  setTimeout(() => {
+    navigation.navigate('PlannerResponse');
+  }, 500);
+} else {
       }
     } catch (error) {
       console.error('❌ 예외 발생:', error.response?.data || error.message);
-      Alert.alert('오류', '서버 요청 중 문제가 발생했습니다.');
-    } */
-
-    console.log('📤 API 요청 전 데이터:', {
-      startDate,
-      endDate,
-      destination,
-      MBTI,
-      travelStyle,
-      peopleGroup,
-      budget,
-    });
+    } 
   
-    await createSchedule(
-      startDate,
-      endDate,
-      destination,
-      MBTI,
-      travelStyle,
-      peopleGroup,
-      budget
-    );
-    /*await planner_create_request(
+    /*const result = await createSchedule(
       startDate,
       endDate,
       destination,
@@ -320,7 +314,26 @@ export default function PlannerInfoScreen() {
       peopleGroup,
       budget
     );*/
+    await planner_create_request(
+      startDate,
+      endDate,
+      destination,
+      MBTI,
+      travelStyle,
+      peopleGroup,
+      budget
+    );
+    if (result) {
+      console.log('📦 PLAN_INITIAL 캐싱 저장 시작...');
+      await saveCacheData(CACHE_KEYS.PLAN_INITIAL, result);
+      console.log('✅ PLAN_INITIAL 캐싱 완료!');
+    
+      // 🔍 확인용 출력
+      const check = await AsyncStorage.getItem(CACHE_KEYS.PLAN_INITIAL);
+      console.log('🧐 저장된 PLAN_INITIAL 값:', JSON.stringify(JSON.parse(check), null, 2));
+}
   };
+  
   
 
   const [selectedItems, setSelectedItems] = useState({
@@ -815,8 +828,8 @@ export default function PlannerInfoScreen() {
         ]}
         disabled={!isDateSelected}
         onPress={() => {
-        handleCreateSchedule();             // ✅ API 요청
-        navigation.navigate('PlannerResponse'); // ✅ 화면 전환
+        handleCreateSchedule();            
+        navigation.navigate('PlannerResponse'); 
     }}
       >
         <Text
@@ -879,7 +892,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: 105,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#Fafafa',
     zIndex: 10,
     paddingTop: 20,
   },
@@ -1101,10 +1114,10 @@ const styles = StyleSheet.create({
     color: '#333',
   },
   customPlanButtonContainer: {
-  position: 'absolute',
-  bottom: 30,
-  width: '100%',
-  paddingHorizontal: 20,
+   position: 'absolute',
+    bottom: 35,
+    left: 16,
+    right: 16,
 },
 
 customPlanButton: {
