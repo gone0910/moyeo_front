@@ -20,11 +20,10 @@ const calculateDday = (startDate) => {
 
 export default function MyTripsScreen() {
   const navigation = useNavigation();
-  const { width, height } = useWindowDimensions();
+  const { width } = useWindowDimensions();
 
   const [isEditing, setIsEditing] = useState(false);
   const [myTrips, setMyTrips] = useState([
-    // 빈 배열로 테스트하려면 이 배열을 []로 바꾸세요.
     {
       title: '경주 여행',
       startDate: '2025-04-20',
@@ -70,15 +69,15 @@ export default function MyTripsScreen() {
 
         <ScrollView contentContainerStyle={[styles.scrollContent, { alignItems: 'center' }]} showsVerticalScrollIndicator={false}>
           {myTrips.length === 0 ? (
-  <View style={styles.tripRow}>
-    <View style={[styles.tripBox, { width: containerWidth, alignItems: 'center' }]}> 
-      <View style={[styles.tripContent, { flexDirection: 'column', alignItems: 'center' }]}> 
-        <Text style={styles.tripTitle}>제작된 여행 플랜이 없어요</Text>
-        <Text style={[styles.tripDate, { marginTop: 8 }]}>나에게 맞춘 여행계획을 세워볼까요?</Text>
-      </View>
-    </View>
-  </View>
-) : (
+            <View style={styles.tripRow}>
+              <View style={[styles.tripBox, { width: containerWidth, alignItems: 'center' }]}>
+                <View style={[styles.tripContent, { flexDirection: 'column', alignItems: 'center' }]}>
+                  <Text style={styles.tripTitle}>제작된 여행 플랜이 없어요</Text>
+                  <Text style={[styles.tripDate, { marginTop: 8 }]}>나에게 맞춘 여행계획을 세워볼까요?</Text>
+                </View>
+              </View>
+            </View>
+          ) : (
             myTrips.map((trip, index) => (
               <View key={index} style={styles.tripRow}>
                 <View style={[styles.tripBox, { width: containerWidth - (isEditing ? 68 : 0) }]}>
@@ -101,12 +100,33 @@ export default function MyTripsScreen() {
             ))
           )}
 
-          <TouchableOpacity style={[styles.createBtn, { width: containerWidth }]} onPress={onPressCreate}>
-            <View style={styles.plusCircle}>
-              <MaterialIcons name="add" size={21} color="#FFFFFF" />
+          {/* ✅ 2단 wrapper 구조로 둥근 굴곡 + 그림자 구현 */}
+          <View style={{
+            width: containerWidth,
+            borderRadius: 30,
+            marginTop: 20,
+            marginBottom: 30,
+            backgroundColor: 'transparent',
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.1,
+            shadowRadius: 10,
+            elevation: 2,
+          }}>
+            <View style={{
+              backgroundColor: '#fff',
+              borderRadius: 30,
+              overflow: 'hidden',
+            }}>
+              <TouchableOpacity style={[styles.createBtn, { borderRadius: 30 }]} onPress={onPressCreate}>
+                <View style={styles.plusCircle}>
+                  <MaterialIcons name="add" size={21} color="#FFFFFF" />
+                </View>
+                <Text style={styles.createText}>여행 플랜 만들러 가기</Text>
+              </TouchableOpacity>
             </View>
-            <Text style={styles.createText}>여행 플랜 만들러 가기</Text>
-          </TouchableOpacity>
+          </View>
+
         </ScrollView>
       </View>
     </View>
@@ -213,23 +233,15 @@ const styles = StyleSheet.create({
   },
   createBtn: {
     height: 48,
-    borderRadius: 20,
     backgroundColor: '#FFFFFF',
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 1,
-    elevation: 2,
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 36,
-    marginTop: 20,
-    marginBottom: 30,
   },
   plusCircle: {
     width: 36,
     height: 36,
-    borderRadius: 16,
+    borderRadius: 18,
     backgroundColor: '#4F46E5',
     alignItems: 'center',
     justifyContent: 'center',

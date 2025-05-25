@@ -1,6 +1,5 @@
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Alert } from 'react-native';
 
 export const createSchedule = async (
   startDate,
@@ -13,6 +12,7 @@ export const createSchedule = async (
 ) => {
   try {
     const token = await AsyncStorage.getItem('token');
+    console.log('🔑 토큰값:', token);
     if (!token) {
       console.warn('❌ 토큰 없음');
       return;
@@ -23,7 +23,7 @@ export const createSchedule = async (
       endDate,
       destination: destination[0],
       mbti,
-      travelStyle: travelStyle[0],
+      travelStyle,
       peopleGroup,
       budget,
     };
@@ -31,7 +31,7 @@ export const createSchedule = async (
     console.log('📤 실제 요청 데이터:', requestData);
 
     const response = await axios.post(
-      'https://your-api-server.com/gpt/schedule/detail/create',
+      'http://ec2-3-35-253-224.ap-northeast-2.compute.amazonaws.com:8080/schedule/create',
       requestData,
       {
         headers: {
@@ -43,14 +43,11 @@ export const createSchedule = async (
 
     if (response.status === 200) {
       console.log('✅ 실제 서버 응답:', response.data);
-      Alert.alert('성공', '일정 생성이 완료되었습니다!');
       return response.data;
     } else {
       console.warn('⚠️ 실패 응답:', response.status);
-      Alert.alert('실패', '일정 생성 실패');
     }
   } catch (error) {
     console.error('❌ 예외 발생:', error.response?.data || error.message);
-    Alert.alert('오류', '서버 요청 중 문제가 발생했습니다.');
   }
 };
