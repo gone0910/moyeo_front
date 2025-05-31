@@ -1,13 +1,16 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Platform, Dimensions } from 'react-native';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import { WebView } from 'react-native-webview';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
-
-// ✅ 환경변수 import
+import { saveCacheData, getCacheData, CACHE_KEYS } from '../../caching/cacheService';
 import { KAKAO_REST_API_KEY, KAKAO_JS_KEY } from '@env';
-console.log('KAKAO_JS_KEY:', KAKAO_JS_KEY);
+
+const { height: SCREEN_HEIGHT } = Dimensions.get('window');
+const CARD_RATIO = 0.35; // 35%가 카드, 65%가 지도
+const CARD_HEIGHT = SCREEN_HEIGHT * CARD_RATIO;
+const MAP_HEIGHT = SCREEN_HEIGHT * (1 - CARD_RATIO);
 
 export default function PlaceDetailScreen() {
   const route = useRoute();
@@ -28,11 +31,8 @@ export default function PlaceDetailScreen() {
 
   const defaultLat = lat || 33.450701;
   const defaultLng = lng || 126.570667;
-
-  // ✅ 도로명 주소 보완용 상태값
   const [resolvedAddress, setResolvedAddress] = useState(address);
 
-  // ✅ Kakao REST API로 도로명 주소 자동 조회
   useEffect(() => {
     const fetchAddressFromCoords = async () => {
       try {
@@ -41,7 +41,7 @@ export default function PlaceDetailScreen() {
             `https://dapi.kakao.com/v2/local/geo/coord2address.json?x=${lng}&y=${lat}`,
             {
               headers: {
-                Authorization: KAKAO_REST_API_KEY, // 환경변수 사용
+                Authorization: KAKAO_REST_API_KEY,
               },
             }
           );
@@ -49,18 +49,23 @@ export default function PlaceDetailScreen() {
           const fullAddr =
             data.documents?.[0]?.road_address?.address_name ||
             data.documents?.[0]?.address?.address_name;
-
           if (fullAddr) setResolvedAddress(fullAddr);
         }
       } catch (e) {
         console.warn('📛 주소 변환 실패:', e);
       }
     };
-
     fetchAddressFromCoords();
   }, []);
 
-  // ✅ Kakao 지도 HTML 코드
+  useEffect(() => { saveCacheData(CACHE_KEYS.PLAN_DETAIL, place); }, [place]);
+  useEffect(() => {
+    (async () => {
+      const detail = await getCacheData(CACHE_KEYS.PLAN_DETAIL);
+      console.log('PLAN_DETAIL:', detail);
+    })();
+  }, []);
+
   const mapHtml = `
     <!DOCTYPE html>
     <html>
@@ -71,8 +76,10 @@ export default function PlaceDetailScreen() {
         html, body, #map {
           margin: 0;
           padding: 0;
-          width: 100%;
-          height: 100%;
+          width: 100vw;
+          height: 100vh;
+          border-radius: 0px;
+          overflow: hidden;
         }
       </style>
       <script>
@@ -81,16 +88,13 @@ export default function PlaceDetailScreen() {
             alert('❌ Kakao SDK 로드 실패');
             return;
           }
-
           var map = new kakao.maps.Map(document.getElementById('map'), {
             center: new kakao.maps.LatLng(${defaultLat}, ${defaultLng}),
             level: 1
           });
-
           var marker = new kakao.maps.Marker({
             position: new kakao.maps.LatLng(${defaultLat}, ${defaultLng})
           });
-
           marker.setMap(map);
         }
       </script>
@@ -103,130 +107,166 @@ export default function PlaceDetailScreen() {
   `;
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#F4F6FB' }}>
       <View style={styles.screen}>
-        {/* 상단 바 */}
-        <View style={styles.headerLine}>
-          <TouchableOpacity onPress={() => navigation.goBack()}>
-            <Ionicons name="chevron-back" size={24} color="black" />
-          </TouchableOpacity>
-          <View style={{ width: 24 }} />
-        </View>
-
         {/* 지도 */}
-        <View style={styles.mapContainer}>
+        <View style={[styles.mapBox, { height: MAP_HEIGHT }]}>
           <WebView
             originWhitelist={['*']}
             source={{ html: mapHtml }}
-            style={{ height: 200, width: '100%' }}
+            style={styles.map}
             javaScriptEnabled
             domStorageEnabled
             mixedContentMode="always"
             allowFileAccess
             allowUniversalAccessFromFileURLs
             useWebKit
+            scrollEnabled={false}
             scalesPageToFit
           />
+          {/* 뒤로가기 버튼 (지도 위에 고정) */}
+          <TouchableOpacity
+            onPress={() => navigation.goBack()}
+            style={styles.backButton}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="chevron-back" size={24} color="#fff" />
+          </TouchableOpacity>
         </View>
-
-        {/* 주소 */}
-        {resolvedAddress ? (
-          <View style={styles.addressRow}>
-            <Ionicons name="location-outline" size={20} color="#4F46E5" style={{ marginRight: -16 }} />
-            <Text style={styles.address}>{resolvedAddress}</Text>
-          </View>
-        ) : null}
-
-        {/* 이름 + 비용 */}
-        <View style={styles.titleRow}>
-          <Text style={styles.title}>{name}</Text>
-          <Text style={styles.cost}>
-            {estimatedCost ? `${estimatedCost.toLocaleString()}원` : ''}
-          </Text>
-        </View>
-
-        {/* 카테고리 */}
-        {type ? (
-          <Text style={styles.type}>{type}</Text>
-        ) : null}
-
-        {/* 한 줄 설명 */}
-        {description ? (
-          <View style={styles.descBox}>
+        {/* 카드 */}
+        <View style={[styles.infoCard, { height: CARD_HEIGHT }]}>
+          {/* 상단: 장소명/카테고리/가격 */}
+          <View style={styles.row}>
+  <View style={{ flexDirection: 'row', alignItems: 'center', flexShrink: 1 }}>
+    <Text style={styles.placeName}>{name}</Text>
+    {type && (
+      <Text style={styles.type}>{type}</Text>
+    )}
+  </View>
+  {estimatedCost ? (
+    <Text style={styles.cost}>{estimatedCost.toLocaleString()}원</Text>
+  ) : null}
+</View>
+          {/* 설명 */}
+          {description ? (
             <Text style={styles.description}>{description}</Text>
-          </View>
-        ) : null}
+          ) : null}
+          {/* 하단 주소 */}
+          {resolvedAddress ? (
+            <View style={styles.addressRow}>
+              <Ionicons name="location-outline" size={17} color="#4F46E5" style={{ marginRight: 3 }} />
+              <Text style={styles.address}>{resolvedAddress}</Text>
+            </View>
+          ) : null}
+        </View>
       </View>
     </SafeAreaView>
   );
 }
 
+const CARD_RADIUS = 18;
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#FAFAFA' },
-  screen: { flex: 1, backgroundColor: '#FAFAFA' },
-  headerLine: {
-    height: 48,
-    width: '90%',
-    alignSelf: 'center',
-    flexDirection: 'row',
+  screen: {
+    flex: 1,
     alignItems: 'center',
-    justifyContent: 'space-between',
-    borderBottomWidth: 1,
-    borderBottomColor: '#999',
-    backgroundColor: '#FAFAFA',
+    backgroundColor: '#F4F6FB',
   },
-  headerTitle: { fontSize: 18, color: '#000' },
-  mapContainer: {
-    borderRadius: 12,
+  mapBox: {
+    width: '100%',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
     overflow: 'hidden',
-    marginHorizontal: 16,
-    marginTop: 12,
-    height: 280,
-    borderWidth: 1,
-    borderColor: '#4F46E5',
-  },
-  addressRow: {
-  flexDirection: 'row',
-  alignItems: 'center',
-  marginTop: 12,
-  marginHorizontal: 20,
-},
-  address: {
-    fontSize: 18,
-    color: '#868686',
+    backgroundColor: '#D8E1FF',
+    marginBottom: 0, // 카드와 겹침 없음
     marginTop: 8,
-    marginHorizontal: 20,
   },
-  titleRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  map: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: '#D8E1FF',
+    borderRadius: 0,
+  },
+  backButton: {
+    position: 'absolute',
+    top: 18,
+    left: 16,
+    zIndex: 10,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: '#4F46E5',
     alignItems: 'center',
-    marginTop: 16,
-    marginHorizontal: 20,
+    justifyContent: 'center',
+    shadowColor: '#869FCF',
+    shadowOpacity: 0.13,
+    shadowOffset: { width: 1, height: 2 },
+    shadowRadius: 7,
+    elevation: 7,
   },
-  title: {
-    fontSize: 30,
-    color: '#111111',
+  infoCard: {
+  width: '100%',
+  backgroundColor: '#fff',
+  borderTopLeftRadius: 24,
+  borderTopRightRadius: 24,
+  borderBottomLeftRadius: 0,
+  borderBottomRightRadius: 0,
+  alignSelf: 'center',
+  paddingHorizontal: 28,
+  paddingTop: 20,
+  paddingBottom: 100,
+  marginTop: 0,
+  // 그림자 (iOS)
+  shadowColor: '#000',
+  shadowOffset: { width: 0, height: -8 },  // 위로 퍼지게
+  shadowOpacity: 0.23,
+  shadowRadius: 18,
+  // 그림자 (Android)
+  elevation: Platform.OS === 'android' ? 1 : 0, // Android 최소화
+  justifyContent: 'center',
+},
+  row: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    marginBottom: 2,
   },
-  cost: {
-    fontSize: 20,
-    color: '#4F46E5',
-    fontWeight: '400',
+  placeName: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#212237',
+    maxWidth: 180,
   },
   type: {
-    fontSize: 20,
+    fontSize: 16,
     color: '#999',
-    marginTop: 10,
-    marginHorizontal: 20,
+    marginRight: 8,
+    marginBottom: -5,
+    marginLeft: 10,
   },
-  descBox: {
-    marginTop: 16,
-    marginHorizontal: 20,
+  cost: {
+    fontSize: 18,
+    color: '#4F46E5',
+    marginLeft: 2,
+    marginBottom: 1,
   },
   description: {
-    fontSize: 20,
-    color: '#3f3f3f',
-    lineHeight: 22,
+    fontSize: 16,
+    color: '#3F3F3F',
+    marginTop: 13,
+    marginBottom: 10,
+    fontWeight: '400',
+  },
+  addressRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 20,
+    marginLeft: -4,
+  },
+  address: {
+    fontSize: 16,
+    color: '#868686',
+    flexShrink: 1,
+    marginLeft: 2,
   },
 });
