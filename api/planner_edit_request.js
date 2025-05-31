@@ -40,7 +40,6 @@ export async function editSchedule(names) {
 }
 
 // ✅ 사용 예시
-// (수정할 장소 이름들을 배열로 전달)
 editSchedule([
   "한라산",
   "성산일출봉",
