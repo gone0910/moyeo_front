@@ -14,7 +14,7 @@ export default function PlannerScreen() {
   const [fontsLoaded] = useFonts({ KaushanScript: KaushanScript_400Regular });
 
   if (!fontsLoaded) {
-    return null; // Avoid rendering until fonts are loaded
+    return null; 
   }
 
   return (
