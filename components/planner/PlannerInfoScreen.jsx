@@ -21,12 +21,16 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { planner_create_request } from '../../api/planner_create_request';
 import { saveCacheData, CACHE_KEYS } from '../../caching/cacheService';
 import axios from 'axios';
+import SplashScreen from '../../components/common/SplashScreen';
+
+
 
 export default function PlannerInfoScreen() {
   //useEffect(() => {
   //  AsyncStorage.setItem('token', 'mock-token');
   //}, []);
   const { user } = useContext(UserContext);
+  const [loading, setLoading] = useState(false);
   const [startDate, setStartDate] = useState(null);
   const [endDate, setEndDate] = useState(null);
   const [selectedRegion, setSelectedRegion] = useState('');
@@ -38,9 +42,7 @@ export default function PlannerInfoScreen() {
     setSelectedMbti((prev) => (prev === 'NONE' ? null : 'NONE'));
   };
   const handleCustomPlan = () => {
-    handleCreateSchedule();
-    navigation.navigate('PlannerResponse');
-    goToSlide(currentSlide + 1); // 슬라이드 다음 단계로 이동
+  handleCreateSchedule();
 };
 
   const toggleSelectNone = () => {
@@ -52,7 +54,6 @@ export default function PlannerInfoScreen() {
       setSelectedTravelStyles(['선택없음']);
     }
   };
-
   
 
   const navigation = useNavigation();
@@ -64,6 +65,7 @@ export default function PlannerInfoScreen() {
     setBudget(value);
   };
   const handleCreateSchedule = async () => {
+     setLoading(true);
     // 도/시 ENUM 변환 
     const Province = {
       '선택안함': 'NONE',
@@ -225,6 +227,8 @@ export default function PlannerInfoScreen() {
     // 목적지 선택 (도시 > 지역 우선)
     const destination = [];
 
+    if (loading) return <SplashScreen />;
+
 if (selectedCity && City[selectedCity]) {
   // 시/구/군이 선택된 경우
   destination.push(City[selectedCity]);
@@ -285,54 +289,31 @@ if (destination.length === 0) {
       );
 
       if (response.status === 200) {
-  // [1] 일정 생성 응답 로그
-  console.log('✅ 일정 생성 성공:', response.data);
-
-  // [2] 캐시 저장
-  await saveCacheData(CACHE_KEYS.PLAN_INITIAL, response.data);
-
-  // [3] 캐싱된 값 확인 (디버깅)
-  const check = await AsyncStorage.getItem(CACHE_KEYS.PLAN_INITIAL);
-  console.log('🧐 저장된 PLAN_INITIAL 값:', JSON.stringify(JSON.parse(check), null, 2));
-
-  // [4] 화면 이동
-  setTimeout(() => {
-    navigation.navigate('PlannerResponse');
-  }, 500);
-} else {
-      }
-    } catch (error) {
-      console.error('❌ 예외 발생:', error.response?.data || error.message);
-    } 
-  
-    /*const result = await createSchedule(
-      startDate,
-      endDate,
-      destination,
-      MBTI,
-      travelStyle,
-      peopleGroup,
-      budget
-    );*/
-    await planner_create_request(
-      startDate,
-      endDate,
-      destination,
-      MBTI,
-      travelStyle,
-      peopleGroup,
-      budget
-    );
-    if (result) {
-      console.log('📦 PLAN_INITIAL 캐싱 저장 시작...');
-      await saveCacheData(CACHE_KEYS.PLAN_INITIAL, result);
-      console.log('✅ PLAN_INITIAL 캐싱 완료!');
-    
-      // 🔍 확인용 출력
+      const dataWithIds = {
+    ...response.data,
+    // 추가: 내가 썼던 입력값들도 함께 저장
+    destination: requestData.destination,
+    mbti: requestData.mbti,
+    travelStyle: requestData.travelStyle,
+    peopleGroup: requestData.peopleGroup,
+    budget: requestData.budget,
+    startDate: requestData.startDate,
+    endDate: requestData.endDate,
+  };
+      await saveCacheData(CACHE_KEYS.PLAN_INITIAL, dataWithIds);
+      // 확인 로그 (선택)
       const check = await AsyncStorage.getItem(CACHE_KEYS.PLAN_INITIAL);
       console.log('🧐 저장된 PLAN_INITIAL 값:', JSON.stringify(JSON.parse(check), null, 2));
-}
-  };
+      // 화면 이동
+      navigation.navigate('PlannerResponse');
+    }
+  } catch (error) {
+    console.error('❌ 예외 발생:', error.response?.data || error.message);
+    Alert.alert('실패', '일정 생성에 실패했습니다.');
+  } finally {
+    setLoading(false);
+  }
+};
   
   
 
@@ -351,12 +332,20 @@ if (destination.length === 0) {
     };
 
     const toggleTravelStyle = (style) => {
-      setSelectedTravelStyles((prev) => {
-        return prev.includes(style)
-          ? prev.filter((s) => s !== style) // 이미 있으면 제거
-          : [...prev, style];              // 없으면 추가
-      });
-    };
+  setSelectedTravelStyles((prev) => {
+    // "선택없음"이면 토글만 (이미 있으면 해제, 없으면 추가)
+    if (style === '선택없음') {
+      return prev.includes('선택없음')
+        ? prev.filter((s) => s !== '선택없음')
+        : [...prev, '선택없음'];
+    }
+    // 다른 스타일이면 그냥 toggle만 (선택없음이 있어도 상관없이)
+    return prev.includes(style)
+      ? prev.filter((s) => s !== style)
+      : [...prev, style];
+  });
+};
+
 
   const slideIndicatorPosition = useRef(new Animated.ValueXY({ x: 0, y: 0 })).current;
   const slideIndicatorWidth = 40;
@@ -438,7 +427,7 @@ if (destination.length === 0) {
       }).start();
     },
   });
-
+if (loading) return <SplashScreen />;
   return (
     <View style={styles.container}>
       <View style={styles.fixedHeader}>
@@ -460,6 +449,11 @@ if (destination.length === 0) {
               markingType={'period'}
               markedDates={getMarkedDates()}
               onDayPress={handleDayPress}
+              style={{ backgroundColor: '#fafafa', borderRadius: 12 }}
+              theme={{
+    backgroundColor: '#fafafa',
+    calendarBackground: '#fafafa',
+  }}
               dayComponent={({ date }) => {
                 const dayOfWeek = new Date(date.dateString).getDay();
                 const isSelected = date.dateString === startDate || date.dateString === endDate;
@@ -736,71 +730,76 @@ if (destination.length === 0) {
 
 
 {currentSlide === 3 && (
-  <View style={{ paddingHorizontal: 20, marginTop: 20 }}>
-    <Text style={{ fontSize: 24, marginBottom: 5, fontWeight: '400', color:'#1E1E1E', textAlign: 'center', top: -50 }}>
-      여행 스타일을 선택해 주세요
-    </Text>
+    <View style={{ paddingHorizontal: 20, marginTop: 20 }}>
+      <Text style={{
+        fontSize: 24, marginBottom: 5, fontWeight: '400', color:'#1E1E1E',
+        textAlign: 'center', top: -50
+      }}>
+        여행 스타일을 선택해 주세요
+      </Text>
 
-    <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', paddingTop: 70, marginBottom:-10}}>
-      {["액티비티", "문화/관광", "힐링", "맛집", "도심", "자연"].map((style, index) => {
-        const isSelected = selectedTravelStyles.includes(style);
+      <View style={{
+        flexDirection: 'row', flexWrap: 'wrap',
+        justifyContent: 'space-between', paddingTop: 70, marginBottom: -10
+      }}>
+        {["액티비티", "문화/관광", "힐링", "맛집", "도심", "자연"].map((style, index) => {
+          const isSelected = selectedTravelStyles.includes(style);
 
-        return (
-          <TouchableOpacity
-            key={index}
-            onPress={() => toggleTravelStyle(style)}
-            style={{
-              width: '30%',
-              paddingVertical: 13,
-              marginBottom: 10,
-              borderRadius: 8,
-              borderWidth: 1,
-              borderColor: '#726BEA',
-              alignItems: 'center',
-              backgroundColor: isSelected ? '#B3A4F7' : '#FFFFFF',
-            }}
-          >
-            <Text style={{
-              color: isSelected ? '#FFFFFF' : '#373737',
-              fontWeight: '400',
-              fontSize: 16,
-              textAlign:'center'
-            }}>
-              {style}
-            </Text>
-          </TouchableOpacity>
-        );
-      })}
+          return (
+            <TouchableOpacity
+              key={index}
+              onPress={() => toggleTravelStyle(style)}
+              style={{
+                width: '30%',
+                paddingVertical: 13,
+                marginBottom: 10,
+                borderRadius: 8,
+                borderWidth: 1,
+                borderColor: '#726BEA',
+                alignItems: 'center',
+                backgroundColor: isSelected ? '#B3A4F7' : '#FFFFFF',
+              }}
+            >
+              <Text style={{
+                color: isSelected ? '#FFFFFF' : '#373737',
+                fontWeight: '400',
+                fontSize: 16,
+                textAlign:'center'
+              }}>
+                {style}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+
+      {/* 선택없음 버튼 */}
+      <View style={{ alignItems: 'center', marginTop: 10 }}>
+        <TouchableOpacity
+          onPress={toggleSelectNone}
+          style={{
+            width: '30%',
+            padding: 10,
+            marginBottom: 10,
+            paddingVertical: 13,
+            paddingHorizontal: 20,
+            borderRadius: 8,
+            borderWidth: 1,
+            alignItems: 'center',
+            borderColor: '#726BEA',
+            backgroundColor: selectedTravelStyles.includes('선택없음') ? '#B3A4F7' : '#FFFFFF',
+          }}
+        >
+          <Text style={{
+            color: selectedTravelStyles.includes('선택없음') ? '#FFFFFF' : '#373737',
+            fontWeight: '400',
+          }}>
+            선택없음
+          </Text>
+        </TouchableOpacity>
+      </View>
     </View>
-
-    {/* 선택없음 버튼 */}
-    <View style={{ alignItems: 'center', marginTop: 10 }}>
-  <TouchableOpacity
-    onPress={toggleSelectNone}
-    style={{
-      width: '30%',
-      padding: 10,
-      marginBottom: 10,
-      paddingVertical: 13,
-      paddingHorizontal: 20,
-      borderRadius: 8,
-      borderWidth: 1,
-      alignItems: 'center',
-      borderColor: '#726BEA',
-      backgroundColor: selectedTravelStyles.includes('선택없음') ? '#B3A4F7' : '#FFFFFF',
-    }}
-  >
-    <Text style={{
-      color: selectedTravelStyles.includes('선택없음') ? '#FFFFFF' : '#373737',
-      fontWeight: '400',
-    }}>
-      선택없음
-    </Text>
-  </TouchableOpacity>
-</View>
-
-  </View>
-)}
+  )}
 
 
       </ScrollView>
@@ -827,10 +826,7 @@ if (destination.length === 0) {
           },
         ]}
         disabled={!isDateSelected}
-        onPress={() => {
-        handleCreateSchedule();            
-        navigation.navigate('PlannerResponse'); 
-    }}
+        onPress={handleCreateSchedule}
       >
         <Text
           style={[
@@ -898,7 +894,7 @@ const styles = StyleSheet.create({
   },
   wrapper: {
     paddingBottom: 140,
-    backgroundColor: '#FAFAFA',
+    backgroundColor: '#fafafa',
   },
   topHeader: {
     flexDirection: 'row',
@@ -943,7 +939,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     marginTop: 20,
     top: -110,
-    backgroundColor:'#FAFAFA'
+    backgroundColor:'#fafafa',
   },
   calendarLabel: {
     fontSize: 16,
@@ -958,6 +954,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'center',
     gap: 10,
+    backgroundColor:'#fafafa',
     marginTop: 12,
     marginBottom: 12,
   },
