@@ -13,15 +13,42 @@ import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import DraggableFlatList from 'react-native-draggable-flatlist';
-import uuid from 'react-native-uuid';
-//import { createSchedule } from '../../api/createSchedule';                                  //묵데이터
+//import { createSchedule } from '../../api/createSchedule';
 import { getCacheData } from '../../caching/cacheService'; // 경로는 실제 위치에 맞게 조정
 import { CACHE_KEYS } from '../../caching/cacheService';
 import { saveCacheData } from '../../caching/cacheService';
-import { editSchedule } from '../../api/planner_edit_request';                               // 편집 api
-import { regenerateSchedule } from '../../api/planner_regenerate_request';                   // 재생성 api
+import { editSchedule } from '../../api/planner_edit_request';
+import { regenerateSchedule } from '../../api/planner_regenerate_request';
+import { saveSchedule } from '../../api/planner_save_request';
+import { deleteSchedule } from '../../api/planner_delete_request';
+import { getScheduleDetail } from '../../api/MyPlanner_detail';
+import { useRoute } from '@react-navigation/native';
+import uuid from 'react-native-uuid';
+import { Alert } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import SplashScreen from '../../components/common/SplashScreen';
+import { Modal } from 'react-native';
 
 const { width } = Dimensions.get('window');
+
+const saveTripToList = async (tripData) => {
+  try {
+    const existing = await AsyncStorage.getItem('MY_TRIPS');
+    let trips = [];
+    if (existing) trips = JSON.parse(existing);
+
+    // 이미 같은 title/startDate인 플랜이 있으면 덮어쓰기, 없으면 추가
+    const idx = trips.findIndex(
+      t => t.title === tripData.title && t.startDate === tripData.startDate
+    );
+    if (idx !== -1) trips[idx] = tripData;
+    else trips.push(tripData);
+
+    await AsyncStorage.setItem('MY_TRIPS', JSON.stringify(trips));
+  } catch (e) {
+    console.warn('저장 실패:', e);
+  }
+};
 
 export default function PlannerResponseHome() {
   const navigation = useNavigation();
@@ -30,6 +57,11 @@ export default function PlannerResponseHome() {
   const [isEditing, setIsEditing] = useState(false);
   const [newlyAddedPlaceId, setNewlyAddedPlaceId] = useState(null);
   const [editedPlaces, setEditedPlaces] = useState({});
+  const [editedPlaceId, setEditedPlaceId] = useState(null);
+  const [isSaved, setIsSaved] = useState(false);
+  const route = useRoute();
+  const isReadOnly = route.params?.mode === 'read';
+  const [isRegenerating, setIsRegenerating] = useState(false);
 
   useLayoutEffect(() => {
     const parent = navigation.getParent();
@@ -37,45 +69,42 @@ export default function PlannerResponseHome() {
     return () => parent?.setOptions({ tabBarStyle: { display: 'flex' } });
   }, [navigation]);
 
-  useEffect(() => {
-    const loadCachedData = async () => {
+  const ensurePlaceIds = (data) => ({
+  ...data,
+  days: data.days.map(day => ({
+    ...day,
+    places: day.places.map(place => ({
+      ...place,
+      id: place.id ? String(place.id) : uuid.v4(),
+    })),
+  })),
+});
+
+useEffect(() => {
+  const loadCachedData = async () => {
+    try {
+      const cached = await getCacheData(CACHE_KEYS.PLAN_INITIAL);
+      if (cached) setScheduleData(ensurePlaceIds(cached));
+    } catch (err) {
+      console.error('❌ 캐시 또는 일정 생성 실패:', err);
+    }
+  };
+  loadCachedData();
+}, []);
+
+useEffect(() => {
+  const fetchDetail = async () => {
+    if (route.params?.scheduleId) {
       try {
-        const cached = await getCacheData(CACHE_KEYS.PLAN_INITIAL);
-         console.log('🟢 [PlannerResponseHome] 불러온 PLAN_INITIAL:', JSON.stringify(cached, null, 2));
-        if (cached) {
-          console.log('📦 캐싱된 PLAN_INITIAL 불러오기 성공');
-          const dataWithIds = {
-            ...cached,
-            days: cached.days.map(day => ({
-              ...day,
-              places: day.places.map(place => ({
-                ...place,
-                id: place.id ?? uuid.v4(), // 🔑 ID가 없으면 생성
-              }))
-            }))
-          };
-          setScheduleData(dataWithIds); 
-        } else {
-          /*console.warn('⚠️ 캐싱된 데이터가 없습니다. ');                   //묵데이터 주석
-          const response = await createSchedule(                          //
-            '2025-05-15',                                                 //
-            '2025-05-18',                                                 //
-            ['경주'],                                                     //
-            'INTJ',                                                       //
-            ['NATURE'],                                                   //
-            'DUO',                                                        //
-            910000                                                        //
-          );                                                              //
-          setScheduleData(response);      */                                //
-        }                                                                  
-      } catch (err) {
-        console.error('❌ 캐시 또는 일정 생성 실패:', err);
-      } 
-    };
-
-    loadCachedData();
-  }, []); 
-
+        const detail = await getScheduleDetail(route.params.scheduleId);
+        setScheduleData(ensurePlaceIds(detail));
+      } catch (e) {
+        navigation.goBack();
+      }
+    }
+  };
+  fetchDetail();
+}, [route.params?.scheduleId]);
 
   if (!scheduleData) {
     return (
@@ -86,10 +115,10 @@ export default function PlannerResponseHome() {
       </SafeAreaView>
     );
   }
-const selectedDay = scheduleData.days[selectedDayIndex];
+
+  const selectedDay = scheduleData.days[selectedDayIndex];
   const places = scheduleData.days[selectedDayIndex].places;
 
-  // 드래그 후 순서 바꾸는 함수
   const handleDragEnd = ({ data }) => {
     const updatedDays = scheduleData.days.map((day, idx) =>
       idx === selectedDayIndex ? { ...day, places: [...data] } : day
@@ -97,13 +126,9 @@ const selectedDay = scheduleData.days[selectedDayIndex];
     setScheduleData({ ...scheduleData, days: updatedDays });
   };
 
-  // "장소추가" 버튼에서 index 기준으로 장소 추가 (불변성 및 최신값 사용)
   const handleAddPlace = (insertIndex) => {
     if (newlyAddedPlaceId) return;
-
-    // 반드시 최신 places 사용!
     const currentPlaces = [...scheduleData.days[selectedDayIndex].places];
-
     const newPlaceId = uuid.v4();
     const newPlace = {
       id: newPlaceId,
@@ -111,19 +136,13 @@ const selectedDay = scheduleData.days[selectedDayIndex];
       type: '카테고리',
       estimatedCost: 0,
       gptOriginalName: '예시태그',
-      fromPrevious: {
-        car: 5,
-        publicTransport: 8,
-        walk: 12,
-      },
+      fromPrevious: { car: 5, publicTransport: 8, walk: 12 },
     };
-
     const updatedPlaces = [
       ...currentPlaces.slice(0, insertIndex + 1),
       newPlace,
       ...currentPlaces.slice(insertIndex + 1),
     ];
-
     const updatedDays = scheduleData.days.map((day, i) =>
       i === selectedDayIndex ? { ...day, places: updatedPlaces } : day
     );
@@ -131,28 +150,39 @@ const selectedDay = scheduleData.days[selectedDayIndex];
     setNewlyAddedPlaceId(newPlaceId);
   };
 
-  // 삭제 함수도 최신값 사용!
   const handleDeletePlace = (placeId) => {
-    const currentPlaces = [...scheduleData.days[selectedDayIndex].places];
-    const updatedPlaces = currentPlaces.filter((p) => p.id !== placeId);
-    const updatedDays = scheduleData.days.map((day, i) =>
-      i === selectedDayIndex ? { ...day, places: updatedPlaces } : day
-    );
-    setScheduleData({ ...scheduleData, days: updatedDays });
-    if (newlyAddedPlaceId === placeId) setNewlyAddedPlaceId(null);
-    setEditedPlaces((prev) => {
-      const updated = { ...prev };
-      delete updated[placeId];
-      return updated;
-    });
-  };
+  // 🔽 여기에 추가!
+  const currentPlaces = [...scheduleData.days[selectedDayIndex].places];
+  console.log('삭제 전:', currentPlaces.map(p => `${p.id}:${p.name}`));
 
-  // 이름 변경 적용도 최신값 사용!
+  const updatedPlaces = currentPlaces.filter((p) => p.id !== placeId);
+  console.log('삭제 후:', updatedPlaces.map(p => `${p.id}:${p.name}`));
+
+  const updatedDays = scheduleData.days.map((day, i) =>
+    i === selectedDayIndex ? { ...day, places: updatedPlaces } : day
+  );
+  setScheduleData({ ...scheduleData, days: updatedDays });
+
+  if (newlyAddedPlaceId === placeId) setNewlyAddedPlaceId(null);
+  setEditedPlaces((prev) => {
+    const updated = { ...prev };
+    delete updated[placeId];
+    return updated;
+  });
+};
+
   const handleEndEditing = (placeId) => {
     const currentPlaces = [...scheduleData.days[selectedDayIndex].places];
+    const newName = editedPlaces[placeId] ?? '';
     const updatedPlaces = currentPlaces.map((p) =>
       p.id === placeId
-        ? { ...p, name: editedPlaces[placeId] ?? p.name }
+        ? {
+            ...p,
+            name: newName,
+            type: (!newName || newName !== p.name) ? '' : p.type,
+            gptOriginalName: (!newName || newName !== p.name) ? '' : p.gptOriginalName,
+            estimatedCost: (!newName || newName !== p.name) ? '' : p.estimatedCost,
+          }
         : p
     );
     const updatedDays = scheduleData.days.map((day, i) =>
@@ -167,98 +197,101 @@ const selectedDay = scheduleData.days[selectedDayIndex];
       <View style={{ flex: 1 }}>
         {/* 헤더 */}
         <View style={styles.headerLine}>
-          <TouchableOpacity onPress={() => navigation.goBack()}>
+          <TouchableOpacity
+            onPress={() => {
+              if (isEditing) {
+                setIsEditing(false);
+              } else {
+                navigation.goBack();
+              }
+            }}
+          >
             <Ionicons name="chevron-back" size={24} color="black" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>여행플랜</Text>
           <View style={{ width: 24 }} />
         </View>
 
-
-         <View style={styles.tripInfo}>
-    <View style={styles.tripInfoRow}>
-      <View style={{ flex: 1 }}>
-        <Text style={styles.tripTitle}>{scheduleData.title}</Text>
-        <Text style={styles.dateText}>
-          {scheduleData.startDate} ~ {scheduleData.endDate}
-        </Text>
-      </View>
-      <View style={{ alignItems: 'flex-end' }}>
-        <Text style={styles.totalBudgetLabel}>
-          {selectedDay.day} 총 예산
-        </Text>
-        <Text style={styles.budget}>
-          {selectedDay.totalEstimatedCost.toLocaleString()}
-          <Text style={styles.budgetUnit}>원</Text>
-        </Text>
-      </View>
-    </View>
-  </View>
+        {/* 여행 정보 */}
+        <View style={styles.tripInfo}>
+          <View style={styles.tripInfoRow}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.tripTitle}>{scheduleData.title}</Text>
+              <Text style={styles.dateText}>
+                {scheduleData.startDate} ~ {scheduleData.endDate}
+              </Text>
+            </View>
+            <View style={{ alignItems: 'flex-end' }}>
+              <Text style={styles.totalBudgetLabel}>{selectedDay.day} 총 예산</Text>
+              <Text style={styles.budget}>
+                {selectedDay.totalEstimatedCost?.toLocaleString()}
+                <Text style={styles.budgetUnit}>원</Text>
+              </Text>
+            </View>
+          </View>
+        </View>
         {/* 탭 */}
         {isEditing ? (
-  // 수정모드: 선택된 Day만 중앙에 보여줌
-  <View style={{
-    alignItems: 'center',
-    backgroundColor: '#FAFAFA',
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderColor: '#E5E7EB',
-  }}>
-    <View style={styles.tabBox}>
-      <Text style={[styles.tabText, styles.tabTextSelected]}>
-        Day - {selectedDayIndex + 1}
-      </Text>
-      <View style={styles.activeBar} />
-    </View>
-  </View>
-) : (
-  // 일반 모드: 모든 Day를 가로 스크롤로 보여줌
-  <View style={styles.tabScrollWrapper}>
-    <ScrollView
-      horizontal
-      showsHorizontalScrollIndicator={false}
-      contentContainerStyle={styles.tabContainer}
-    >
-      {scheduleData.days.map((_, idx) => (
-        <TouchableOpacity
-          key={idx}
-          onPress={() => !isEditing && setSelectedDayIndex(idx)}
-          disabled={isEditing}
-        >
-          <View style={styles.tabBox}>
-            <Text
-              style={[
-                styles.tabText,
-                selectedDayIndex === idx && styles.tabTextSelected,
-                isEditing && selectedDayIndex !== idx && { opacity: 0.3 },
-              ]}
-            >
-              Day - {idx + 1}
-            </Text>
-            {selectedDayIndex === idx && (
-              <>
-                <View style={styles.activeBar} />
-              </>
-            )}
+          <View style={{
+            alignItems: 'center',
+            backgroundColor: '#FAFAFA',
+            paddingVertical: 10,
+            borderBottomWidth: 1,
+            borderColor: '#E5E7EB',
+          }}>
+            <View style={styles.tabBox}>
+              <Text style={[styles.tabText, styles.tabTextSelected]}>
+                Day - {selectedDayIndex + 1}
+              </Text>
+              <View style={styles.activeBar} />
+            </View>
           </View>
-        </TouchableOpacity>
-      ))}
-    </ScrollView>
-        </View>
-)}
+        ) : (
+          <View style={styles.tabScrollWrapper}>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.tabContainer}
+            >
+              {scheduleData.days.map((_, idx) => (
+                <TouchableOpacity
+                  key={idx}
+                  onPress={() => !isEditing && setSelectedDayIndex(idx)}
+                  disabled={isEditing}
+                >
+                  <View style={styles.tabBox}>
+                    <Text
+                      style={[
+                        styles.tabText,
+                        selectedDayIndex === idx && styles.tabTextSelected,
+                        isEditing && selectedDayIndex !== idx && { opacity: 0.3 },
+                      ]}
+                    >
+                      Day - {idx + 1}
+                    </Text>
+                    {selectedDayIndex === idx && (
+                      <>
+                        <View style={styles.activeBar} />
+                      </>
+                    )}
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        )}
+
         {/* 본문 */}
-        
         <View style={{ flex: 1 }}>
           {isEditing ? (
             <DraggableFlatList
               data={places}
-              keyExtractor={(item) => String(item.id)}
+              keyExtractor={(item, idx) => item.id ? String(item.id) : `temp-${idx}`}
               onDragEnd={handleDragEnd}
               extraData={[places, newlyAddedPlaceId, selectedDayIndex]}
               containerStyle={styles.container}
               contentContainerStyle={{ paddingBottom: 120 }}
               renderItem={({ item: place, drag }) => {
-                // ⭐️ index 대신 실제 데이터에서 위치를 찾는다!
                 const currentIndex = places.findIndex((p) => p.id === place.id);
                 return (
                   <View key={place.id}>
@@ -290,40 +323,51 @@ const selectedDay = scheduleData.days[selectedDayIndex];
                         </TouchableOpacity>
                         {/* placeCard */}
                         <TouchableOpacity
-  style={[styles.placeCard3, { marginLeft: 24 }]}
-  disabled={newlyAddedPlaceId === place.id}
-  onPress={() => {}}
->
-  {newlyAddedPlaceId === place.id ? (
-    // 장소추가로 추가된 카드: 목적지만 입력받기 (1줄만)
-    <TextInput
-      style={styles.placeNameInput}
-      value={editedPlaces[place.id] ?? ''}
-      placeholder="장소명을 입력하세요"
-      onChangeText={(text) =>
-        setEditedPlaces((prev) => ({ ...prev, [place.id]: text }))
-      }
-      onEndEditing={() => handleEndEditing(place.id)}
-      autoFocus
-      underlineColorAndroid="transparent"
-      placeholderTextColor="#C0C0C0"
-    />
-  ) : (
-    // 기존 카드: 목적지, 카테고리, 태그 모두 표시
-    <>
-      <View style={styles.placeHeader}>
-        <Text style={styles.placeName}>{place.name}</Text>
-        <Text style={styles.placeCost}>
-          {place.estimatedCost?.toLocaleString()}원
-        </Text>
-      </View>
-      <Text style={styles.placeType}>{place.type}</Text>
-      {place.gptOriginalName && (
-        <Text style={styles.keywords}>#{place.gptOriginalName}</Text>
-      )}
-    </>
-  )}
-</TouchableOpacity>
+                          style={[styles.placeCard3, { marginLeft: 24 }]}
+                          disabled={newlyAddedPlaceId === place.id}
+                          onPress={() => {
+                            if (isEditing && !newlyAddedPlaceId && editedPlaceId !== place.id) {
+                              setEditedPlaceId(place.id);
+                              setEditedPlaces((prev) => ({ ...prev, [place.id]: place.name }));
+                            }
+                          }}
+                          activeOpacity={0.7}
+                        >
+                          {(newlyAddedPlaceId === place.id || editedPlaceId === place.id) ? (
+                            <TextInput
+                              style={styles.placeNameInput}
+                              value={editedPlaces[place.id] ?? ''}
+                              placeholder="장소명을 입력하세요"
+                              onChangeText={(text) =>
+                                setEditedPlaces((prev) => ({ ...prev, [place.id]: text }))
+                              }
+                              onEndEditing={() => {
+                                handleEndEditing(place.id);
+                                setEditedPlaceId(null);
+                              }}
+                              autoFocus
+                              underlineColorAndroid="transparent"
+                              placeholderTextColor="#C0C0C0"
+                            />
+                          ) : (
+                            <View style={{ minHeight: 60, justifyContent: 'center' }}>
+                              <View style={styles.placeHeader}>
+                                <Text style={styles.placeName}>{place.name}</Text>
+                                {(place.name && place.estimatedCost !== '' && place.estimatedCost !== undefined && place.estimatedCost !== null) && (
+                                  <Text style={styles.placeCost}>
+                                    {place.estimatedCost?.toLocaleString()}원
+                                  </Text>
+                                )}
+                              </View>
+                              {place.name && place.type && (
+                                <Text style={styles.placeType}>{place.type}</Text>
+                              )}
+                              {place.name && place.gptOriginalName && (
+                                <Text style={styles.keywords}>#{place.gptOriginalName}</Text>
+                              )}
+                            </View>
+                          )}
+                        </TouchableOpacity>
                       </View>
                     </View>
                     {/* 카드 아래에 추가 버튼 */}
@@ -340,7 +384,6 @@ const selectedDay = scheduleData.days[selectedDayIndex];
                         opacity: newlyAddedPlaceId ? 0.5 : 1,
                       }}
                       disabled={!!newlyAddedPlaceId}
-                      // index 대신 currentIndex로 위치 지정
                       onPress={() => handleAddPlace(currentIndex)}
                     >
                       <Text
@@ -365,168 +408,276 @@ const selectedDay = scheduleData.days[selectedDayIndex];
               contentContainerStyle={{ paddingBottom: 120 }}
             >
               {places.map((place, idx) => (
-  <View key={place.id}>
-    {/* 모든 카드 위에 교통정보! */}
-    {place.fromPrevious && (
-      <View style={styles.transportRow}>
-        <View style={styles.transportItem}>
-          <Ionicons name="car-outline" size={22} color="#6B7280" />
-          <Text style={styles.transportText}>{place.fromPrevious.car}분</Text>
-        </View>
-        <View style={styles.transportItem}>
-          <Ionicons name="bus-outline" size={22} color="#6B7280" />
-          <Text style={styles.transportText}>{place.fromPrevious.publicTransport}분</Text>
-        </View>
-        <View style={styles.transportItem}>
-          <MaterialCommunityIcons name="walk" size={22} color="#6B7280" />
-          <Text style={styles.transportText}>{place.fromPrevious.walk}분</Text>
-        </View>
-      </View>
-    )}
-    {/* 카드 내용 */}
-    <View style={styles.placeRow}>
-      <View style={styles.timeline}>
-        <View style={[
-          styles.dot,
-          { backgroundColor: idx === 2 ? '#1270B0' : '#4F46E5' },
-        ]} />
-        {idx !== places.length - 1 && <View style={styles.verticalLine} />}
-      </View>
-      <View style={styles.placeContent}>
-        <TouchableOpacity
-          style={styles.placeCard}
-          onPress={() => navigation.navigate('PlaceDetail', { place })}
-        >
-          <View style={styles.placeHeader}>
-            <Text style={styles.placeName}>{place.name}</Text>
-            <Text style={styles.placeCost}>
-              {place.estimatedCost?.toLocaleString()}원
-            </Text>
-          </View>
-          <Text style={styles.placeType}>{place.type}</Text>
-          {place.gptOriginalName && (
-            <Text style={styles.keywords}>#{place.gptOriginalName}</Text>
-          )}
-        </TouchableOpacity>
-      </View>
-    </View>
-    {/* ⭐ 마지막 카드라면 교통정보를 아래에 한 번 더! */}
-    {idx === places.length - 1 && place.fromPrevious && (
-      <View style={styles.transportRow}>
-        <View style={styles.transportItem}>
-          <Ionicons name="car-outline" size={22} color="#6B7280" />
-          <Text style={styles.transportText}>{place.fromPrevious.car}분</Text>
-        </View>
-        <View style={styles.transportItem}>
-          <Ionicons name="bus-outline" size={22} color="#6B7280" />
-          <Text style={styles.transportText}>{place.fromPrevious.publicTransport}분</Text>
-        </View>
-        <View style={styles.transportItem}>
-          <MaterialCommunityIcons name="walk" size={22} color="#6B7280" />
-          <Text style={styles.transportText}>{place.fromPrevious.walk}분</Text>
-        </View>
-      </View>
-    )}
-  </View>
-))}
+                <View key={place.id ? String(place.id) : `temp-${idx}`}>
+                  {/* 교통정보 (맨 위 카드 제외) */}
+                  {idx !== 0 && place.fromPrevious && (
+                    <View style={styles.transportRow}>
+                      <View style={styles.transportItem}>
+                        <Ionicons name="car-outline" size={22} color="#6B7280" style={{ marginLeft: 15 }} />
+                        <Text style={styles.transportText}>{place.fromPrevious.car}분</Text>
+                      </View>
+                      <View style={styles.transportItem}>
+                        <Ionicons name="bus-outline" size={22} color="#6B7280" />
+                        <Text style={styles.transportText}>{place.fromPrevious.publicTransport}분</Text>
+                      </View>
+                      <View style={styles.transportItem}>
+                        <MaterialCommunityIcons name="walk" size={22} color="#6B7280" />
+                        <Text style={styles.transportText}>{place.fromPrevious.walk}분</Text>
+                      </View>
+                    </View>
+                  )}
+                  <View style={styles.placeRow}>
+                    <View style={styles.timeline}>
+                      <View style={[
+                        styles.dot,
+                        { backgroundColor: place.type === '식사' ? '#1270B0' : '#4F46E5' },
+                      ]} />
+                      {idx !== places.length - 1 && <View style={styles.verticalLine} />}
+                    </View>
+                    <View style={styles.placeContent}>
+                      <TouchableOpacity
+                        style={styles.placeCard}
+                        onPress={() => navigation.navigate('PlaceDetail', { place })}
+                      >
+                        <View style={styles.placeHeader}>
+                          <Text style={styles.placeName}>{place.name}</Text>
+                          <Text style={styles.placeCost}>
+                            {place.estimatedCost?.toLocaleString()}원
+                          </Text>
+                        </View>
+                        <Text style={styles.placeType}>{place.type}</Text>
+                        {place.gptOriginalName && (
+                          <Text style={styles.keywords}>#{place.gptOriginalName}</Text>
+                        )}
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                  {/* 마지막 카드라면 교통정보를 아래 한 번 더 (마지막 day 제외) */}
+                  {idx === places.length - 1 && place.fromPrevious && selectedDayIndex !== scheduleData.days.length - 1 && (
+                    <View style={styles.transportRow}>
+                      <View style={styles.transportItem}>
+                        <Ionicons name="car-outline" size={22} color="#6B7280" style={{ marginLeft: 15 }} />
+                        <Text style={styles.transportText}>{place.fromPrevious.car}분</Text>
+                      </View>
+                      <View style={styles.transportItem}>
+                        <Ionicons name="bus-outline" size={22} color="#6B7280" />
+                        <Text style={styles.transportText}>{place.fromPrevious.publicTransport}분</Text>
+                      </View>
+                      <View style={styles.transportItem}>
+                        <MaterialCommunityIcons name="walk" size={22} color="#6B7280" />
+                        <Text style={styles.transportText}>{place.fromPrevious.walk}분</Text>
+                      </View>
+                    </View>
+                  )}
+                </View>
+              ))}
             </ScrollView>
           )}
         </View>
 
-        {/* 하단 버튼 */}
+        {/* 하단 버튼, 아래 한 번만! */}
         {isEditing ? (
-  <View style={styles.fixedDoneButtonWrapper}>
-    <TouchableOpacity
-      style={styles.fixedDoneButton}
-      onPress={async () => {
-        setNewlyAddedPlaceId(null);
-        setEditedPlaces({});
-        try {
-          await saveCacheData(CACHE_KEYS.PLAN_EDITED, scheduleData);
-          console.log('💾 PLAN_EDITED 캐시 저장 완료');
+          <View style={styles.fixedDoneButtonWrapper}>
+            <TouchableOpacity
+              style={styles.fixedDoneButton}
+              onPress={async () => {
+                setNewlyAddedPlaceId(null);
+                setEditedPlaces({});
+                try {
+                  await saveCacheData(CACHE_KEYS.PLAN_EDITED, scheduleData);
+                  const placeNames = scheduleData.days[selectedDayIndex].places.map(p => p.name);
+                  const result = await editSchedule(placeNames);
+                  if (result.places && result.totalEstimatedCost !== undefined) {
+                    setScheduleData({
+                      ...scheduleData,
+                      days: scheduleData.days.map((day, idx) =>
+                        idx === selectedDayIndex
+                          ? { ...day, places: result.places, totalEstimatedCost: result.totalEstimatedCost }
+                          : day
+                      )
+                    });
+                  } else if (Array.isArray(result)) {
+                    setScheduleData({
+                      ...scheduleData,
+                      days: scheduleData.days.map((day, idx) =>
+                        idx === selectedDayIndex
+                          ? { ...day, places: result }
+                          : day
+                      )
+                    });
+                  }
+                } catch (e) {
+                  console.warn('⚠️ PLAN_EDITED 캐시 저장 or API 호출 실패:', e);
+                }
+                setIsEditing(false);
+              }}
+            >
+              <Text style={styles.fixedDoneButtonText}>수정 완료</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (isReadOnly || isSaved) ? (         
+          <View style={styles.bottomButtonContainer}>
+            <TouchableOpacity
+  style={[
+    styles.editButton,
+    { flex: 1, marginRight: 8, backgroundColor: '#F87171', borderColor: '#F87171' }
+  ]}
+   onPress={() => {
+    Alert.alert(
+      '플랜 삭제',
+      '정말로 이 여행 플랜을 삭제하시겠습니까?',
+      [
+        { text: '취소', style: 'cancel' },
+        {
+          text: '삭제',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              
+              const scheduleId = scheduleData.id; // ← 실제 id값!
+              await deleteSchedule(scheduleId);
+              Alert.alert('삭제 완료', '플랜이 삭제되었습니다!');
+              navigation.goBack(); // 또는 초기화 등 원하는 동작
+            } catch (e) {
+              Alert.alert('삭제 실패', '플랜 삭제에 실패했습니다.');
+            }
+          },
+        },
+      ],
+      { cancelable: true }
+    );
+  }}
+>
+  <Text style={[styles.editButtonText, { color: '#fff' }]}>플랜 삭제</Text>
+</TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.editButton, { flex: 1, backgroundColor: '#4F46E5', borderColor: '#4F46E5' }]}
+              onPress={() => setIsEditing(true)}
+            >
+              <Text style={[styles.editButtonText, { color: '#fff' }]}>플랜 수정</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <>
+            <View style={styles.bottomButtonContainer}>
+              <TouchableOpacity
+                style={[styles.editButton, { marginRight: 2 }]}
+                onPress={() => setIsEditing(true)}
+              >
+                <Text style={styles.editButtonText}>플랜 수정</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.saveButton, { marginLeft: 8 }]}
+                onPress={async () => {
+                  setIsRegenerating(true);
+                  try {
+                    const excludedNames = [];
+                    const destinationToSend = scheduleData.destination || "NONE";
+                    const mbtiToSend = scheduleData.mbti || "NONE";
+                    const travelStyleToSend = scheduleData.travelStyle || "NONE";
+                    const peopleGroupToSend = scheduleData.peopleGroup || "NONE";
+                    const budgetToSend = scheduleData.budget ?? 0;
 
 
+                    const requestData = {
+      startDate: scheduleData.startDate,
+      endDate: scheduleData.endDate,
+      destination: destinationToSend,
+      mbti: mbtiToSend,
+      travelStyle: travelStyleToSend,
+      peopleGroup: peopleGroupToSend,
+      budget: budgetToSend,
+      excludedNames,
+    };
 
-          // ⭐️ editSchedule 호출                                                                       //진짜 편집 api 요청
-          //const placeNames = scheduleData.days[selectedDayIndex].places.map(p => p.name);             //
-          //const result = await editSchedule(placeNames);                                              //
-          //console.log('✏️ 서버 일정 편집 응답:', result);                                             //
+    // [2] 요청 데이터 로그
+    console.log('📤 일정 재생성 요청:', JSON.stringify(requestData, null, 2));
 
-          // (필요시 아래처럼 응답을 화면에 적용)                                                         //
-          // setScheduleData({                                                                          //
-          //   ...scheduleData,                                                                         //
-          //   days: scheduleData.days.map((day, idx) =>                                                //
-          //     idx === selectedDayIndex                                                               //
-          //       ? { ...day, places: result.places, totalEstimatedCost: result.totalEstimatedCost }   //
-          //       : day                                                                                //
-          //   )                                                                                        //
-          // });                                                                                        //
+    // [3] 재생성 요청 및 응답 로그
+    const result = await regenerateSchedule(requestData);
 
-        } catch (e) {
-          console.warn('⚠️ PLAN_EDITED 캐시 저장 or API 호출 실패:', e);
+    // [2] result가 성공적으로 왔으면 화면 갱신
+    if (result && result.days) {
+          setScheduleData(prev => ({
+            ...prev,
+            days: result.days,
+            startDate: result.startDate,
+            endDate: result.endDate,
+            title: result.title || prev.title,
+          }));
+        } else {
+          Alert.alert('재생성 실패', '서버에서 정상 데이터가 오지 않았습니다.');
         }
-        // 저장 후, 확인용 캐시 데이터 읽기
-      try {
-          const cached = await getCacheData(CACHE_KEYS.PLAN_EDITED);
-            console.log('📦 저장된 PLAN_EDITED 내용:', JSON.stringify(cached, null, 2));
-          } catch (e) {
-            console.warn('❌ PLAN_EDITED 캐시 확인 실패:', e);
-          }
-          setIsEditing(false);
-        }}
-    >
-      <Text style={styles.fixedDoneButtonText}>수정 완료</Text>
-    </TouchableOpacity>
-  </View>
-) : (
-  <>
-    <View style={styles.bottomButtonContainer}>
-      <TouchableOpacity
-        style={[styles.editButton, { marginRight: 2 }]}
-        onPress={async () => {
-          setIsEditing(true);
-        }}
-      >
-        <Text style={styles.editButtonText}>플랜 수정</Text>
-      </TouchableOpacity>
-      <TouchableOpacity style={[styles.saveButton, { marginLeft: 8 }]}>
-        <Text style={styles.saveButtonText}>내 여행으로 저장</Text>
-      </TouchableOpacity>
-    </View>
-    <View style={styles.regenerateButtonWrapper}>
-  <TouchableOpacity
-    style={styles.regenerateButton}
-    onPress={async () => {
-      
-      try {
-        const excludedNames = []; // 실제 제외할 장소명 배열                            // 여행 일정 재생성 api 부분
+      } catch (err) {
+        Alert.alert('오류', '재생성 중 오류가 발생했습니다.');
+      } finally {
+        setIsRegenerating(false); // 3. 모든 처리 후, 로딩 끄기
+      }
+    }}
+  >
+                <Text style={styles.saveButtonText}>플랜 전체 재조회</Text>
+              </TouchableOpacity>
+            </View>
+            <View style={styles.regenerateButtonWrapper}>
+              <TouchableOpacity
+                style={styles.regenerateButton}
+                onPress={async () => {
+                  try {
+                    const saveRequest = {
+                      title: scheduleData.title,
+                      startDate: scheduleData.startDate,
+                      endDate: scheduleData.endDate,
+                      days: scheduleData.days.map(day => ({
+                        places: day.places.map(place => ({
+                          name: place.name,
+                          type: place.type,
+                          address: place.address,
+                          lat: place.lat,
+                          lng: place.lng,
+                          description: place.description,
+                          estimatedCost: place.estimatedCost,
+                          gptOriginalName: place.gptOriginalName,
+                          fromPrevious: place.fromPrevious,
+                          placeOrder: place.placeOrder,
+                        })),
+                      })),
+                    };
 
-        const result = await regenerateSchedule({                                      //
-          startDate: scheduleData.startDate,                                           //
-          endDate: scheduleData.endDate,                                               //
-          destination: destinationToSend,                                       //
-          mbti: scheduleData.mbti,                                                     //
-          travelStyle: scheduleData.travelStyle,                                       //
-          peopleGroup: scheduleData.peopleGroup,                                       //
-          budget: scheduleData.budget,                                                 //
-          excludedNames,                                                               //
-        });                                                                            //
+                     // 1) 서버에 저장 요청
+        const response = await saveSchedule(saveRequest);
+        const savedScheduleId = response.id || response.scheduleId; // 실제 응답 구조에 따라 다름
 
-        setScheduleData(result);                                                       //
-        console.log('✅ 여행 플랜 재생성 성공:', result);                               //
-      } catch (err) {                                                                  //
-        console.error(                                                                 //
-          '❌ 여행 플랜 재생성 실패:',                                                  //
-          err.response?.data?.message || err.message                                   //
-        );                                                                             //
-      }                                                                         //
-    }}                                                                                 //
-  >                                                                                    //
-    <Text style={styles.regenerateButtonText}>플랜 전체 재생성</Text>
-  </TouchableOpacity>
-</View>
-  </>
-)}
+        // 2) 캐시도 필요하다면 추가 (optional)
+        await saveCacheData(CACHE_KEYS.PLAN_SAVE_READY, scheduleData);
+
+        // 3) id 포함해서 내 여행에 저장!
+        await saveTripToList({
+          ...saveRequest,
+          id: savedScheduleId, // 반드시 id 포함!
+        });
+                    Alert.alert(
+                      '여행 플랜 저장',
+                      '여행 플랜이 "내여행"으로 저장되었습니다.',
+                      [
+                        {
+                          text: 'OK',
+                          onPress: () => setIsSaved(true),
+                        },
+                      ]
+                    );
+                  } catch (e) {
+                    alert('저장에 실패했습니다. 다시 시도해 주세요.');
+                  }
+                }}
+              >
+                <Text style={styles.regenerateButtonText}>내 여행으로 저장</Text>
+              </TouchableOpacity>
+            </View>
+          </>
+        )}
+        <Modal visible={isRegenerating} transparent animationType="fade">
+  <SplashScreen />
+</Modal>
       </View>
     </SafeAreaView>
   );
@@ -577,7 +728,7 @@ const styles = StyleSheet.create({
   },
   container: {
     paddingHorizontal: 16,
-    marginBottom:-80,
+    marginBottom: -80,
     marginTop: 20,
     backgroundColor: '#FAFAFA',
   },
@@ -687,13 +838,12 @@ const styles = StyleSheet.create({
     marginBottom: 19,
     color: '#373737',
     paddingVertical: 4,
-    paddingTop:18,
+    paddingTop: 18,
   },
   transportItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 35,
-    top: 0,
+    paddingHorizontal: 32,
   },
   transportText: {
     marginLeft: 6,
@@ -718,64 +868,61 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   editButtonText: {
-    fontSize:16,
+    fontSize: 16,
     color: '#4F46E5',
   },
   saveButton: {
     flex: 1,
     height: 45,
     borderRadius: 12,
-    backgroundColor: '#4F46E5',
+    borderWidth: 1,
+    borderColor: '#4F46E5',
+    backgroundColor: '#fff',
     alignItems: 'center',
     justifyContent: 'center',
   },
   saveButtonText: {
     textAlign: 'center',
+    color: '#4F46E5',
+    fontSize: 16,
+  },
+  regenerateButtonWrapper: {
+    position: 'absolute',
+    bottom: 40,
+    left: 16,
+    right: 16,
+    backgroundColor: '#fafafa',
+    paddingVertical: 5,
+    borderRadius: 12,
+  },
+  regenerateButton: {
+    backgroundColor: '#4F46E5',
+    borderRadius: 10,
+    paddingVertical: 12,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#4F46E5',
+  },
+  regenerateButtonText: {
     color: '#fff',
     fontSize: 16,
   },
-
-  regenerateButtonWrapper: {
-  position: 'absolute',
-  bottom: 40,
-  left: 16,
-  right: 16,
-  backgroundColor: '#fafafa',
-  paddingVertical: 5,
-  borderRadius: 12,
-},
-
-regenerateButton: {
-  backgroundColor: '#fff',
-  borderRadius: 10,
-  paddingVertical: 12,
-  alignItems: 'center',
-  borderWidth: 1,
-    borderColor: '#4F46E5',
-},
-
-regenerateButtonText: {
-  color: '#4F46E5',
-  fontSize: 16,
-},
-fixedDoneButtonWrapper: {
-  position: 'absolute',
-  bottom: 5,
-  left: 20,
-  right: 20,
-  backgroundColor: '#4F46E5',
-  borderRadius: 12,
-  paddingVertical: 14,
-  alignItems: 'center',
-},
-
-fixedDoneButton: {
-  width: '100%',
-  alignItems: 'center',
-},
-
-fixedDoneButtonText: {
-  color: '#fff',
-  fontSize: 18,
-},
+  fixedDoneButtonWrapper: {
+    position: 'absolute',
+    bottom: 5,
+    left: 20,
+    right: 20,
+    backgroundColor: '#4F46E5',
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  fixedDoneButton: {
+    width: '100%',
+    alignItems: 'center',
+  },
+  fixedDoneButtonText: {
+    color: '#fff',
+    fontSize: 18,
+  },
 });
