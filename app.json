@@ -25,12 +25,7 @@
       "**/*"
     ],
     "ios": {
-      "supportsTablet": true,
-      "infoPlist": {
-        "NSAppTransportSecurity": {
-          "NSAllowsArbitraryLoads": true
-        }
-      }
+      "supportsTablet": true
     },
     "android": {
       "adaptiveIcon": {
