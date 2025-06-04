@@ -35,7 +35,6 @@ export default function AppNavigator({ isLoggedIn }) {
           </>
         )}
 
-        {/* 로그인 이후 화면: 항상 포함시키되, 로그인 안 된 경우 접근 안 되게! */}
         <Stack.Screen name="BottomTab" component={BottomTabNavigator} />
         <Stack.Screen name="Planner" component={PlannerScreen} options={{ title: '여행 플랜 생성' }} />
         <Stack.Screen name="Matching" component={MatchingScreen} options={{ title: '여행자 매칭' }} />
