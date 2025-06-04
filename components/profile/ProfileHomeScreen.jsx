@@ -13,7 +13,6 @@ import AsyncStorage from '@react-native-async-storage/async-storage'; // ✅ 토
 import { useNavigation } from '@react-navigation/native';
 import { MaterialIcons } from '@expo/vector-icons'; // ✅ 뒤로가기 + 로그아웃 아이콘 공용 사용
 import { UserContext } from '../../contexts/UserContext';
-import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function ProfileHomeScreen({ route }) {
   const navigation = useNavigation();
@@ -49,7 +48,7 @@ export default function ProfileHomeScreen({ route }) {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={styles.container}>
       {/* 상단 헤더 */}
       <View style={styles.header}>
         <TouchableOpacity
@@ -113,7 +112,7 @@ export default function ProfileHomeScreen({ route }) {
           <Text style={styles.editButtonText}>프로필 편집</Text>
         </TouchableOpacity>
       </View>
-    </SafeAreaView>
+    </View>
   );
 }
 
