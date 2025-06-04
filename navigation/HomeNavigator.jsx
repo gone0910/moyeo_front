@@ -30,6 +30,7 @@ export default function HomeNavigator() {
       <Stack.Screen name="PlannerResponse" component={PlannerResponseHome} options={{ tabBarStyle: { display: 'none' } }}/>
       <Stack.Screen name="PlaceDetail" component={PlaceDetailScreen} />
       <Stack.Screen name="NewPost" component={NewPostScreen} />
+
     </Stack.Navigator>
   );
 }
