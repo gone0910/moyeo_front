@@ -13,6 +13,7 @@ import PlannerScreen from '../components/planner/PlannerScreen';
 import PlannerInfoScreen from '../components/planner/PlannerInfoScreen';
 import PlannerResponseHome from '../components/planner/PlannerResponseHome';
 import PlaceDetailScreen from '../components/planner/PlaceDetailScreen';
+import NewPostScreen from '../components/community/NewPostScreen';
 const Stack = createNativeStackNavigator();
 
 export default function HomeNavigator() {
@@ -28,6 +29,7 @@ export default function HomeNavigator() {
       <Stack.Screen name="PlannerInfo" component={PlannerInfoScreen} />
       <Stack.Screen name="PlannerResponse" component={PlannerResponseHome} options={{ tabBarStyle: { display: 'none' } }}/>
       <Stack.Screen name="PlaceDetail" component={PlaceDetailScreen} />
+      <Stack.Screen name="NewPost" component={NewPostScreen} />
     </Stack.Navigator>
   );
 }
