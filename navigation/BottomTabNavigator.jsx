@@ -20,7 +20,7 @@ import { View, Text, StyleSheet } from 'react-native';
 import HomeNavigator from './HomeNavigator'; 
 import MyTripsScreen from '../components/trip/MyTripsScreen';
 import ChatListScreen from '../components/chat/ChatListScreen';
-import CommunityScreen from '../components/community/CommunityScreen';
+import CommunityStackNavigator from './CommunityStackNavigator'; // 여기!
 
 const Tab = createBottomTabNavigator();
 
@@ -75,7 +75,7 @@ export default function BottomTabNavigator() {  //하단탭이 홈화면 및 라
             iconName = focused ? 'home' : 'home-outline';
           } else if (route.name === 'MyTrips') {
             iconName = 'briefcase';
-            IconComponent = Feather; // ✅ Feather로 아이콘 컴포넌트 교체
+            IconComponent = Feather; 
           } else if (route.name === 'Chat') {
             iconName = focused ? 'chatbox' : 'chatbox-outline';
           } else if (route.name === 'Community') {
@@ -96,7 +96,7 @@ export default function BottomTabNavigator() {  //하단탭이 홈화면 및 라
       <Tab.Screen name="Home" component={HomeNavigator} />
       <Tab.Screen name="MyTrips" component={MyTripsScreen} />
       <Tab.Screen name="Chat" component={ChatListScreen} />
-      <Tab.Screen name="Community" component={CommunityScreen} />
+      <Tab.Screen name="Community" component={CommunityStackNavigator} />
     </Tab.Navigator>
   );
 }
