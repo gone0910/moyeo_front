@@ -63,7 +63,7 @@ export default function UserInfoScreen() {
       nickname,
       gender: gender === '남성' ? 'MALE' : gender === '여성' ? 'FEMALE' : '',
       age: parseInt(age),
-      mbti,
+      mbti: mbti === '' ? 'NONE' : mbti, // ✅ 선택하지 않았으면 NONE 전송
     };
 
     if (isMock === 'true') {
@@ -90,8 +90,8 @@ export default function UserInfoScreen() {
 
       const newUser = await getUserInfoWithFetch(newToken); // fetch 함수 사용
 
-      setUser(newUser);
-      await AsyncStorage.setItem('user', JSON.stringify(newUser));
+      setUser({ ...newUser, token: newToken }); // ✅ token 포함
+      await AsyncStorage.setItem('user', JSON.stringify({ ...newUser, token: newToken }));
       await AsyncStorage.setItem('jwt', newToken);
 
       Alert.alert('완료', '회원가입이 완료되었습니다.');

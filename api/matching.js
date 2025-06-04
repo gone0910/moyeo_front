@@ -4,7 +4,7 @@
 
 import axios from 'axios';
 
-const BASE_URL = 'http://ec2-13-125-81-224.ap-northeast-2.compute.amazonaws.com:8080'; // ✅ 실제 서버 주소로 교체 필요
+const BASE_URL = 'http://ec2-3-35-253-224.ap-northeast-2.compute.amazonaws.com:8080'; // ✅ 실제 서버 주소로 교체 필요
 
 // ─────────────────────────────────────────────
 // ✅ [1] 매칭 정보 입력/수정

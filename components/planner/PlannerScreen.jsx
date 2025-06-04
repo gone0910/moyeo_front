@@ -1,12 +1,12 @@
 // 📁 /components/matching/MatchingScreen.jsx
-import { useContext } from 'react';
+import React, { useContext } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { UserContext } from '../../contexts/UserContext'; // Ensure correct import path
 import { KaushanScript_400Regular } from '@expo-google-fonts/kaushan-script';
 import { useFonts } from 'expo-font';
 
-const matchingImage = require('../../assets/images/Planner_image.png');
+const matchingImage = require('../../assets/images/planning_image.jpg');
 
 export default function PlannerScreen() {
   const navigation = useNavigation();
