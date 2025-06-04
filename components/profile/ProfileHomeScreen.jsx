@@ -14,6 +14,7 @@ import { useNavigation } from '@react-navigation/native';
 import { MaterialIcons } from '@expo/vector-icons'; // ✅ 뒤로가기 + 로그아웃 아이콘 공용 사용
 import { UserContext } from '../../contexts/UserContext';
 
+
 export default function ProfileHomeScreen({ route }) {
   const navigation = useNavigation();
   // const { user: contextUser, setUser } = useContext(UserContext);

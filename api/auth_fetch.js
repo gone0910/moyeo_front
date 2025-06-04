@@ -200,3 +200,36 @@ export const editUserProfileWithFetch = async (userData, image, token) => {
     throw error;
   }
 };
+
+
+// 프로필 편집시, DB에서 받아온 사진 URL을 파일로 바꿔 DB로 다시 전송함
+/**
+ * 이미지 URL을 React Native용 FormData 호환 이미지 객체로 변환
+ * - uri: 이미지 URL
+ * - type: 기본 'image/jpeg'
+ * - name: 기본 'profile.jpg'
+ *
+ * @param {string} imageUrl - 기존 이미지 URL
+ * @returns {Object} FormData에 넣을 수 있는 이미지 객체
+ */
+export const convertUrlToImageObject = (imageUrl) => {
+  return {
+    uri: imageUrl,
+    type: 'image/jpeg',     // 필요시 image/png 등으로 수정 가능
+    name: 'profile.jpg',
+  };
+};
+
+
+// // 적용 예시 (editUserProfileWithFetch 호출 전에)
+// let imageParam = null;
+
+// if (typeof profileImage === 'string') {
+//   // 기존 이미지 URL인 경우
+//   imageParam = convertUrlToImageObject(profileImage);
+// } else if (profileImage?.uri) {
+//   // 사용자가 새로 선택한 이미지인 경우
+//   imageParam = profileImage;
+// }
+
+// await editUserProfileWithFetch(userData, imageParam, token);
