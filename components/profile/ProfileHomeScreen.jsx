@@ -1,5 +1,3 @@
-// 📁 /components/profile/ProfileHomeScreen.jsx
-
 import React, { useContext } from 'react';
 import {
   View,
@@ -8,34 +6,48 @@ import {
   Image,
   TouchableOpacity,
   Alert,
+  Dimensions,
+  PixelRatio,
+  Platform,
+  SafeAreaView,
 } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage'; // ✅ 토큰 제거용
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
-import { MaterialIcons } from '@expo/vector-icons'; // ✅ 뒤로가기 + 로그아웃 아이콘 공용 사용
+import { MaterialIcons } from '@expo/vector-icons';
 import { UserContext } from '../../contexts/UserContext';
+
+// ==== 반응형 유틸 함수 ====
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+const BASE_WIDTH = 390; // iPhone 13 기준
+const BASE_HEIGHT = 844;
+function normalize(size, based = 'width') {
+  const scale = based === 'height' ? SCREEN_HEIGHT / BASE_HEIGHT : SCREEN_WIDTH / BASE_WIDTH;
+  const newSize = size * scale;
+  if (Platform.OS === 'ios') {
+    return Math.round(PixelRatio.roundToNearestPixel(newSize));
+  } else {
+    return Math.round(PixelRatio.roundToNearestPixel(newSize)) - 1;
+  }
+}
 
 export default function ProfileHomeScreen({ route }) {
   const navigation = useNavigation();
-  // const { user: contextUser, setUser } = useContext(UserContext);
-  // const user = route?.params || contextUser; // 초기 화면전환 시 1회성 사용자 정보 반영
-  const { user, setUser } = useContext(UserContext); // ✅ 항상 최신 상태의 사용자 정보 사용
+  const { user, setUser } = useContext(UserContext);
 
-
-  // ✅ 실제 로그아웃 처리
+  // 로그아웃 처리
   const handleLogout = async () => {
     try {
-      await AsyncStorage.clear(); // 저장된 토큰 등 삭제 ( mock 포함)
-      setUser(null);              // UserContext 초기화
+      await AsyncStorage.clear();
+      setUser(null);
       navigation.reset({
         index: 0,
-        routes: [{ name: 'Login' }], // LoginScreen으로 완전 초기화 이동
+        routes: [{ name: 'Login' }],
       });
     } catch (error) {
       console.error('로그아웃 오류:', error);
     }
   };
 
-  // ✅ 사용자에게 로그아웃 확인 알림
   const confirmLogout = () => {
     Alert.alert(
       '로그아웃',
@@ -48,204 +60,201 @@ export default function ProfileHomeScreen({ route }) {
   };
 
   return (
-    <View style={styles.container}>
-      {/* 상단 헤더 */}
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => navigation.goBack()}   // HomeScreen.jsx로 이동
-        >
-          <MaterialIcons name="arrow-back-ios" size={20} color="#4F46E5" />
-          <Text style={styles.backText}>Home</Text>
-        </TouchableOpacity>
-
-        <View style={styles.headerTitleWrapper}>
+    <View style={styles.safe}>
+      <View style={styles.container}>
+        {/* 상단 헤더 */}
+        <View style={styles.header}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => navigation.goBack()}
+          >
+            <MaterialIcons name="arrow-back-ios" size={normalize(22)} color="#5347EA" />
+          </TouchableOpacity>
           <Text style={styles.headerTitle}>프로필 홈</Text>
-
-          {/* ✅ 로그아웃 버튼 (MaterialIcons 사용) */}
           <TouchableOpacity style={styles.logoutButton} onPress={confirmLogout}>
-            <MaterialIcons name="logout" size={22} color="#4F46E5" />
+            <MaterialIcons name="logout" size={normalize(22)} color="#5347EA" />
           </TouchableOpacity>
         </View>
-      </View>
+        <View style={styles.headerLine} />
 
-      <View style={styles.headerLine} />
+        {/* 본문 영역 */}
+        <View style={styles.contentWrapper}>
+          {/* 프로필 이미지 */}
+          <View style={styles.imageContainer}>
+            {user?.profileImageUrl ? (
+              <Image source={{ uri: user.profileImageUrl }} style={styles.profileImage} />
+            ) : (
+              <View style={styles.placeholderImage} />
+            )}
+          </View>
 
-      {/* 본문 영역 */}
-      <View style={styles.contentWrapper}>
-        {/* 프로필 이미지 */}
-        <View style={styles.imageContainer}>
-          {user?.profileImageUrl ? (
-            <Image source={{ uri: user.profileImageUrl }} style={styles.profileImage} /> // 사진은 profileImageUrl 일괄적용.
-          ) : (
-            <View style={styles.placeholderImage} />
-          )}
-        </View>
-
-        {/* 정보 표시 */}
-        <View style={styles.infoContainer}>
-          <View style={styles.infoRowWrapper}>
-            <View style={styles.infoColumn}>
-              <Text style={styles.label}>닉네임</Text>
-              <Text style={styles.label}>성별</Text>
-              <Text style={styles.label}>나이</Text>
-              <Text style={styles.label}>MBTI</Text>
-            </View>
-            <View style={styles.infoColumn}>
-              <Text style={styles.value}>{user?.nickname || '-'}</Text>
-              <Text style={styles.value}>
-                {user?.gender === 'MALE' ? '남성' : user?.gender === 'FEMALE' ? '여성' : '-'}
+          {/* 정보 표시 */}
+          <View style={styles.infoContainer}>
+            <View style={styles.infoRowWrapper}>
+              <View style={styles.infoColumn}>
+                <Text style={styles.label}>닉네임</Text>
+                <Text style={styles.label}>성별</Text>
+                <Text style={styles.label}>나이</Text>
+                <Text style={styles.label}>MBTI</Text>
+              </View>
+              <View style={styles.infoColumn}>
+                <Text style={styles.value}>{user?.nickname || '-'}</Text>
+                <Text style={styles.value}>
+                  {user?.gender === 'MALE'
+                    ? '남성'
+                    : user?.gender === 'FEMALE'
+                    ? '여성'
+                    : '-'}
                 </Text>
-              <Text style={styles.value}>{user?.age || '-'}</Text>
-              <Text style={styles.value}>{user?.mbti || '-'}</Text>
+                <Text style={[styles.value, styles.boldValue]}>
+                  {user?.age ? String(user.age) : '-'}
+                </Text>
+                <Text style={[styles.value, styles.boldValue]}>
+                  {user?.mbti || '-'}
+                </Text>
+              </View>
             </View>
           </View>
         </View>
-      </View>
 
-      {/* 하단 버튼 */}
-      <View style={styles.footerWrapper}>
-        <TouchableOpacity
-          style={styles.editButton}
-          onPress={() => navigation.navigate('EditProfile', user)} // EditProfileScreen.jsx로 이동
-        >
-          <Text style={styles.editButtonText}>프로필 편집</Text>
-        </TouchableOpacity>
+        {/* 하단 버튼 */}
+        <View style={styles.footerWrapper}>
+          <TouchableOpacity
+            style={styles.editButton}
+            onPress={() => navigation.navigate('EditProfile', user)}
+          >
+            <Text style={styles.editButtonText}>프로필 편집</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     </View>
   );
 }
 
-// 🔧 스타일 정의
+// ======= 반응형 스타일 =======
 const styles = StyleSheet.create({
+  safe: {
+    flex: 1,
+    backgroundColor: '#fafafa',
+  },
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 16,
-    paddingTop: 24,
+    backgroundColor: '#fafafa',
+    paddingHorizontal: normalize(14),
+    paddingTop: normalize(18, 'height'),
+    borderRadius: normalize(24),
+    margin: normalize(10),
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    height: 50,
+    height: normalize(80, 'height'),
     justifyContent: 'space-between',
     position: 'relative',
+    paddingHorizontal: normalize(2),
+    marginBottom: normalize(-25, 'height'),
   },
   backButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    position: 'relative',
-    paddingLeft: 16,
-  },
-  backText: {
-    fontFamily: 'Roboto',
-    fontSize: 14,
-    fontWeight: '400',
-    color: '#4F46E5',
-    paddingLeft: 12,
-  },
-  headerTitleWrapper: {
-    position: 'absolute',
-    top: 0,
-    bottom: 0,
-    left: 0,
-    right: 0,
-    justifyContent: 'center',
-    alignItems: 'center',
+    padding: normalize(3),
+    paddingLeft: normalize(2),
+    zIndex: 2,
   },
   headerTitle: {
-    position: 'absolute',
-    alignSelf: 'center',
-    fontFamily: 'Roboto',
-    fontSize: 16,
-    fontWeight: '400',
-    color: '#000000',
+    flex: 1,
+    textAlign: 'center',
+    fontSize: normalize(16),
+    fontWeight: '600',
+    color: '#232323',
+    letterSpacing: -0.2,
+    zIndex: 1,
   },
   logoutButton: {
-    position: 'absolute',
-    right: 10,
-    top: 0,
-    bottom: 0,
-    justifyContent: 'center',
-    padding: 4,
+    padding: normalize(3),
+    zIndex: 2,
   },
   headerLine: {
     borderBottomWidth: 1,
-    borderColor: '#999',
-    marginTop: 1,
-    marginBottom: 24,
+    borderColor: '#D1D5DB',
+    marginTop: normalize(6, 'height'),
+    marginBottom: normalize(18, 'height'),
   },
   contentWrapper: {
     flex: 1,
+    alignItems: 'center',
   },
   imageContainer: {
     alignItems: 'center',
-    marginBottom: 24,
+    marginBottom: normalize(18, 'height'),
+    marginTop: normalize(20, 'height'),
   },
   profileImage: {
-    width: 200,
-    height: 200,
-    borderRadius: 120,
-    marginTop:30,
+    width: normalize(200),
+    height: normalize(200),
+    borderRadius: normalize(100),
+    backgroundColor: '#E5E7EB',
   },
   placeholderImage: {
-    width: 200,
-    height: 200,
-    borderRadius: 120,
-    marginTop:30,
+    width: normalize(200),
+    height: normalize(200),
+    borderRadius: normalize(100),
     backgroundColor: '#D1D5DB',
   },
   infoContainer: {
-    paddingHorizontal: 16,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: 60,
-    marginBottom: 24,
+    marginTop: normalize(70, 'height'),
+    marginBottom: normalize(8, 'height'),
+    width: '100%',
   },
   infoRowWrapper: {
     flexDirection: 'row',
     justifyContent: 'center',
-    columnGap: 40,
+    alignItems: 'flex-start',
+    columnGap: normalize(36),
   },
   infoColumn: {
     flexDirection: 'column',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 40,
+    justifyContent: 'flex-start',
+    alignItems: 'flex-start',
+    rowGap: normalize(28, 'height'),
   },
   label: {
-    fontFamily: 'Inter_400Regular',
-    fontSize: 16,
+    fontFamily: 'System',
+    fontSize: normalize(18),
     fontWeight: '400',
-    color: '#7E7E7E',
-    textAlign: 'center',
-    maxWidth: 140,
+    color: '#979797',
+    textAlign: 'left',
+    minWidth: normalize(60),
+    marginBottom: 0,
   },
   value: {
-    fontFamily: 'Inter_400Regular',
-    fontSize: 16,
+    fontFamily: 'System',
+    fontSize: normalize(18),
     fontWeight: '400',
-    color: '#1E1E1E',
-    textAlign: 'center',
-    maxWidth: 140,
+    color: '#232323',
+    textAlign: 'left',
+    minWidth: normalize(60),
+  },
+  boldValue: {
+    fontWeight: 'bold',
+    letterSpacing: 0.2,
   },
   footerWrapper: {
-    paddingBottom: 24,
-    paddingTop: 8,
+    paddingBottom: normalize(30, 'height'),
+    paddingTop: normalize(10, 'height'),
+    paddingHorizontal: normalize(6),
   },
   editButton: {
-    marginTop: 32,
-    backgroundColor: '#4F46E5',
-    borderRadius: 10,
-    paddingVertical: 16,
+    backgroundColor: '#5347EA',
+    borderRadius: normalize(14),
+    paddingVertical: normalize(18, 'height'),
     alignItems: 'center',
     justifyContent: 'center',
     width: '100%',
   },
   editButtonText: {
-    fontFamily: 'Inter_400Regular',
-    fontSize: 16,
-    fontWeight: '400',
+    fontFamily: 'System',
+    fontSize: normalize(16),
+    fontWeight: '600',
     color: '#FFFFFF',
+    letterSpacing: 0.2,
   },
 });
