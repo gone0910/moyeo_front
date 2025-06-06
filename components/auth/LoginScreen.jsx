@@ -81,8 +81,8 @@ export default function LoginScreen() {
         try {
           console.log('📡 기존 사용자 정보 요청 시작');
           const user = await getUserInfo(token);
-          setUser(user);
-          await AsyncStorage.setItem('user', JSON.stringify(user));
+          setUser({ ...user, token }); // ✅ token 포함
+          await AsyncStorage.setItem('user', JSON.stringify({ ...user, token }));
           console.log('✅ 사용자 정보 저장 완료 → BottomTab 이동');
           navigation.replace('BottomTab');
         } catch (error) {
