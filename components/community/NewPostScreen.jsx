@@ -3,6 +3,7 @@ import {
   View, Text, StyleSheet, TouchableOpacity, TextInput, Image, FlatList,
   Dimensions, Platform, ScrollView, PixelRatio, Keyboard, TouchableWithoutFeedback
 } from 'react-native';
+import { Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { KeyboardAvoidingView } from 'react-native';
 import ToggleSelector from '../common/ToggleSelector';
@@ -185,31 +186,39 @@ export default function NewPostScreen() {
   }, [navigation]);
 
    const handleRegister = async () => {
-    try {
-      if (!title.trim()) {
-        Alert.alert('제목을 입력해 주세요.');
-        return;
-      }
-      if (!content.trim()) {
-        Alert.alert('내용을 입력해 주세요.');
-        return;
-      }
-      const provinceVal = Province[selectedRegion] || 'NONE'; // 도
-const cityVal = City[selectedCity] || 'NONE';
-
-      const result = await createCommunityPost({
-  title,
-  content,
-  city: cityVal,         // ← 시/군/구
-  province: provinceVal, // ← 도/광역시
-  imageUris: images,
-});
-      Alert.alert('글 등록 완료', `postId: ${result.postId}`);
-      navigation.goBack();
-    } catch (err) {
-      Alert.alert('오류', err.message || '글 등록 중 문제가 발생했습니다.');
+  try {
+    if (!title.trim()) {
+      Alert.alert('제목을 입력해 주세요.');
+      return;
     }
-  };
+    if (!content.trim()) {
+      Alert.alert('내용을 입력해 주세요.');
+      return;
+    }
+    const provinceVal = Province[selectedRegion] || 'NONE';
+    const cityVal = City[selectedCity] || 'NONE';
+
+    const result = await createCommunityPost({
+      title,
+      content,
+      city: cityVal,
+      province: provinceVal,
+      imageUris: images,
+    });
+
+    let msg = '글이 정상적으로 등록되었습니다.';
+    if (result?.postId) msg = `postId: ${result.postId}`;
+
+    Alert.alert('글 등록 완료', msg, [
+      {
+        text: '확인',
+        onPress: () => navigation.goBack(),
+      },
+    ]);
+  } catch (err) {
+    Alert.alert('오류', err.message || '글 등록 중 문제가 발생했습니다.');
+  }
+};
 
    const pickImage = async () => {
   if (images.length >= MAX_IMAGES) {
