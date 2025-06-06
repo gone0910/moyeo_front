@@ -13,8 +13,7 @@ import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import DraggableFlatList from 'react-native-draggable-flatlist';
-//import { createSchedule } from '../../api/createSchedule';
-import { getCacheData } from '../../caching/cacheService'; // 경로는 실제 위치에 맞게 조정
+import { getCacheData } from '../../caching/cacheService';
 import { CACHE_KEYS } from '../../caching/cacheService';
 import { saveCacheData } from '../../caching/cacheService';
 import { editSchedule } from '../../api/planner_edit_request';
@@ -29,21 +28,25 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import SplashScreen from '../../components/common/SplashScreen';
 import { Modal } from 'react-native';
 
-const { width } = Dimensions.get('window');
+// === 반응형 유틸 함수 ===
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+const BASE_WIDTH = 390; // iPhone 13 기준
+const BASE_HEIGHT = 844;
+function normalize(size, based = 'width') {
+  const scale = based === 'height' ? SCREEN_HEIGHT / BASE_HEIGHT : SCREEN_WIDTH / BASE_WIDTH;
+  return Math.round(size * scale);
+}
 
 const saveTripToList = async (tripData) => {
   try {
     const existing = await AsyncStorage.getItem('MY_TRIPS');
     let trips = [];
     if (existing) trips = JSON.parse(existing);
-
-    // 이미 같은 title/startDate인 플랜이 있으면 덮어쓰기, 없으면 추가
     const idx = trips.findIndex(
       t => t.title === tripData.title && t.startDate === tripData.startDate
     );
     if (idx !== -1) trips[idx] = tripData;
     else trips.push(tripData);
-
     await AsyncStorage.setItem('MY_TRIPS', JSON.stringify(trips));
   } catch (e) {
     console.warn('저장 실패:', e);
@@ -70,41 +73,46 @@ export default function PlannerResponseHome() {
   }, [navigation]);
 
   const ensurePlaceIds = (data) => ({
-  ...data,
-  days: data.days.map(day => ({
-    ...day,
-    places: day.places.map(place => ({
-      ...place,
-      id: place.id ? String(place.id) : uuid.v4(),
+    ...data,
+    days: data.days.map(day => ({
+      ...day,
+      places: day.places.map(place => ({
+        ...place,
+        id: place.id ? String(place.id) : uuid.v4(),
+      })),
     })),
-  })),
-});
+  });
 
-useEffect(() => {
-  const loadCachedData = async () => {
-    try {
-      const cached = await getCacheData(CACHE_KEYS.PLAN_INITIAL);
-      if (cached) setScheduleData(ensurePlaceIds(cached));
-    } catch (err) {
-      console.error('❌ 캐시 또는 일정 생성 실패:', err);
-    }
-  };
-  loadCachedData();
-}, []);
-
-useEffect(() => {
-  const fetchDetail = async () => {
-    if (route.params?.scheduleId) {
+  useEffect(() => {
+    const loadCachedData = async () => {
       try {
-        const detail = await getScheduleDetail(route.params.scheduleId);
-        setScheduleData(ensurePlaceIds(detail));
-      } catch (e) {
-        navigation.goBack();
+        const cached = await getCacheData(CACHE_KEYS.PLAN_INITIAL);
+        if (cached) setScheduleData(ensurePlaceIds(cached));
+      } catch (err) {
+        console.error('❌ 캐시 또는 일정 생성 실패:', err);
       }
-    }
-  };
-  fetchDetail();
-}, [route.params?.scheduleId]);
+    };
+    loadCachedData();
+  }, []);
+
+  useEffect(() => {
+    const fetchDetail = async () => {
+      if (route.params?.scheduleId) {
+        try {
+          const detail = await getScheduleDetail(route.params.scheduleId);
+          let detailWithId = detail;
+          if (!detail.id && route.params?.scheduleId) {
+            detailWithId = { ...detail, id: route.params.scheduleId };
+          }
+          setScheduleData(ensurePlaceIds(detailWithId));
+          console.log('[상세보기 불러온 scheduleData]', detailWithId);
+        } catch (e) {
+          navigation.goBack();
+        }
+      }
+    };
+    fetchDetail();
+  }, [route.params?.scheduleId]);
 
   if (!scheduleData) {
     return (
@@ -151,25 +159,19 @@ useEffect(() => {
   };
 
   const handleDeletePlace = (placeId) => {
-  // 🔽 여기에 추가!
-  const currentPlaces = [...scheduleData.days[selectedDayIndex].places];
-  console.log('삭제 전:', currentPlaces.map(p => `${p.id}:${p.name}`));
-
-  const updatedPlaces = currentPlaces.filter((p) => p.id !== placeId);
-  console.log('삭제 후:', updatedPlaces.map(p => `${p.id}:${p.name}`));
-
-  const updatedDays = scheduleData.days.map((day, i) =>
-    i === selectedDayIndex ? { ...day, places: updatedPlaces } : day
-  );
-  setScheduleData({ ...scheduleData, days: updatedDays });
-
-  if (newlyAddedPlaceId === placeId) setNewlyAddedPlaceId(null);
-  setEditedPlaces((prev) => {
-    const updated = { ...prev };
-    delete updated[placeId];
-    return updated;
-  });
-};
+    const currentPlaces = [...scheduleData.days[selectedDayIndex].places];
+    const updatedPlaces = currentPlaces.filter((p) => p.id !== placeId);
+    const updatedDays = scheduleData.days.map((day, i) =>
+      i === selectedDayIndex ? { ...day, places: updatedPlaces } : day
+    );
+    setScheduleData({ ...scheduleData, days: updatedDays });
+    if (newlyAddedPlaceId === placeId) setNewlyAddedPlaceId(null);
+    setEditedPlaces((prev) => {
+      const updated = { ...prev };
+      delete updated[placeId];
+      return updated;
+    });
+  };
 
   const handleEndEditing = (placeId) => {
     const currentPlaces = [...scheduleData.days[selectedDayIndex].places];
@@ -206,10 +208,10 @@ useEffect(() => {
               }
             }}
           >
-            <Ionicons name="chevron-back" size={24} color="black" />
+            <Ionicons name="chevron-back" size={normalize(24)} color="black" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>여행플랜</Text>
-          <View style={{ width: 24 }} />
+          <View style={{ width: normalize(24) }} />
         </View>
 
         {/* 여행 정보 */}
@@ -235,7 +237,7 @@ useEffect(() => {
           <View style={{
             alignItems: 'center',
             backgroundColor: '#FAFAFA',
-            paddingVertical: 10,
+            paddingVertical: normalize(10),
             borderBottomWidth: 1,
             borderColor: '#E5E7EB',
           }}>
@@ -270,9 +272,7 @@ useEffect(() => {
                       Day - {idx + 1}
                     </Text>
                     {selectedDayIndex === idx && (
-                      <>
-                        <View style={styles.activeBar} />
-                      </>
+                      <View style={styles.activeBar} />
                     )}
                   </View>
                 </TouchableOpacity>
@@ -290,7 +290,7 @@ useEffect(() => {
               onDragEnd={handleDragEnd}
               extraData={[places, newlyAddedPlaceId, selectedDayIndex]}
               containerStyle={styles.container}
-              contentContainerStyle={{ paddingBottom: 120 }}
+              contentContainerStyle={{ paddingBottom: normalize(120, 'height') }}
               renderItem={({ item: place, drag }) => {
                 const currentIndex = places.findIndex((p) => p.id === place.id);
                 return (
@@ -304,26 +304,26 @@ useEffect(() => {
                           onLongPress={drag}
                           delayLongPress={100}
                         >
-                          <Ionicons name="reorder-two-outline" size={30} color={place.type === '식사' ? '#1270B0' : '#4F46E5'} />
+                          <Ionicons name="reorder-two-outline" size={normalize(30)} color={place.type === '식사' ? '#1270B0' : '#4F46E5'} />
                         </TouchableOpacity>
                         {/* 삭제 버튼 */}
                         <TouchableOpacity
                           style={{
                             position: 'absolute',
-                            top: 25,
+                            top: normalize(25),
                             right: 0,
                             backgroundColor: '#F87171',
-                            borderRadius: 20,
-                            padding: 4,
+                            borderRadius: normalize(20),
+                            padding: normalize(4),
                             zIndex: 10,
                           }}
                           onPress={() => handleDeletePlace(place.id)}
                         >
-                          <Ionicons name="remove" size={22} color="#fff" />
+                          <Ionicons name="remove" size={normalize(22)} color="#fff" />
                         </TouchableOpacity>
                         {/* placeCard */}
                         <TouchableOpacity
-                          style={[styles.placeCard3, { marginLeft: 24 }]}
+                          style={[styles.placeCard3, { marginLeft: normalize(24) }]}
                           disabled={newlyAddedPlaceId === place.id}
                           onPress={() => {
                             if (isEditing && !newlyAddedPlaceId && editedPlaceId !== place.id) {
@@ -350,7 +350,7 @@ useEffect(() => {
                               placeholderTextColor="#C0C0C0"
                             />
                           ) : (
-                            <View style={{ minHeight: 60, justifyContent: 'center' }}>
+                            <View style={{ minHeight: normalize(60, 'height'), justifyContent: 'center' }}>
                               <View style={styles.placeHeader}>
                                 <Text style={styles.placeName}>{place.name}</Text>
                                 {(place.name && place.estimatedCost !== '' && place.estimatedCost !== undefined && place.estimatedCost !== null) && (
@@ -374,13 +374,13 @@ useEffect(() => {
                     <TouchableOpacity
                       style={{
                         backgroundColor: '#A19CFF',
-                        paddingVertical: 8,
-                        borderRadius: 16,
-                        marginTop: 16,
-                        marginBottom: 14,
+                        paddingVertical: normalize(8),
+                        borderRadius: normalize(16),
+                        marginTop: normalize(16),
+                        marginBottom: normalize(14),
                         alignSelf: 'flex-start',
                         width: '50%',
-                        marginLeft: 90,
+                        marginLeft: normalize(90),
                         opacity: newlyAddedPlaceId ? 0.5 : 1,
                       }}
                       disabled={!!newlyAddedPlaceId}
@@ -389,10 +389,10 @@ useEffect(() => {
                       <Text
                         style={{
                           color: '#fff',
-                          fontSize: 18,
+                          fontSize: normalize(18),
                           fontWeight: 'bold',
                           textAlign: 'center',
-                          lineHeight: 20,
+                          lineHeight: normalize(20),
                         }}
                       >
                         장소추가
@@ -405,7 +405,7 @@ useEffect(() => {
           ) : (
             <ScrollView
               style={styles.container}
-              contentContainerStyle={{ paddingBottom: 120 }}
+              contentContainerStyle={{ paddingBottom: normalize(120, 'height') }}
             >
               {places.map((place, idx) => (
                 <View key={place.id ? String(place.id) : `temp-${idx}`}>
@@ -413,16 +413,16 @@ useEffect(() => {
                   {idx !== 0 && place.fromPrevious && (
                     <View style={styles.transportRow}>
                       <View style={styles.transportItem}>
-                        <Ionicons name="car-outline" size={22} color="#6B7280" style={{ marginLeft: 15 }} />
+                        <Ionicons name="car-outline" size={normalize(22)} color="#6B7280" />
                         <Text style={styles.transportText}>{place.fromPrevious.car}분</Text>
                       </View>
                       <View style={styles.transportItem}>
-                        <Ionicons name="bus-outline" size={22} color="#6B7280" />
+                        <Ionicons name="bus-outline" size={normalize(22)} color="#6B7280" />
                         <Text style={styles.transportText}>{place.fromPrevious.publicTransport}분</Text>
                       </View>
                       <View style={styles.transportItem}>
-                        <MaterialCommunityIcons name="walk" size={22} color="#6B7280" />
-                        <Text style={styles.transportText}>{place.fromPrevious.walk}분</Text>
+                        <MaterialCommunityIcons name="walk" size={normalize(22)} color="#6B7280" style={{ marginRight:normalize(20)}}/>
+                        <Text style={styles.transportTexts}>{place.fromPrevious.walk}분</Text>
                       </View>
                     </View>
                   )}
@@ -431,8 +431,9 @@ useEffect(() => {
                       <View style={[
                         styles.dot,
                         { backgroundColor: place.type === '식사' ? '#1270B0' : '#4F46E5' },
+                        { width: normalize(20), height: normalize(20), borderRadius: normalize(10), top: normalize(40) }
                       ]} />
-                      {idx !== places.length - 1 && <View style={styles.verticalLine} />}
+                      {idx !== places.length - 1 && <View style={[styles.verticalLine, { left: normalize(13), width: normalize(4), height: normalize(330, 'height') }]} />}
                     </View>
                     <View style={styles.placeContent}>
                       <TouchableOpacity
@@ -456,16 +457,16 @@ useEffect(() => {
                   {idx === places.length - 1 && place.fromPrevious && selectedDayIndex !== scheduleData.days.length - 1 && (
                     <View style={styles.transportRow}>
                       <View style={styles.transportItem}>
-                        <Ionicons name="car-outline" size={22} color="#6B7280" style={{ marginLeft: 15 }} />
+                        <Ionicons name="car-outline" size={normalize(22)} color="#6B7280" />
                         <Text style={styles.transportText}>{place.fromPrevious.car}분</Text>
                       </View>
                       <View style={styles.transportItem}>
-                        <Ionicons name="bus-outline" size={22} color="#6B7280" />
+                        <Ionicons name="bus-outline" size={normalize(22)} color="#6B7280" />
                         <Text style={styles.transportText}>{place.fromPrevious.publicTransport}분</Text>
                       </View>
                       <View style={styles.transportItem}>
-                        <MaterialCommunityIcons name="walk" size={22} color="#6B7280" />
-                        <Text style={styles.transportText}>{place.fromPrevious.walk}분</Text>
+                        <MaterialCommunityIcons name="walk" size={normalize(22)} color="#6B7280" style={{ marginRight:normalize(20)}}/>
+                        <Text style={styles.transportTexts}>{place.fromPrevious.walk}분</Text>
                       </View>
                     </View>
                   )}
@@ -488,20 +489,26 @@ useEffect(() => {
                   const placeNames = scheduleData.days[selectedDayIndex].places.map(p => p.name);
                   const result = await editSchedule(placeNames);
                   if (result.places && result.totalEstimatedCost !== undefined) {
+                    const newPlaces = ensurePlaceIds({ days: [{ places: result.places }] }).days[0].places;
                     setScheduleData({
                       ...scheduleData,
                       days: scheduleData.days.map((day, idx) =>
                         idx === selectedDayIndex
-                          ? { ...day, places: result.places, totalEstimatedCost: result.totalEstimatedCost }
+                          ? {
+                            ...day,
+                            places: newPlaces,
+                            totalEstimatedCost: result.totalEstimatedCost
+                          }
                           : day
                       )
                     });
                   } else if (Array.isArray(result)) {
+                    const newPlaces = ensurePlaceIds({ days: [{ places: result }] }).days[0].places;
                     setScheduleData({
                       ...scheduleData,
                       days: scheduleData.days.map((day, idx) =>
                         idx === selectedDayIndex
-                          ? { ...day, places: result }
+                          ? { ...day, places: newPlaces }
                           : day
                       )
                     });
@@ -515,41 +522,41 @@ useEffect(() => {
               <Text style={styles.fixedDoneButtonText}>수정 완료</Text>
             </TouchableOpacity>
           </View>
-        ) : (isReadOnly || isSaved) ? (         
+        ) : (isReadOnly || isSaved) ? (
           <View style={styles.bottomButtonContainer}>
             <TouchableOpacity
-  style={[
-    styles.editButton,
-    { flex: 1, marginRight: 8, backgroundColor: '#F87171', borderColor: '#F87171' }
-  ]}
-   onPress={() => {
-    Alert.alert(
-      '플랜 삭제',
-      '정말로 이 여행 플랜을 삭제하시겠습니까?',
-      [
-        { text: '취소', style: 'cancel' },
-        {
-          text: '삭제',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              
-              const scheduleId = scheduleData.id; // ← 실제 id값!
-              await deleteSchedule(scheduleId);
-              Alert.alert('삭제 완료', '플랜이 삭제되었습니다!');
-              navigation.goBack(); // 또는 초기화 등 원하는 동작
-            } catch (e) {
-              Alert.alert('삭제 실패', '플랜 삭제에 실패했습니다.');
-            }
-          },
-        },
-      ],
-      { cancelable: true }
-    );
-  }}
->
-  <Text style={[styles.editButtonText, { color: '#fff' }]}>플랜 삭제</Text>
-</TouchableOpacity>
+              style={[
+                styles.editButton,
+                { flex: 1, marginRight: normalize(8), backgroundColor: '#F87171', borderColor: '#F87171' }
+              ]}
+              onPress={() => {
+                Alert.alert(
+                  '플랜 삭제',
+                  '정말로 이 여행 플랜을 삭제하시겠습니까?',
+                  [
+                    { text: '취소', style: 'cancel' },
+                    {
+                      text: '삭제',
+                      style: 'destructive',
+                      onPress: async () => {
+                        try {
+                          console.log('[삭제 요청 id]', scheduleData.id);
+                          const scheduleId = scheduleData.id;
+                          await deleteSchedule(scheduleId);
+                          Alert.alert('삭제 완료', '플랜이 삭제되었습니다!');
+                          navigation.goBack();
+                        } catch (e) {
+                          Alert.alert('삭제 실패', '플랜 삭제에 실패했습니다.');
+                        }
+                      },
+                    },
+                  ],
+                  { cancelable: true }
+                );
+              }}
+            >
+              <Text style={[styles.editButtonText, { color: '#fff' }]}>플랜 삭제</Text>
+            </TouchableOpacity>
             <TouchableOpacity
               style={[styles.editButton, { flex: 1, backgroundColor: '#4F46E5', borderColor: '#4F46E5' }]}
               onPress={() => setIsEditing(true)}
@@ -561,60 +568,55 @@ useEffect(() => {
           <>
             <View style={styles.bottomButtonContainer}>
               <TouchableOpacity
-                style={[styles.editButton, { marginRight: 2 }]}
+                style={[styles.editButton, { marginRight: normalize(2) }]}
                 onPress={() => setIsEditing(true)}
               >
                 <Text style={styles.editButtonText}>플랜 수정</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.saveButton, { marginLeft: 8 }]}
+                style={[styles.saveButton, { marginLeft: normalize(8) }]}
                 onPress={async () => {
                   setIsRegenerating(true);
                   try {
-                    const excludedNames = [];
+                    const excludedNames = scheduleData.days
+                    .flatMap(day => day.places.map(place => place.name))
+                    .filter(name => !!name);
                     const destinationToSend = scheduleData.destination || "NONE";
                     const mbtiToSend = scheduleData.mbti || "NONE";
                     const travelStyleToSend = scheduleData.travelStyle || "NONE";
                     const peopleGroupToSend = scheduleData.peopleGroup || "NONE";
                     const budgetToSend = scheduleData.budget ?? 0;
 
-
                     const requestData = {
-      startDate: scheduleData.startDate,
-      endDate: scheduleData.endDate,
-      destination: destinationToSend,
-      mbti: mbtiToSend,
-      travelStyle: travelStyleToSend,
-      peopleGroup: peopleGroupToSend,
-      budget: budgetToSend,
-      excludedNames,
-    };
-
-    // [2] 요청 데이터 로그
-    console.log('📤 일정 재생성 요청:', JSON.stringify(requestData, null, 2));
-
-    // [3] 재생성 요청 및 응답 로그
-    const result = await regenerateSchedule(requestData);
-
-    // [2] result가 성공적으로 왔으면 화면 갱신
-    if (result && result.days) {
-          setScheduleData(prev => ({
-            ...prev,
-            days: result.days,
-            startDate: result.startDate,
-            endDate: result.endDate,
-            title: result.title || prev.title,
-          }));
-        } else {
-          Alert.alert('재생성 실패', '서버에서 정상 데이터가 오지 않았습니다.');
-        }
-      } catch (err) {
-        Alert.alert('오류', '재생성 중 오류가 발생했습니다.');
-      } finally {
-        setIsRegenerating(false); // 3. 모든 처리 후, 로딩 끄기
-      }
-    }}
-  >
+                      startDate: scheduleData.startDate,
+                      endDate: scheduleData.endDate,
+                      destination: destinationToSend,
+                      mbti: mbtiToSend,
+                      travelStyle: travelStyleToSend,
+                      peopleGroup: peopleGroupToSend,
+                      budget: budgetToSend,
+                      excludedNames,
+                    };
+                    console.log('📤 일정 재생성 요청:', JSON.stringify(requestData, null, 2));
+                    const result = await regenerateSchedule(requestData);
+                    if (result && result.days) {
+                      setScheduleData(prev => ({
+                        ...prev,
+                        days: result.days,
+                        startDate: result.startDate,
+                        endDate: result.endDate,
+                        title: result.title || prev.title,
+                      }));
+                    } else {
+                      Alert.alert('재생성 실패', '서버에서 정상 데이터가 오지 않았습니다.');
+                    }
+                  } catch (err) {
+                    Alert.alert('오류', '재생성 중 오류가 발생했습니다.');
+                  } finally {
+                    setIsRegenerating(false);
+                  }
+                }}
+              >
                 <Text style={styles.saveButtonText}>플랜 전체 재조회</Text>
               </TouchableOpacity>
             </View>
@@ -642,19 +644,20 @@ useEffect(() => {
                         })),
                       })),
                     };
-
-                     // 1) 서버에 저장 요청
-        const response = await saveSchedule(saveRequest);
-        const savedScheduleId = response.id || response.scheduleId; // 실제 응답 구조에 따라 다름
-
-        // 2) 캐시도 필요하다면 추가 (optional)
-        await saveCacheData(CACHE_KEYS.PLAN_SAVE_READY, scheduleData);
-
-        // 3) id 포함해서 내 여행에 저장!
-        await saveTripToList({
-          ...saveRequest,
-          id: savedScheduleId, // 반드시 id 포함!
-        });
+                    const response = await saveSchedule(saveRequest);
+                    console.log('[플랜 저장 응답]', response);
+                    const savedScheduleId = response.id || response.scheduleId;
+                    console.log('[실제 저장할 플랜 id]', savedScheduleId);
+                    await saveCacheData(CACHE_KEYS.PLAN_SAVE_READY, scheduleData);
+                    await saveTripToList({
+                      ...saveRequest,
+                      id: savedScheduleId,
+                    });
+                    setScheduleData(prev => ({
+                      ...prev,
+                      id: savedScheduleId,
+                    }));
+                    console.log('[저장 리스트 객체]', { ...saveRequest, id: savedScheduleId });
                     Alert.alert(
                       '여행 플랜 저장',
                       '여행 플랜이 "내여행"으로 저장되었습니다.',
@@ -676,19 +679,20 @@ useEffect(() => {
           </>
         )}
         <Modal visible={isRegenerating} transparent animationType="fade">
-  <SplashScreen />
-</Modal>
+          <SplashScreen />
+        </Modal>
       </View>
     </SafeAreaView>
   );
 }
 
+// ====== StyleSheet(폰트/패딩/마진 normalize 적용) ======
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: '#Fafafa' },
   screen: { flex: 1, backgroundColor: '#FAFAFA' },
-  loadingText: { marginTop: 100, textAlign: 'center', fontSize: 16 },
+  loadingText: { marginTop: normalize(100, 'height'), textAlign: 'center', fontSize: normalize(16) },
   headerLine: {
-    height: 48,
+    height: normalize(48, 'height'),
     width: '90%',
     alignSelf: 'center',
     flexDirection: 'row',
@@ -698,82 +702,82 @@ const styles = StyleSheet.create({
     borderBottomColor: '#999',
     backgroundColor: '#FAFAFA',
   },
-  headerTitle: { fontSize: 18, color: '#000' },
-  tripInfo: { backgroundColor: '#FAFAFA', padding: 16, paddingBottom: 4 },
+  headerTitle: { fontSize: normalize(18), color: '#000' },
+  tripInfo: { backgroundColor: '#FAFAFA', padding: normalize(16), paddingBottom: normalize(4) },
   tripInfoRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-end',
   },
-  tripTitle: { fontSize: 24, color: '#1E1E1E' },
-  totalBudgetLabel: { fontSize: 18, color: '#1E1E1E', top: -2 },
-  budget: { color: '#4F46E5', fontSize: 18, marginTop: 4 },
-  budgetUnit: { color: '#4F46E5', fontSize: 14 },
-  dateText: { fontSize: 20, color: '#7E7E7E', marginTop: 4, marginBottom: 0 },
+  tripTitle: { fontSize: normalize(24), color: '#1E1E1E' },
+  totalBudgetLabel: { fontSize: normalize(18), color: '#1E1E1E', top: -2 },
+  budget: { color: '#4F46E5', fontSize: normalize(18), marginTop: normalize(4) },
+  budgetUnit: { color: '#4F46E5', fontSize: normalize(14) },
+  dateText: { fontSize: normalize(20), color: '#7E7E7E', marginTop: normalize(4), marginBottom: 0 },
   tabScrollWrapper: {
     backgroundColor: '#FAFAFA',
     borderBottomWidth: 1,
     borderColor: '#E5E7EB',
   },
-  tabContainer: { flexDirection: 'row', paddingHorizontal: 6, paddingVertical: 6 },
-  tabBox: { alignItems: 'center', marginHorizontal: 6, paddingHorizontal: 10 },
-  tabText: { fontSize: 20, color: '#9CA3AF' },
+  tabContainer: { flexDirection: 'row', paddingHorizontal: normalize(6), paddingVertical: normalize(6) },
+  tabBox: { alignItems: 'center', marginHorizontal: normalize(6), paddingHorizontal: normalize(10) },
+  tabText: { fontSize: normalize(20), color: '#9CA3AF' },
   tabTextSelected: { color: '#4F46E5', fontWeight: 'bold' },
   activeBar: {
-    marginTop: 5,
-    height: 4,
-    width: 80,
+    marginTop: normalize(5),
+    height: normalize(4),
+    width: normalize(80),
     backgroundColor: '#4F46E5',
     borderRadius: 2,
   },
   container: {
-    paddingHorizontal: 16,
-    marginBottom: -80,
-    marginTop: 20,
+    paddingHorizontal: normalize(16),
+    marginBottom: -normalize(80),
+    marginTop: normalize(20),
     backgroundColor: '#FAFAFA',
   },
   bottomButtonContainer: {
     flexDirection: 'row',
     backgroundColor: '#fafafa',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 12,
-    marginBottom: -20,
+    paddingVertical: normalize(12),
+    paddingHorizontal: normalize(16),
+    borderRadius: normalize(12),
+    marginBottom: -normalize(20),
   },
   placeRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    marginBottom: 32,
+    marginBottom: normalize(32),
   },
   timeline: {
-    width: 30,
+    width: normalize(30),
     alignItems: 'center',
     position: 'relative',
   },
   dot: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
+    width: normalize(20),
+    height: normalize(20),
+    borderRadius: normalize(10),
     backgroundColor: '#6366F1',
     position: 'absolute',
-    top: 40,
+    top: normalize(40),
     zIndex: 2,
   },
   verticalLine: {
     position: 'absolute',
-    top: -20,
-    left: 13,
-    width: 4,
-    height: 330,
+    top: -normalize(20),
+    left: normalize(13),
+    width: normalize(4),
+    height: normalize(330, 'height'),
     backgroundColor: '#A19CFF',
   },
-  placeContent: { flex: 1, marginLeft: 10 },
+  placeContent: { flex: 1, marginLeft: normalize(10) },
   placeCard: {
     backgroundColor: '#fff',
-    padding: 16,
-    paddingBottom: 10,
-    borderRadius: 20,
-    marginBottom: -25,
+    padding: normalize(16),
+    paddingBottom: normalize(10),
+    borderRadius: normalize(20),
+    marginBottom: -normalize(25),
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.15,
@@ -782,85 +786,92 @@ const styles = StyleSheet.create({
   },
   placeCard2: {
     backgroundColor: '#fff',
-    padding: 16,
-    paddingRight: 5,
-    paddingLeft: 12,
-    paddingBottom: 6,
-    borderRadius: 20,
-    marginBottom: -35,
+    padding: normalize(16),
+    paddingRight: normalize(5),
+    paddingLeft: normalize(12),
+    paddingBottom: normalize(6),
+    borderRadius: normalize(20),
+    marginBottom: -normalize(35),
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
     shadowRadius: 6,
     elevation: 4,
     width: '85%',
-    left: -20,
+    left: -normalize(20),
   },
   placeCard3: {
     backgroundColor: '#fff',
-    padding: 16,
-    paddingRight: 5,
-    paddingLeft: 12,
-    paddingBottom: 6,
-    borderRadius: 20,
-    marginBottom: -35,
+    padding: normalize(16),
+    paddingRight: normalize(5),
+    paddingLeft: normalize(12),
+    paddingBottom: normalize(6),
+    borderRadius: normalize(20),
+    marginBottom: -normalize(35),
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
     shadowRadius: 6,
     elevation: 4,
     width: '85%',
-    left: -20,
+    left: -normalize(20),
   },
   placeHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
   },
-  placeName: { fontSize: 18, marginBottom: 4, color: '#373737' },
+  placeName: { fontSize: normalize(18), marginBottom: normalize(4), color: '#373737' },
   placeCost: {
-    fontSize: 16,
+    fontSize: normalize(16),
     fontWeight: '600',
     fontStyle: 'Inter',
     color: '#8B76E8',
-    bottom: -15,
+    bottom: -normalize(15),
   },
-  placeType: { fontSize: 14, color: '#9CA3AF', marginBottom: 4 },
-  keywords: { fontSize: 13, color: '#333333', marginBottom: 6 },
+  placeType: { fontSize: normalize(14), color: '#9CA3AF', marginBottom: normalize(4) },
+  keywords: { fontSize: normalize(13), color: '#333333', marginBottom: normalize(6) },
   transportRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: 12,
-    marginBottom: 12,
+    marginTop: normalize(12),
+    marginBottom: normalize(12),
   },
   placeNameInput: {
-    fontSize: 18,
-    marginBottom: 19,
+    fontSize: normalize(18),
+    marginBottom: normalize(19),
     color: '#373737',
-    paddingVertical: 4,
-    paddingTop: 18,
+    paddingVertical: normalize(4),
+    paddingTop: normalize(18),
   },
   transportItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 32,
-  },
+  flexDirection: 'row',
+  alignItems: 'center',
+  minWidth: normalize(120), // 동일 너비, 너무 짧으면 60~80 정도 추천
+  marginLeft: normalize(10),
+  justifyContent: 'center',
+},
   transportText: {
-    marginLeft: 6,
-    fontSize: 16,
+    marginLeft: normalize(6),
+    fontSize: normalize(16),
+    color: '#000',
+  },
+  transportTexts: {
+    marginLeft: normalize(-18),
+    fontSize: normalize(16),
     color: '#000',
   },
   dragHandle: {
     position: 'absolute',
-    left: -45,
-    top: 25,
-    padding: 4,
+    left: -normalize(45),
+    top: normalize(25),
+    padding: normalize(4),
     zIndex: 5,
   },
   editButton: {
     flex: 1,
-    height: 45,
-    borderRadius: 12,
+    height: normalize(45),
+    borderRadius: normalize(12),
     borderWidth: 1,
     borderColor: '#4F46E5',
     backgroundColor: '#fff',
@@ -868,13 +879,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   editButtonText: {
-    fontSize: 16,
+    fontSize: normalize(16),
     color: '#4F46E5',
   },
   saveButton: {
     flex: 1,
-    height: 45,
-    borderRadius: 12,
+    height: normalize(45),
+    borderRadius: normalize(12),
     borderWidth: 1,
     borderColor: '#4F46E5',
     backgroundColor: '#fff',
@@ -884,37 +895,37 @@ const styles = StyleSheet.create({
   saveButtonText: {
     textAlign: 'center',
     color: '#4F46E5',
-    fontSize: 16,
+    fontSize: normalize(16),
   },
   regenerateButtonWrapper: {
     position: 'absolute',
-    bottom: 40,
-    left: 16,
-    right: 16,
+    bottom: normalize(40),
+    left: normalize(16),
+    right: normalize(16),
     backgroundColor: '#fafafa',
-    paddingVertical: 5,
-    borderRadius: 12,
+    paddingVertical: normalize(5),
+    borderRadius: normalize(12),
   },
   regenerateButton: {
     backgroundColor: '#4F46E5',
-    borderRadius: 10,
-    paddingVertical: 12,
+    borderRadius: normalize(10),
+    paddingVertical: normalize(12),
     alignItems: 'center',
     borderWidth: 1,
     borderColor: '#4F46E5',
   },
   regenerateButtonText: {
     color: '#fff',
-    fontSize: 16,
+    fontSize: normalize(16),
   },
   fixedDoneButtonWrapper: {
     position: 'absolute',
-    bottom: 5,
-    left: 20,
-    right: 20,
+    bottom: normalize(5),
+    left: normalize(20),
+    right: normalize(20),
     backgroundColor: '#4F46E5',
-    borderRadius: 12,
-    paddingVertical: 14,
+    borderRadius: normalize(12),
+    paddingVertical: normalize(14),
     alignItems: 'center',
   },
   fixedDoneButton: {
@@ -923,6 +934,6 @@ const styles = StyleSheet.create({
   },
   fixedDoneButtonText: {
     color: '#fff',
-    fontSize: 18,
+    fontSize: normalize(18),
   },
 });
