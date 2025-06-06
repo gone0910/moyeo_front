@@ -3,7 +3,6 @@ import {
   View, Text, StyleSheet, TouchableOpacity, TextInput, Image, FlatList,
   Dimensions, Platform, PixelRatio, Keyboard, TouchableWithoutFeedback
 } from 'react-native';
-import { KeyboardAvoidingView } from 'react-native';
 import HeaderBar from '../../components/common/HeaderBar';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import ToggleSelector from '../common/ToggleSelector';
