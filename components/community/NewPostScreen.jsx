@@ -186,7 +186,10 @@ export default function NewPostScreen() {
   }, [navigation]);
 
    const handleRegister = async () => {
-  try {
+
+
+    try {
+    // 목적지/도시 선택 없이도 진행!
     if (!title.trim()) {
       Alert.alert('제목을 입력해 주세요.');
       return;
@@ -277,7 +280,7 @@ export default function NewPostScreen() {
   <View style={{ paddingHorizontal: 0, paddingBottom: 0 }}>
     <ToggleSelector
       items={[
-         "서울", "제주", "경기도", "강원도", "충청북도",
+         "선택안함","서울", "제주", "경기도", "강원도", "충청북도",
         "충청남도", "전라북도", "전라남도", "경상북도", "경상남도"
       ]}
       selectedItem={selectedRegion}
@@ -293,7 +296,7 @@ export default function NewPostScreen() {
       <View style={{ marginTop: 4 }}>
         <ToggleSelector
           items={[
-            "선택안함","강남구", "강동구", "강북구", "강서구", "관악구", "광진구", "구로구",
+            "강남구", "강동구", "강북구", "강서구", "관악구", "광진구", "구로구",
             "금천구", "노원구", "도봉구", "동대문구", "동작구", "마포구", "서대문구",
             "서초구", "성동구", "성북구", "송파구", "양천구", "영등포구", "용산구",
             "은평구", "종로구", "중구", "중랑구"
@@ -307,7 +310,7 @@ export default function NewPostScreen() {
     {selectedRegion === '제주' && (
       <View style={{ marginTop: 4 }}>
         <ToggleSelector
-          items={["선택안함","제주시", "서귀포시"]}
+          items={["제주시", "서귀포시"]}
           selectedItem={selectedCity}
           onSelect={setSelectedCity}
           size="small"
@@ -318,7 +321,7 @@ export default function NewPostScreen() {
       <View style={{ marginTop: 4 }}>
         <ToggleSelector
           items={[
-            "선택안함","수원시", "성남시", "의정부시", "안양시", "부천시", "광명시", "평택시", "동두천시", "안산시",
+            "수원시", "성남시", "의정부시", "안양시", "부천시", "광명시", "평택시", "동두천시", "안산시",
             "고양시", "과천시", "구리시", "남양주시", "오산시", "시흥시", "군포시", "의왕시", "하남시",
             "용인시", "파주시", "이천시", "안성시", "김포시", "화성시", "광주시", "양주시", "포천시",
             "여주시", "연천군", "가평군", "양평군"
@@ -332,7 +335,7 @@ export default function NewPostScreen() {
     {selectedRegion === '강원도' && (
       <View style={{ marginTop: 4 }}>
         <ToggleSelector
-          items={["선택안함","춘천시", "원주시", "강릉시", "동해시", "태백시", "속초시", "삼척시"]}
+          items={["춘천시", "원주시", "강릉시", "동해시", "태백시", "속초시", "삼척시"]}
           selectedItem={selectedCity}
           onSelect={setSelectedCity}
           size="small"
@@ -342,7 +345,7 @@ export default function NewPostScreen() {
     {selectedRegion === '충청북도' && (
       <View style={{ marginTop: 4 }}>
         <ToggleSelector
-          items={["선택안함","청주시", "충주시", "제천시"]}
+          items={["청주시", "충주시", "제천시"]}
           selectedItem={selectedCity}
           onSelect={setSelectedCity}
           size="small"
@@ -352,7 +355,7 @@ export default function NewPostScreen() {
     {selectedRegion === '충청남도' && (
       <View style={{ marginTop: 4 }}>
         <ToggleSelector
-          items={["선택안함","천안시", "공주시", "보령시", "아산시", "서산시", "논산시", "계룡시", "당진시", "부여군", "홍성군"]}
+          items={["천안시", "공주시", "보령시", "아산시", "서산시", "논산시", "계룡시", "당진시", "부여군", "홍성군"]}
           selectedItem={selectedCity}
           onSelect={setSelectedCity}
           size="small"
@@ -362,7 +365,7 @@ export default function NewPostScreen() {
     {selectedRegion === '전라북도' && (
       <View style={{ marginTop: 4 }}>
         <ToggleSelector
-          items={["선택안함","전주시", "군산시", "익산시", "정읍시", "남원시", "김제시", "순창군"]}
+          items={["전주시", "군산시", "익산시", "정읍시", "남원시", "김제시", "순창군"]}
           selectedItem={selectedCity}
           onSelect={setSelectedCity}
           size="small"
@@ -372,7 +375,7 @@ export default function NewPostScreen() {
     {selectedRegion === '전라남도' && (
       <View style={{ marginTop: 4 }}>
         <ToggleSelector
-          items={["선택안함","목포시", "여수시", "순천시", "나주시", "광양시", "해남군"]}
+          items={["목포시", "여수시", "순천시", "나주시", "광양시", "해남군"]}
           selectedItem={selectedCity}
           onSelect={setSelectedCity}
           size="small"
@@ -382,7 +385,7 @@ export default function NewPostScreen() {
     {selectedRegion === '경상북도' && (
       <View style={{ marginTop: 4 }}>
         <ToggleSelector
-          items={["선택안함","포항시", "경주시", "김천시", "안동시", "구미시", "영주시", "영천시", "상주시", "문경시", "경산시", "울진군", "울릉군"]}
+          items={["포항시", "경주시", "김천시", "안동시", "구미시", "영주시", "영천시", "상주시", "문경시", "경산시", "울진군", "울릉군"]}
           selectedItem={selectedCity}
           onSelect={setSelectedCity}
           size="small"
@@ -392,7 +395,7 @@ export default function NewPostScreen() {
     {selectedRegion === '경상남도' && (
       <View style={{ marginTop: 4 }}>
         <ToggleSelector
-          items={["선택안함","창원시", "진주시", "통영시", "사천시", "김해시", "밀양시", "거제시", "양산시", "남해군"]}
+          items={["창원시", "진주시", "통영시", "사천시", "김해시", "밀양시", "거제시", "양산시", "남해군"]}
           selectedItem={selectedCity}
           onSelect={setSelectedCity}
           size="small"
