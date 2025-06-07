@@ -484,6 +484,7 @@ export default function PlannerResponseHome() {
               onPress={async () => {
                 setNewlyAddedPlaceId(null);
                 setEditedPlaces({});
+                setIsRegenerating(true);
                 try {
                   await saveCacheData(CACHE_KEYS.PLAN_EDITED, scheduleData);
                   const placeNames = scheduleData.days[selectedDayIndex].places.map(p => p.name);
@@ -517,6 +518,7 @@ export default function PlannerResponseHome() {
                   console.warn('⚠️ PLAN_EDITED 캐시 저장 or API 호출 실패:', e);
                 }
                 setIsEditing(false);
+                setIsRegenerating(false);
               }}
             >
               <Text style={styles.fixedDoneButtonText}>수정 완료</Text>

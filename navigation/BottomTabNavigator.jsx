@@ -96,7 +96,6 @@ export default function BottomTabNavigator() {  //하단탭이 홈화면 및 라
     >
       <Tab.Screen name="Home" component={HomeNavigator} />
       <Tab.Screen name="MyTrips" component={MyTripsScreen} />
-      <Tab.Screen name="Community" component={CommunityStackNavigator} />
       <Tab.Screen name="Chat" component={ChatNavigator} 
         listeners={({ navigation }) => ({
           tabPress: (e) => {
@@ -108,7 +107,7 @@ export default function BottomTabNavigator() {  //하단탭이 홈화면 및 라
           },
         })}
       />
-      <Tab.Screen name="Community" component={CommunityScreen} />
+      <Tab.Screen name="Community" component={CommunityStackNavigator} />
     </Tab.Navigator>
   );
 }
