@@ -22,6 +22,7 @@ import { planner_create_request } from '../../api/planner_create_request';
 import { saveCacheData, CACHE_KEYS } from '../../caching/cacheService';
 import axios from 'axios';
 import SplashScreen from '../../components/common/SplashScreen';
+import { Modal } from 'react-native';
 
 // === 반응형 유틸 함수 ===
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -217,7 +218,6 @@ export default function PlannerInfoScreen() {
     };
     // 목적지 선택 (도시 > 지역 우선)
     const destination = [];
-    if (loading) return <SplashScreen />;
     if (selectedCity && City[selectedCity]) {
       destination.push(City[selectedCity]);
     } else if (selectedRegion && Province[selectedRegion]) {
@@ -399,8 +399,6 @@ export default function PlannerInfoScreen() {
       }).start();
     },
   });
-
-  if (loading) return <SplashScreen />;
 
   return (
     <View style={styles.container}>
@@ -835,6 +833,9 @@ export default function PlannerInfoScreen() {
           <TouchableOpacity key={index} onPress={() => goToSlide(index)} style={[styles.slideDot, currentSlide === index ? styles.activeDot : styles.inactiveDot]} />
         ))}
       </View>
+      <Modal visible={loading} transparent animationType="fade">
+        <SplashScreen />
+      </Modal>
     </View>
   );
 }
