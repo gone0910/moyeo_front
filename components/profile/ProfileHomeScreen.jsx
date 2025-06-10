@@ -68,11 +68,11 @@ export default function ProfileHomeScreen({ route }) {
             style={styles.backButton}
             onPress={() => navigation.goBack()}
           >
-            <MaterialIcons name="arrow-back-ios" size={normalize(22)} color="#5347EA" />
+            <MaterialIcons name="arrow-back-ios" size={normalize(22)} color="#5347EA" style={{ marginBottom: normalize(-10) }}/>
           </TouchableOpacity>
           <Text style={styles.headerTitle}>프로필 홈</Text>
           <TouchableOpacity style={styles.logoutButton} onPress={confirmLogout}>
-            <MaterialIcons name="logout" size={normalize(22)} color="#5347EA" />
+            <MaterialIcons name="logout" size={normalize(22)} color="#5347EA" style={{ marginBottom: normalize(-10) }}/>
           </TouchableOpacity>
         </View>
         <View style={styles.headerLine} />
@@ -163,8 +163,9 @@ const styles = StyleSheet.create({
     flex: 1,
     textAlign: 'center',
     fontSize: normalize(16),
-    fontWeight: '600',
-    color: '#232323',
+    marginBottom: normalize(-10, 'height'),
+    fontWeight: '400',
+    color: '#000000',
     letterSpacing: -0.2,
     zIndex: 1,
   },
@@ -173,10 +174,9 @@ const styles = StyleSheet.create({
     zIndex: 2,
   },
   headerLine: {
-    borderBottomWidth: 1,
-    borderColor: '#D1D5DB',
-    marginTop: normalize(6, 'height'),
-    marginBottom: normalize(18, 'height'),
+    height: 1,
+    backgroundColor: '#B5B5B5',
+    marginTop: 12,
   },
   contentWrapper: {
     flex: 1,
@@ -185,7 +185,7 @@ const styles = StyleSheet.create({
   imageContainer: {
     alignItems: 'center',
     marginBottom: normalize(18, 'height'),
-    marginTop: normalize(20, 'height'),
+    marginTop: normalize(70, 'height'),
   },
   profileImage: {
     width: normalize(200),
@@ -214,41 +214,51 @@ const styles = StyleSheet.create({
     flexDirection: 'column',
     justifyContent: 'flex-start',
     alignItems: 'flex-start',
-    rowGap: normalize(28, 'height'),
+    rowGap: normalize(40, 'height'),
   },
   label: {
     fontFamily: 'System',
     fontSize: normalize(18),
-    fontWeight: '400',
-    color: '#979797',
+    fontWeight: '700',
+    color: '#1E1E1E',
     textAlign: 'left',
     minWidth: normalize(60),
     marginBottom: 0,
+    marginRight: normalize(20),
   },
   value: {
     fontFamily: 'System',
     fontSize: normalize(18),
     fontWeight: '400',
-    color: '#232323',
+    color: '#1E1E1E',
     textAlign: 'left',
     minWidth: normalize(60),
+    marginTop: normalize(0),
+    marginLeft: normalize(30),
   },
   boldValue: {
-    fontWeight: 'bold',
-    letterSpacing: 0.2,
+    fontFamily: 'System',
+    fontSize: normalize(18),
+    fontWeight: '400',
+    color: '#1E1E1E',
+    textAlign: 'left',
+    minWidth: normalize(60),
+    marginTop: normalize(-2),
+    marginLeft: normalize(30),
+    
   },
   footerWrapper: {
-    paddingBottom: normalize(30, 'height'),
+    paddingBottom: normalize(15, 'height'),
     paddingTop: normalize(10, 'height'),
-    paddingHorizontal: normalize(6),
+    paddingHorizontal: normalize(0),
   },
   editButton: {
-    backgroundColor: '#5347EA',
-    borderRadius: normalize(14),
+    backgroundColor: '#4F46E5',
     paddingVertical: normalize(18, 'height'),
+    borderRadius: normalize(8),
     alignItems: 'center',
-    justifyContent: 'center',
-    width: '100%',
+    marginTop: normalize(30, 'height'),
+    marginBottom: normalize(24, 'height'),
   },
   editButtonText: {
     fontFamily: 'System',
