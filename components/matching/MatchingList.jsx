@@ -4,7 +4,7 @@
 // - 카드 클릭 시 상세정보를 모달로 출력
 // ✅ MatchingList.jsx - UI 전체 복원 및 API 연동 완성본
 import React, { useEffect, useState, useContext } from 'react';
-import {  View, Text, Image, TouchableOpacity,  Modal,  ScrollView, Alert, StyleSheet,} from 'react-native';
+import {  View, Text, Image, TouchableOpacity,  Modal,  ScrollView, Alert, StyleSheet, Dimensions } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { getMatchingList, getUserMatchingDetail } from '../../api/matching';
 import { createChatRoom } from '../../api/chat';
@@ -13,9 +13,31 @@ import { UserContext } from '../../contexts/UserContext';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import { ENUM_TO_PROVINCE_KOR, ENUM_TO_CITY_KOR } from '../common/regionMap';
-import { GENDER_ENUM_TO_KOR, STYLE_ENUM_TO_KOR } from '../matching/utils/matchingUtils';
-import { getKorProvince, getKorCity } from '../common//regionMap';
+import { STYLE_ENUM_TO_KOR, GENDER_ENUM_TO_KOR } from './utils/matchingUtils';
+import HeaderBar from '../common/HeaderBar';
 
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+const BASE_WIDTH = 390;
+const BASE_HEIGHT = 844;
+const scale = (size) => (SCREEN_WIDTH / BASE_WIDTH) * size;
+const vScale = (size) => (SCREEN_HEIGHT / BASE_HEIGHT) * size;
+
+// 백엔드에서 받아온 지역 NONE 처리 변환 함수
+function formatDestination(province, cities = []) {
+  // province: 'SEOUL' 등 ENUM, cities: ['NONE'] 또는 []
+  if (!province || province === 'NONE') {
+    return '선택없음';
+  }
+  // cities가 없거나 'NONE'만 있으면 → 도만
+  if (!cities || cities.length === 0 || (cities.length === 1 && (cities[0] === 'NONE' || !cities[0]))) {
+    return ENUM_TO_PROVINCE_KOR[province] || province;
+  }
+  // 도+시 모두 있을 때
+  const cityNames = cities
+    .filter((c) => c !== 'NONE' && !!c)
+    .map((code) => ENUM_TO_CITY_KOR[code] || code);
+  return `${ENUM_TO_PROVINCE_KOR[province] || province} / ${cityNames.join(', ')}`;
+}
 
 
 // 🟡 더미 데이터 (mock 모드에서만 사용)
@@ -37,14 +59,18 @@ const MatchingList = () => {
   const [selectedMatch, setSelectedMatch] = useState(null); // 🔹 선택한 유저 상세정보 상태 (모달용)
   const navigation = useNavigation();
   const { user } = useContext(UserContext); // 🔹 사용자 컨텍스트 (프로필 이미지 등에 사용)
+  const [loading, setLoading] = useState(true);
+
 
   // ✅ 매칭 결과 리스트 불러오기 (mock 또는 실제 API)
   useEffect(() => {
     const fetchData = async () => {
+      setLoading(true);
       const isMock = await AsyncStorage.getItem('mock');
       if (isMock === 'true') {
         console.log('[mock] 더미 데이터 사용');
         setMatches(dummyMatches);
+        setLoading(false);
         return;
       }
 
@@ -55,13 +81,11 @@ const MatchingList = () => {
 
       if (result === null) {
         Alert.alert('에러', '서버 연결에 실패했습니다.');
-      } else if (result.length === 0) {
-        console.log('[api 결과] 조건에 맞는 동행자 없음 → NoneList 이동');
-        navigation.navigate('NoneList');
+        setMatches([]);
       } else {
-        console.log('[api 결과] 동행자 리스트:', result);
         setMatches(result);
       }
+      setLoading(false);
     };
     fetchData();
   }, []);
@@ -87,21 +111,43 @@ const MatchingList = () => {
     }
   };
 
+  if (matches.length === 0) {
   return (
     <View style={styles.container}>
       {/* ✅ 상단 헤더 (로고 + 프로필 이미지) */}
-      <View style={styles.headerWrapper}>
-        <Text style={styles.logoText} numberOfLines={1} adjustsFontSizeToFit>moyeo </Text>
-        <TouchableOpacity onPress={() => navigation.navigate('ProfileHome', user)}>
-          {user?.profileImageUrl ? (
-            <Image source={{ uri: user.profileImageUrl }} style={styles.profileImage} />
-          ) : (
-            <View style={styles.profilePlaceholder} />
-          )}
-        </TouchableOpacity>
-      </View>
-      <View style={styles.headerLine} />
+      <HeaderBar />
 
+            {/* 안내 메시지 */}
+        <ScrollView contentContainerStyle={styles.contentContainer}>
+          <Text style={styles.NoneListText1}>
+            같이 떠날 수 있는 여행자가 없어요
+          </Text>
+          <Text style={styles.NoneListText2}>
+            동행자 정보를 수정하시는 걸 추천드려요
+          </Text>
+          <View style={styles.buttonContainer}>
+            <TouchableOpacity
+              style={styles.MachingListButton}
+              onPress={() => navigation.navigate('MatchingInfoScreen')}
+            >
+              <Ionicons name="rocket-outline" size={24} color="white" />
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+      </View>
+    );
+  }
+
+      function formatDate(dateStr) { // 날짜 출력 포맷 변환
+      // "yyyy-mm-dd" → "yyyy/mm/dd"
+      if (!dateStr) return '';
+      return dateStr.replace(/-/g, '/');
+    }
+
+      return (
+    <View style={styles.container}>
+        <HeaderBar />
+    <View style={styles.headerLine} />
       {/* ✅ 안내 문구 + 리스트 출력 */}
       <View style={{ flex: 1, backgroundColor: '#F9F9F9' }}>
         <ScrollView contentContainerStyle={{ paddingTop: 10, paddingHorizontal: 16, paddingBottom: 100 }}>
@@ -118,6 +164,8 @@ const MatchingList = () => {
             </TouchableOpacity>
           </View>
 
+          
+
           {/* 🔹 동행자 리스트 출력 */}
           {matches.map((item, index) => (
             <TouchableOpacity key={index} onPress={() => handleCardPress(item.nickname || item.name)}>
@@ -125,7 +173,9 @@ const MatchingList = () => {
                 <Image source={{ uri: item.image || item.imageUrl }} style={styles.matchImage} />
                 <View style={{ flex: 1 }}>
                   <Text style={styles.matchName}>{item.name || item.nickname}</Text>
-                  <Text style={styles.matchDate}>{item.date || `${item.startDate} ~ ${item.endDate}`}</Text>
+                  <Text style={styles.matchDate}>
+                    {item.date? item.date.replace(/-/g, '/'): `${formatDate(item.startDate)} ~ ${formatDate(item.endDate)}`}
+                  </Text>
                   <View style={styles.tagsContainer}>
                     {(item.tags || item.travelStyles)?.map((tag, i) => (
                       <View key={i} style={styles.tag}>
@@ -162,7 +212,11 @@ const MatchingList = () => {
                     <Image source={{ uri: selectedMatch.image || selectedMatch.imageUrl }} style={styles.modalProfileImageUpdated} />
                     <View style={{ marginLeft: 16 }}>
                       <Text style={styles.modalUserName}>{selectedMatch.name || selectedMatch.nickname}</Text>
-                      <Text style={styles.modalDate}>{selectedMatch.date || `${selectedMatch.startDate} ~ ${selectedMatch.endDate}`}</Text>
+                      <Text style={styles.modalDate}>
+                        {selectedMatch.date
+                          ? selectedMatch.date.replace(/-/g, '/')
+                          : `${formatDate(selectedMatch.startDate)} ~ ${formatDate(selectedMatch.endDate)}`}
+                      </Text>
                     </View>
                   </View>
 
@@ -186,13 +240,9 @@ const MatchingList = () => {
                   <View style={styles.infoRow}>
                     <Text style={styles.infoLabel}>목적지</Text>
                     <Text style={styles.infoTag3}>
-                      {selectedMatch.destination ||
-                        `${getKorProvince(selectedMatch.province)} / ${
-                          (selectedMatch.cities || [])
-                            .map(code => getKorCity(code))
-                            .join(', ')
-                        }`
-                      }
+                      {selectedMatch.destination
+                        ? selectedMatch.destination // destination 문자열 있으면 그대로 사용
+                        : formatDestination(selectedMatch.province, selectedMatch.cities)}
                     </Text>
                   </View>
 
@@ -269,78 +319,46 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#FAFAFA',
-    paddingHorizontal: 16,
-    paddingTop: 24,
-  },
-  headerWrapper: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  logoText: {
-    fontSize: 40,
-    fontFamily: 'KaushanScript',
-    color: '#4F46E5',
-    lineHeight: 80,
-    letterSpacing: 0,
-  },
-  profileImage: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    marginTop: 22,
-    top: -5,
-  },
-  profilePlaceholder: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    top: 5,
-    backgroundColor: '#D1D5DB',
-  },
-  headerLine: {
-    height: 1,
-    backgroundColor: '#999',
-    marginVertical: 8,
-    top: -10,
+    paddingHorizontal: scale(16),
+    paddingTop: vScale(24),
   },
   matchBox: {
     backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 20,
-    marginBottom: 12,
+    borderRadius: scale(12),
+    padding: scale(12),
+    marginBottom: vScale(12),
     flexDirection: 'row',
     alignItems: 'center',
+    minWidth: scale(358),
   },
   modalBoxUpdated: {
-    width: '90%', // 디바이스 폭 90% (or 340 고정도 가능)
-    maxWidth: 400,
+    width: '90%',
+    maxWidth: scale(400),
     backgroundColor: '#FFF',
-    borderRadius: 20,
-    padding: 26,
-    alignItems: 'center', // 내부 모두 중앙정렬(필요시 flex-start로 변경)
-    // 그림자 효과
+    borderRadius: scale(20),
+    padding: scale(26),
+    alignItems: 'center',
     shadowColor: '#888',
-    shadowOffset: { width: 0, height: 10 },
+    shadowOffset: { width: 0, height: vScale(10) },
     shadowOpacity: 0.14,
-    shadowRadius: 22,
+    shadowRadius: scale(22),
     elevation: 9,
     position: 'relative',
   },
   modalProfileImageUpdated: {
-    width: 70,
-    height: 70,
-    borderRadius: 35,
+    width: scale(70),
+    height: scale(70),
+    borderRadius: scale(14),
     backgroundColor: '#ECECEC',
     borderWidth: 2,
     borderColor: '#E0E7FF',
   },
-  matchImage: { width: 60, height: 60, borderRadius: 30, marginRight: 12 },
-  matchName: { fontSize: 18, color: '#1E1E1E' },
-  matchDate: { fontSize: 16, color: '#7E7E7E', marginTop: 8 },
-  tagsContainer: { flexDirection: 'row', flexWrap: 'wrap', marginTop: 8 },
-  tag: { backgroundColor: '#EFEAE5', paddingVertical: 3, paddingHorizontal: 6, borderRadius: 4, marginRight: 6 },
-  tagText: { fontSize: 12, color: '#7E7E7E' },
+  matchImage: { width: scale(86), height: scale(86), borderRadius: scale(14), marginRight: scale(12) },
+  matchName: { fontSize: scale(18), color: '#1E1E1E', marginTop: vScale(4) },
+  matchDate: { fontSize: scale(16), color: '#7E7E7E', marginTop: vScale(4) },
+  tagsContainer: { flexDirection: 'row', flexWrap: 'wrap', marginTop: vScale(4) },
+  tag: { backgroundColor: '#EFEAE5', paddingVertical: vScale(3), paddingHorizontal: scale(6), borderRadius: scale(4), marginRight: scale(6) },
+  tagText: { fontSize: scale(12), color: '#7E7E7E' },
 
   modalCenter: {
     flex: 1,
@@ -349,164 +367,150 @@ const styles = StyleSheet.create({
   },
   modalCloseIcon: {
     position: 'absolute',
-    top: 14,
-    right: 14,
+    top: scale(14),
+    right: scale(14),
     zIndex: 2,
   },
   modalHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 18,
+    marginBottom: vScale(18),
     width: '100%',
     justifyContent: 'center',
   },
   modalUserName: {
-    fontSize: 22,
+    fontSize: scale(22),
     fontWeight: 'bold',
     color: '#4F46E5',
-    marginLeft: 20,
+    marginLeft: scale(20),
   },
   modalDate: {
-    fontSize: 15,
+    fontSize: scale(15),
     color: '#888',
-    marginTop: 6,
-    marginLeft: 20,
+    marginTop: vScale(6),
+    marginLeft: scale(20),
   },
-  infoRow: {
+    infoRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     width: '100%',
-    marginBottom: 13,
+    marginBottom: vScale(16),
   },
   infoLabel: {
-    fontSize: 16,
-    color: '#333',
-    fontWeight: '600',
-    width: 70,
-    marginTop: 7,
-  },
-  tagGroup: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    flex: 1,
-    marginLeft: 8,
-  },
-  infoTag1: {
-    backgroundColor: '#ADB3DD',
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: 10,
-    fontSize: 14,
-    color: '#fff',
-    minWidth: 60,
-    textAlign: 'center',
-    marginBottom: 4,
-    marginLeft: 8,
-  },
-  infoRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    width: '100%',
-    marginBottom: 16,
-  },
-  infoLabel: {
-    fontSize: 16,
+    fontSize: scale(16),
     color: '#1E1E1E',
     fontWeight: '500',
-    width: 60, // 고정 너비로 정렬 기준 맞추기
-    marginTop: 8, // 텍스트 상단 맞춤
+    width: scale(70),  
+    marginTop: vScale(8),
   },
   tagGroup: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 6,
+    gap: scale(6),
     flex: 1,
-    marginLeft: 12,
+    // marginLeft: scale(8), // ← 반드시 삭제 또는 주석!
   },
-  infoTag1: {
+    infoTag1: {
     backgroundColor: '#ADB3DD',
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: 10,
-    fontSize: 14,
+    paddingHorizontal: scale(14),
+    paddingVertical: vScale(7),
+    borderRadius: scale(8),
+    fontSize: scale(14),
     color: '#fff',
-    minWidth: 60,
+    minWidth: scale(60),
     textAlign: 'center',
-    marginBottom: 4,
-    marginLeft: 8,
+    marginBottom: vScale(4),
+    marginLeft: scale(16),
   },
   infoTag2: {
     backgroundColor: '#B3A4F7',
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: 10,
-    fontSize: 14,
+    paddingHorizontal: scale(14),
+    paddingVertical: vScale(7),
+    borderRadius: scale(8),
+    fontSize: scale(14),
     color: '#fff',
-    minWidth: 60,
+    minWidth: scale(60),
     textAlign: 'center',
-    marginBottom: 4,
-    marginLeft: 8,
+    marginBottom: vScale(4),
+    marginLeft: scale(16),
   },
   infoTag3: {
-    backgroundColor: '#F4F4FF',
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: 10,
-    fontSize: 14,
-    color: '#7E7E7E',
-    minWidth: 60,
+    backgroundColor: '#B3A4F7',
+    paddingHorizontal: scale(14),
+    paddingVertical: vScale(7),
+    borderRadius: scale(8),
+    fontSize: scale(14),
+    color: '#fff',
+    minWidth: scale(60),
     textAlign: 'center',
-    borderWidth: 1,
-    borderColor: '#D6C9DF',
-    marginBottom: 4,
-    marginLeft: 8,
+    marginBottom: vScale(4),
+    marginLeft: scale(16),
   },
   infoTag4: {
-    backgroundColor: '#B3A4F7',
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: 10,
-    fontSize: 14,
-    color: '#fff',
-    minWidth: 60,
+    backgroundColor: '#F4F4FF',
+    paddingHorizontal: scale(14),
+    paddingVertical: vScale(7),
+    borderRadius: scale(8),
+    fontSize: scale(14),
+    color: '#7E7E7E',
+    minWidth: scale(60),
     textAlign: 'center',
-    marginBottom: 4,
-    marginLeft: 8,
+    marginBottom: vScale(4),
+    marginLeft: scale(16),    borderWidth: 1,
+    borderColor: '#D6C9DF',
   },
   chatButton: {
     backgroundColor: '#4F46E5',
-    marginTop: 25,
-    borderRadius: 14,
-    paddingVertical: 15,
+    marginTop: vScale(25),
+    borderRadius: scale(14),
+    paddingVertical: vScale(15),
     width: '100%',
     alignItems: 'center',
-    // 그림자 효과(버튼만)
     shadowColor: '#7C3AED',
-    shadowOffset: { width: 0, height: 5 },
+    shadowOffset: { width: 0, height: vScale(5) },
     shadowOpacity: 0.18,
-    shadowRadius: 10,
+    shadowRadius: scale(10),
     elevation: 5,
   },
   chatButtonText: {
     color: 'white',
-    fontSize: 17,
+    fontSize: scale(17),
     fontWeight: '700',
   },
   buttonContainer: {
-    position: "absolute",
-    right: 20,
-    bottom: 20,
-    flexDirection: "row",
-    gap: 12,
-    },
-    NoneListButton: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    top:0,
-    backgroundColor: "#6D28D9",
-    justifyContent: "center",
-    alignItems: "center",
+    position: 'absolute',
+    right: scale(20),
+    bottom: vScale(20),
+    flexDirection: 'row',
+    gap: scale(12),
+  },
+  NoneListButton: {
+    width: scale(48),
+    height: scale(48),
+    borderRadius: scale(24),
+    top: 0,
+    backgroundColor: '#6D28D9',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  contentContainer: {
+    padding: scale(25),
+    paddingBottom: vScale(100),
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  NoneListText1: {
+    fontSize: scale(24),
+    color: '#1E1E1E',
+    textAlign: 'center',
+    marginVertical: vScale(12),
+    top: vScale(170),
+  },
+  NoneListText2: {
+    fontSize: scale(18),
+    color: '#7E7E7E',
+    textAlign: 'center',
+    marginVertical: vScale(12),
+    top: vScale(170),
   },
 });

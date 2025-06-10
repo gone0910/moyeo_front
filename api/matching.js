@@ -9,7 +9,7 @@ const BASE_URL = 'http://ec2-3-35-253-224.ap-northeast-2.compute.amazonaws.com:8
 // ─────────────────────────────────────────────
 // ✅ [1] 매칭 정보 입력/수정
 // - API 명세: POST /matching/profile
-// - 요청 데이터: startDate, endDate, province, cities, groupType, ageRange, travelStyles
+// - 요청 데이터: startDate, endDate, province, cities, groupType, ageRange, travelStyles,  preferenceGender
 // - 설명: 사용자가 매칭 조건을 입력하면 서버에 저장됨
 // - 사용 위치: MatchingInfoScreen.jsx (정보 입력 버튼 클릭 시 호출)
 export const submitMatchingProfile = async (data, token) => {
