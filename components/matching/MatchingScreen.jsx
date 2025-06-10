@@ -5,6 +5,7 @@ import { useNavigation } from '@react-navigation/native';
 import { UserContext } from '../../contexts/UserContext';
 import { KaushanScript_400Regular } from '@expo-google-fonts/kaushan-script';
 import { useFonts } from 'expo-font';
+import HeaderBar from '../../components/common/HeaderBar';
 
 const matchingImage = require('../../assets/images/match_image.jpg');
 
@@ -35,25 +36,16 @@ export default function MatchingScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Header Section */}
-      <View style={styles.headerWrapper}>
-        <Text style={styles.logoText} numberOfLines={1} adjustsFontSizeToFit>moyeo </Text>
-        <TouchableOpacity onPress={() => navigation.navigate('ProfileHome', user)}>
-          {user?.profileImageUrl ? (
-            <Image source={{ uri: user.profileImageUrl }} style={styles.profileImage} />
-          ) : (
-            <View style={styles.profilePlaceholder} />
-          )}
-        </TouchableOpacity>
-      </View>
-      <View style={styles.headerLine} />
+    <HeaderBar/>
 
       {/* Main Section */}
       <View style={styles.centerWrapper}>
-        <Image source={matchingImage} style={styles.matchingImage} />
         <Text style={styles.title}>여행을 함께할 동행자를 찾아보세요</Text>
-        <Text style={styles.titletext}>자신과 일정이 같으며 목적지, 여행성향이</Text>
-        <Text style={styles.titletext2}>비슷한 여행자를 찾아 보실 수 있어요</Text>
+  <Text style={styles.titletext}>자신과 일정이 같으며 목적지, 여행성향이</Text>
+  <Text style={styles.titletext2}>비슷한 여행자를 찾아 보실 수 있어요</Text>
+
+  {/* ✅ 그 다음 이미지 */}
+  <Image source={matchingImage} style={styles.matchingImage} />
 
         {/* New Container Bar Section */}
         <View style={styles.containerBar}>
@@ -63,7 +55,7 @@ export default function MatchingScreen() {
             // 후에 변경 필요
             onPress={() => navigation.navigate('MatchingInfo')}
           >
-            <Text style={styles.containerBarButtonText}>동행자 찾기</Text>
+            <Text style={styles.containerBarButtonText}>시작하기</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -75,8 +67,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#FAFAFA',
-    paddingHorizontal: normalize(16),
-    paddingTop: normalize(24, 'height'),
   },
   headerWrapper: {
     flexDirection: 'row',
@@ -116,42 +106,39 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   matchingImage: {
-    width: normalize(360),
-    height: normalize(425, 'height'),
-    marginBottom: normalize(20, 'height'),
-    borderRadius: normalize(16),
-    marginTop: normalize(150, 'height'),
-    top: normalize(-5, 'height'),
-  },
-  title: {
-    fontSize: normalize(24),
-    color: '#000000',
-    textAlign: 'center',
-    top: normalize(-560, 'height'),
-    fontFamily: 'Inter_400Regular',
-  },
-  titletext: {
-    fontSize: normalize(20),
-    marginTop: normalize(16, 'height'),
-    color: '#999999',
-    textAlign: 'center',
-    top: normalize(-555, 'height'),
-    fontFamily: 'Inter_400Regular',
-  },
-  titletext2: {
-    fontSize: normalize(20),
-    marginTop: normalize(0, 'height'),
-    color: '#999999',
-    textAlign: 'center',
-    top: normalize(-550, 'height'),
-    fontFamily: 'Inter_400Regular',
-  },
+  width: normalize(360),
+  height: normalize(400, 'height'),
+  marginBottom: normalize(-40, 'height'),
+  borderRadius: normalize(16),
+  marginTop: normalize(30, 'height'), // 너무 크면 줄이기
+},
+title: {
+  fontSize: normalize(24),
+  color: '#000000',
+  textAlign: 'center',
+  fontFamily: 'Inter_400Regular',
+  marginTop: normalize(30, 'height'), // 🔄 정상 위치에서 시작
+},
+titletext: {
+  fontSize: normalize(20),
+  marginTop: normalize(16, 'height'),
+  color: '#999999',
+  textAlign: 'center',
+  fontFamily: 'Inter_400Regular',
+},
+titletext2: {
+  fontSize: normalize(20),
+  marginTop: normalize(10, 'height'), // 🔄 top 제거 후 자연스러운 간격
+  color: '#999999',
+  textAlign: 'center',
+  fontFamily: 'Inter_400Regular',
+},
   containerBar: {
     width: '100%',
     padding: normalize(16),
     backgroundColor: '#FAFAFA',
-    borderRadius: normalize(8),
-    marginTop: normalize(0, 'height'),
+    borderRadius: normalize(16),
+    marginTop: normalize(90, 'height'),
     alignItems: 'center',
   },
   containerBarText: {
@@ -160,16 +147,15 @@ const styles = StyleSheet.create({
     marginBottom: normalize(10, 'height'),
   },
   containerBarButton: {
-    backgroundColor: '#4F46E5',
-    paddingVertical: normalize(20, 'height'),
-    paddingHorizontal: normalize(20),
-    borderRadius: normalize(8),
-    alignItems: 'center',
-    width: '110%',
-    marginLeft: 0,
-    marginTop: normalize(-102, 'height'),
-    top: normalize(-5, 'height'),
-  },
+  backgroundColor: '#4F46E5',
+  paddingVertical: normalize(18, 'height'),
+  paddingHorizontal: normalize(20),
+  borderRadius: normalize(16),
+  alignItems: 'center',
+  width: '100%',
+  marginTop: normalize(-50, 'height'),
+  marginLeft: 0,
+},
   containerBarButtonText: {
     color: '#FFFFFF',
     fontSize: normalize(20),
