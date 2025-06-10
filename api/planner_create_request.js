@@ -45,7 +45,7 @@ export const createSchedule = async (
       console.log('✅ 실제 서버 응답:', response.data);
       return response.data;
     } else {
-      console.warn('⚠️ 실패 응답:', response.status);
+      console.warn('⚠️ 경고 응답:', response.status);
     }
   } catch (error) {
     console.error('❌ 예외 발생:', error.response?.data || error.message);

@@ -43,7 +43,6 @@ export default function CombinedSplashScreen() {
           style={styles.LoginScreenButton}
           onPress={() => setShowLogin(true)}
         >
-          <Ionicons name="rocket-outline" size={24} color="white" />
         </TouchableOpacity>
       </View>
 

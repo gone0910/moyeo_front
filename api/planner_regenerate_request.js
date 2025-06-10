@@ -42,7 +42,7 @@ export const regenerateSchedule = async ({
     );
 
     if (response.status === 200) {
-      console.log('✅ 일정 재생성 성공:', response.data);
+      console.log('✅ 일정 재생성 성공:', JSON.stringify(response.data, null, 2));
       // 필요시 Alert로도
       // Alert.alert('성공', '일정이 재생성되었습니다!');
     } else {

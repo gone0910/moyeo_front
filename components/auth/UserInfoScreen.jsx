@@ -1,6 +1,3 @@
-// 📁 components/auth/UserInfoScreen.jsx
-
-// 회원가입 요쳥과 유저 정보 재조회는 fetch를 사용.
 import React, { useState, useContext, useEffect } from 'react';
 import {
   View,
@@ -13,6 +10,8 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  Dimensions,
+  PixelRatio,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
@@ -20,8 +19,22 @@ import * as Linking from 'expo-linking'; // ✅ 딥링크 파싱용 추가
 
 import { UserContext } from '../../contexts/UserContext';
 import ProfileImagePicker from '../common/ProfileImagePicker';
-import Dropdown from '../common/Dropdown';  // DropdownPicker 기반 Dropdown
+import Dropdown from '../common/Dropdown'; // DropdownPicker 기반 Dropdown
 import { registerUserWithFetch, getUserInfoWithFetch } from '../../api/auth_fetch'; // 회원가입은 fetch 사용
+
+// ==== 반응형 유틸 함수 ====
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+const BASE_WIDTH = 390; // iPhone 13 기준
+const BASE_HEIGHT = 844;
+function normalize(size, based = 'width') {
+  const scale = based === 'height' ? SCREEN_HEIGHT / BASE_HEIGHT : SCREEN_WIDTH / BASE_WIDTH;
+  const newSize = size * scale;
+  if (Platform.OS === 'ios') {
+    return Math.round(PixelRatio.roundToNearestPixel(newSize));
+  } else {
+    return Math.round(PixelRatio.roundToNearestPixel(newSize)) - 1;
+  }
+}
 
 export default function UserInfoScreen() {
   const navigation = useNavigation();
@@ -40,20 +53,17 @@ export default function UserInfoScreen() {
     const handleInitialLink = async () => {
       const url = await Linking.getInitialURL();
       if (!url) return;
-
       const { queryParams } = Linking.parse(url);
       const mode = queryParams?.mode;
       const token = queryParams?.token;
-
       if (mode === 'register' && token) {
         await AsyncStorage.setItem('jwt', token);
         console.log('✅ 신규 사용자 토큰 저장 완료');
       }
     };
-
     handleInitialLink();
   }, []);
-   
+
   // 가입 시작하기 (회원가입 요청)
   const handleSubmit = async () => {
     const token = await AsyncStorage.getItem('jwt');
@@ -63,7 +73,7 @@ export default function UserInfoScreen() {
       nickname,
       gender: gender === '남성' ? 'MALE' : gender === '여성' ? 'FEMALE' : '',
       age: parseInt(age),
-      mbti: mbti === '' ? 'NONE' : mbti, // ✅ 선택하지 않았으면 NONE 전송
+      mbti: mbti === '' ? null : mbti,
     };
 
     if (isMock === 'true') {
@@ -78,7 +88,7 @@ export default function UserInfoScreen() {
     }
 
     try {
-      const result = await registerUserWithFetch(userData, image, token);  // fetch 함수 호출
+      const result = await registerUserWithFetch(userData, image, token); // fetch 함수 호출
       console.log(' registerUser 응답:', result);
 
       const newToken = result.token || token;
@@ -89,9 +99,8 @@ export default function UserInfoScreen() {
       }
 
       const newUser = await getUserInfoWithFetch(newToken); // fetch 함수 사용
-
-      setUser({ ...newUser, token: newToken }); // ✅ token 포함
-      await AsyncStorage.setItem('user', JSON.stringify({ ...newUser, token: newToken }));
+      setUser(newUser);
+      await AsyncStorage.setItem('user', JSON.stringify(newUser));
       await AsyncStorage.setItem('jwt', newToken);
 
       Alert.alert('완료', '회원가입이 완료되었습니다.');
@@ -113,12 +122,10 @@ export default function UserInfoScreen() {
           <Text style={styles.headerText}>회원가입</Text>
           <View style={styles.headerLine} />
         </View>
-
         <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled" nestedScrollEnabled={true}>
           <ProfileImagePicker defaultImage={image} onChange={setImage} />
-
           <View style={styles.formGrouped}>
-            <Text style={styles.label}>닉네임 *</Text>
+            <Text style={styles.label}>닉네임 </Text>
             <TextInput
               style={styles.input}
               placeholder="닉네임을 입력해 주세요"
@@ -129,8 +136,7 @@ export default function UserInfoScreen() {
               }}
             />
           </View>
-
-          <Text style={styles.labels}>성별 *</Text>
+          <Text style={styles.labelss}>성별 </Text>
           <View style={styles.genderContainer}>
             <TouchableOpacity
               style={[styles.genderButton, gender === '남성' && styles.genderSelected]}
@@ -145,9 +151,8 @@ export default function UserInfoScreen() {
               <Text style={[styles.genderText, gender === '여성' && styles.genderTextSelected]}>여성</Text>
             </TouchableOpacity>
           </View>
-
           <View style={styles.formGroup}>
-            <Text style={styles.label}>나이 *</Text>
+            <Text style={styles.labels}>나이 </Text>
             <TextInput
               style={styles.input}
               placeholder="나이를 입력해 주세요"
@@ -161,7 +166,6 @@ export default function UserInfoScreen() {
               }}
             />
           </View>
-
           <View style={[styles.formGroups]}>
             <Text style={styles.mbtiLabel}>MBTI 선택</Text>
             <Dropdown
@@ -189,7 +193,6 @@ export default function UserInfoScreen() {
             />
           </View>
         </ScrollView>
-
         <View style={styles.footer}>
           <TouchableOpacity
             style={[styles.submitButton, !isValid && styles.buttonDisabled]}
@@ -204,133 +207,158 @@ export default function UserInfoScreen() {
   );
 }
 
+// ======= 반응형 스타일 =======
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#FAFAFA' },
-  headerContainer: { alignItems: 'center' },
+  safe: {
+    flex: 1,
+    backgroundColor: '#F6F9FB',
+  },
+  headerContainer: {
+    alignItems: 'center',
+  },
   headerText: {
-    fontSize: 16,
+    fontSize: normalize(18),
     fontWeight: '600',
     color: '#333',
-    marginTop: 32,
-    marginBottom: 8,
+    marginTop: normalize(0, 'height'),
+    marginBottom: normalize(5, 'height'),
+    letterSpacing: -0.3,
   },
   headerLine: {
     width: '90%',
-    marginBottom: 30,
-    marginTop: 10,
-    height: 1,
-    backgroundColor: '#999',
+    marginBottom: normalize(24, 'height'),
+    marginTop: normalize(6, 'height'),
+    height: normalize(1, 'height'),
+    backgroundColor: '#E5E7EB',
+    borderRadius: normalize(2),
   },
   notice: {
-    fontSize: 14,
+    fontSize: normalize(14),
     color: '#EF4444',
-    marginBottom: 16,
+    marginBottom: normalize(16, 'height'),
   },
   container: {
-    paddingHorizontal: 20,
-    paddingTop: 30,
-    paddingBottom: 150,
+    paddingHorizontal: normalize(20),
+    paddingTop: normalize(16, 'height'),
+    paddingBottom: normalize(90, 'height'),
+    alignItems: 'center',
   },
   formGroup: {
-    marginBottom: 25,
-    borderRadius: 8,
+    marginBottom: normalize(30, 'height'),
+    borderRadius: normalize(8),
     width: '100%',
-    paddingHorizontal: 10,
-    paddingVertical: 12,
-    minHeight: 60,
+    paddingHorizontal: normalize(4),
+    minHeight: normalize(54, 'height'),
   },
   formGroups: {
-    marginBottom: 30,
-    marginTop: -8,
-    borderRadius: 8,
+    marginBottom: normalize(30, 'height'),
+    marginTop: -normalize(6, 'height'),
+    borderRadius: normalize(8),
     width: '100%',
-    paddingHorizontal: 10,
-    paddingVertical: 12,
+    paddingHorizontal: normalize(4),
   },
   formGrouped: {
-    marginBottom: 30,
-    borderRadius: 8,
+    marginBottom: normalize(30, 'height'),
+    borderRadius: normalize(8),
     width: '100%',
-    paddingHorizontal: 10,
-    paddingVertical: 12,
-    minHeight: 60,
+    paddingHorizontal: normalize(4),
+    minHeight: normalize(54, 'height'),
   },
   label: {
-    fontSize: 18,
+    fontSize: normalize(16),
     color: '#373737',
-    marginBottom: 8,
-    lineHeight: 22,
+    marginBottom: normalize(7, 'height'),
+    lineHeight: normalize(20, 'height'),
+    fontWeight: '500',
+  },
+  labelss: {
+    fontSize: normalize(16),
+    color: '#373737',
+    marginBottom: normalize(7, 'height'),
+    lineHeight: normalize(20, 'height'),
+    fontWeight: '500',
+    right: normalize(157),
   },
   labels: {
-    fontSize: 16,
+    fontSize: normalize(16),
     color: '#373737',
-    marginBottom: 8,
-    lineHeight: 22,
-    left: 10,
+    marginBottom: normalize(7, 'height'),
+    lineHeight: normalize(20, 'height'),
+    fontWeight: '500',
   },
   input: {
-    paddingHorizontal: 10,
-    paddingVertical: 12,
+    paddingHorizontal: normalize(12),
+    paddingVertical: normalize(10, 'height'),
     borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 8,
+    borderColor: '#E5E7EB',
+    borderRadius: normalize(8),
     backgroundColor: '#fff',
-    fontSize: 16,
+    fontSize: normalize(16),
+    minHeight: normalize(40, 'height'),
+    marginBottom: 2,
   },
   genderContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     width: '100%',
-    marginBottom: 30,
-    paddingHorizontal: 5,
+    marginBottom: normalize(30, 'height'),
+    paddingHorizontal: normalize(2),
+    gap: normalize(6),
   },
   genderButton: {
     flex: 1,
-    paddingHorizontal: 10,
-    paddingVertical: 12,
-    marginHorizontal: 5,
+    paddingHorizontal: normalize(4),
+    paddingVertical: normalize(11, 'height'),
+    marginHorizontal: normalize(3),
     borderWidth: 1,
     borderColor: '#ccc',
-    borderRadius: 8,
+    borderRadius: normalize(8),
     alignItems: 'center',
     backgroundColor: '#ffffff',
   },
   genderSelected: {
-    backgroundColor: '#b3a4f7',
+    backgroundColor: '#B5A7F6',
+    borderColor: '#7C5DE3',
   },
   genderText: {
     color: '#999',
-    fontSize: 18,
+    fontSize: normalize(15),
+    fontWeight: '500',
   },
   genderTextSelected: {
     color: '#fff',
+    fontWeight: '700',
   },
   mbtiLabel: {
-    fontSize: 18,
+    fontSize: normalize(16),
     color: '#373737',
-    marginBottom: 8,
+    marginBottom: normalize(7, 'height'),
+    fontWeight: '500',
   },
   submitButton: {
     backgroundColor: '#4F46E5',
-    paddingVertical: 20,
-    paddingHorizontal: 20,
-    borderRadius: 8,
+    paddingVertical: normalize(16, 'height'),
+    borderRadius: normalize(8),
     alignItems: 'center',
-    width: '94%',
-    marginLeft: 10,
+    width: '100%',
+    marginTop: normalize(14, 'height'),
+    marginBottom: normalize(22, 'height'),
   },
   buttonDisabled: {
     backgroundColor: '#ccc',
   },
   submitText: {
     color: '#ffffff',
-    fontSize: 16,
+    fontSize: normalize(18),
+    fontWeight: '600',
+    letterSpacing: 0.1,
   },
   footer: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
-    paddingHorizontal: 20,
+    paddingHorizontal: normalize(18),
+    backgroundColor: 'transparent',
   },
 });

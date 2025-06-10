@@ -1,27 +1,45 @@
-// 📁 /components/matching/MatchingScreen.jsx
 import React, { useContext } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Image, Dimensions, Platform } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { UserContext } from '../../contexts/UserContext'; // Ensure correct import path
+import { UserContext } from '../../contexts/UserContext';
 import { KaushanScript_400Regular } from '@expo-google-fonts/kaushan-script';
 import { useFonts } from 'expo-font';
+import { RFValue } from 'react-native-responsive-fontsize';
 
-const matchingImage = require('../../assets/images/planning_image.jpg');
+const matchingImage = require('../../assets/images/Planner_image.png');
+
+// 기준 width (iPhone 13)
+const BASE_WIDTH = 390;
+const BASE_HEIGHT = 844;
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+const scale = SCREEN_WIDTH / BASE_WIDTH;
+
+function normalize(size) {
+  // 폰트, 마진 등 크기 보정
+  return Math.round(RFValue(size, BASE_HEIGHT));
+}
 
 export default function PlannerScreen() {
   const navigation = useNavigation();
   const { user } = useContext(UserContext);
   const [fontsLoaded] = useFonts({ KaushanScript: KaushanScript_400Regular });
 
-  if (!fontsLoaded) {
-    return null; // Avoid rendering until fonts are loaded
-  }
+  if (!fontsLoaded) return null;
 
   return (
     <View style={styles.container}>
-      {/* Header Section */}
+      {/* Header */}
       <View style={styles.headerWrapper}>
-        <Text style={styles.logotext} numberOfLines={1} adjustsFontSizeToFit>moyeo </Text>
+        <Text
+          style={[
+            styles.logotext,
+            { fontSize: normalize(36), fontFamily: 'KaushanScript' }
+          ]}
+          numberOfLines={1}
+          adjustsFontSizeToFit
+        >
+          moyeo
+        </Text>
         <TouchableOpacity onPress={() => navigation.navigate('ProfileHome', user)}>
           {user?.profileImageUrl ? (
             <Image source={{ uri: user.profileImageUrl }} style={styles.profileImage} />
@@ -32,129 +50,129 @@ export default function PlannerScreen() {
       </View>
       <View style={styles.headerLine} />
 
-      {/* Main Section */}
-      <View style={styles.centerWrapper}>
-        <Image source={matchingImage} style={styles.PlannerImage} />
-        <Text style={styles.title}>일정만 입력하셔도</Text>
-        <Text style={styles.titletext}>여행 플랜 완성</Text>
-        <Text style={styles.titletext2}>내 취향에 맞춘 여행 계획을 세워보세요</Text>
+      {/* Main 안내 문구 */}
+      <View style={styles.mainSection}>
+      <Text style={[styles.title, { fontSize: normalize(28) }]}>
+          일정만 입력하셔도
+        </Text>
+        <Text style={[styles.subtitle, { fontSize: normalize(28), marginTop: normalize(4) }]}>
+          여행 플랜 완성
+        </Text>
+        <Text style={[styles.desc, { fontSize: normalize(18), marginTop: normalize(14) }]}>
+          내 취향에 맞춘 여행 계획을 세워보세요
+        </Text>
+      </View>
 
-        {/* New Container Bar Section */}
-        <View style={styles.containerBar}>
-          <Text style={styles.containerBarText}>동행자 찾기</Text>
-          <TouchableOpacity style={styles.containerBarButton}
-          후에 변경 필요
-              onPress={() => navigation.navigate('PlannerInfo')}>   
-           <Text style={styles.containerBarButtonText}>여행 플랜 만들러 가기</Text>
-          </TouchableOpacity>
-        </View>
+      {/* 일러스트 이미지 */}
+      <View style={styles.illustrationWrapper}>
+        <Image
+          source={matchingImage}
+          style={{
+            width: SCREEN_WIDTH * 0.8,
+            height: SCREEN_WIDTH * 0.8,
+            borderRadius: SCREEN_WIDTH * 0.4,
+          }}
+          resizeMode="contain"
+        />
+      </View>
+
+      {/* 버튼 */}
+      <View style={styles.bottomSection}>
+        <TouchableOpacity
+          style={[styles.button, { width: SCREEN_WIDTH * 0.9, paddingVertical: normalize(18) }]}
+          onPress={() => navigation.navigate('PlannerInfo')}
+        >
+          <Text style={[styles.buttonText, { fontSize: normalize(18) }]}>
+            여행 플랜 만들러 가기
+          </Text>
+        </TouchableOpacity>
       </View>
     </View>
   );
 }
 
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#FAFAFA',
-    paddingHorizontal: 16,
-    paddingTop: 24,
+    paddingTop: Platform.OS === 'ios' ? 48 : 28,
   },
   headerWrapper: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    paddingHorizontal: 22,
+    marginBottom: 4,
   },
   logotext: {
-    fontSize: 40,
-    fontFamily: 'KaushanScript',
     color: '#4F46E5',
-    lineHeight: 80,
+    // fontFamily, fontSize는 인라인에서 반응형 처리
     letterSpacing: 0,
   },
   profileImage: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    marginTop: 22,
-    top:-5,
+    backgroundColor: '#EEE',
   },
   profilePlaceholder: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    top:5,
     backgroundColor: '#D1D5DB',
   },
   headerLine: {
     height: 1,
-    backgroundColor: '#999',
-    marginVertical: 8,
-    top:-10,
+    backgroundColor: '#D1D5DB',
+    marginTop: 6,
+    marginBottom: 0,
+    marginHorizontal: 10,
   },
-  centerWrapper: {
-    flex: 1,
-    justifyContent: 'center',
+  mainSection: {
+    marginTop: normalize(50),
     alignItems: 'center',
-  },
-  PlannerImage: {
-    width: 330, 
-    height: 330, 
-    marginBottom: 20, 
-    borderRadius:16,
-    marginTop:250,
-    top:-20,
+    justifyContent: 'center',
   },
   title: {
-    fontSize: 26,
     color: '#1E1E1E',
+    fontWeight: '400',
     textAlign: 'center',
-    top: -525,
-    fontFamily: 'Inter_400Regular',                                                                                                                                                                                                                                                                                                                                                                                                                                
-  },
-  titletext: {
-    fontSize: 26,
-    marginTop: 16,
-    color: '#1E1E1E', 
-    textAlign: 'center',
-    top: -530,
     fontFamily: 'Inter_400Regular',
   },
-  titletext2: {
-    fontSize: 20,
-    marginTop: 10,
-    color: '#7E7E7E', 
+  subtitle: {
+    color: '#1E1E1E',
+    fontWeight: '400',
     textAlign: 'center',
-    top: -515,
     fontFamily: 'Inter_400Regular',
-    marginTop:0,
   },
-  containerBar: {
-    width: '100%',
-    padding: 16,
-    backgroundColor: '#FAFAFA',
-    borderRadius: 8,
+  desc: {
+    color: '#7E7E7E',
+    textAlign: 'center',
+    fontFamily: 'Inter_400Regular',
     marginTop: 0,
+  },
+  illustrationWrapper: {
     alignItems: 'center',
+    marginTop: normalize(50),
+    marginBottom: normalize(24),
   },
-  containerBarText: {
-    fontSize: 20,
-    color: '#FAFAFA',
-    marginBottom: 10,
+  bottomSection: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    marginBottom: normalize(25),
   },
-  containerBarButton: {
+  button: {
     backgroundColor: '#4F46E5',
-    paddingVertical: 20,
-    paddingHorizontal: 20,
-    borderRadius: 8,
+    borderRadius: 10,
     alignItems: 'center',
-    width: '110%',
-    marginLeft: 0,
-    marginTop:-102,
-    top:-5,
+    justifyContent: 'center',
+    // width/padding은 인라인에서 반응형 적용
   },
-  containerBarButtonText: {
-    color: '#FFFFFF',
-    fontSize: 20,
+  buttonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    // fontSize는 인라인에서 반응형 적용
   },
 });
