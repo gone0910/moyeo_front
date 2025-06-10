@@ -181,11 +181,6 @@ const MatchingList = () => {
           </View>
 
           {/* 🔹 NoneList로 이동 (테스트용 버튼) */}
-          <View style={styles.buttonContainer}>
-            <TouchableOpacity style={styles.NoneListButton} onPress={() => navigation.navigate('NoneList')}>
-              <Ionicons name="rocket-outline" size={24} color="white" />
-            </TouchableOpacity>
-          </View>
 
           
 
