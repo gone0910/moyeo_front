@@ -1,4 +1,6 @@
 // App.jsx
+import 'react-native-gesture-handler'; // 최상단 추가!
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useEffect, useState, useContext } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import AppNavigator from './navigation/AppNavigator';
@@ -16,11 +18,12 @@ import { useFonts as useRoboto, Roboto_400Regular } from '@expo-google-fonts/rob
 //  앱 진입 지점: 전체 앱을 UserProvider로 감싸 전역 사용자 상태 관리 가능하게 함
 export default function App() {
   return (
-    //  UserProvider로 앱을 감싸 전역에서 user 상태를 사용할 수 있게 설정
-    <UserProvider>
-      <Root />
-      <StatusBar style="auto" />
-    </UserProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <UserProvider>
+        <Root />
+        <StatusBar style="auto" />
+      </UserProvider>
+    </GestureHandlerRootView>
   );
 }
 
