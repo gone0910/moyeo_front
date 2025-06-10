@@ -2,10 +2,7 @@
 // ✅ 채팅방 화면 - 백엔드 명세서 기반 리팩토링 (더미 데이터 기준)
 import React, { useContext, useState, useRef, useEffect, useCallback } from 'react';
 import {  View,  Text,  TextInput,  FlatList,  TouchableOpacity,  StyleSheet,  SafeAreaView,  Image,
-  KeyboardAvoidingView,
-  Platform,
-  Modal,
-  Alert,
+  KeyboardAvoidingView, Platform ,Modal, Alert, Dimensions,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { UserContext } from '../../contexts/UserContext';
@@ -21,9 +18,34 @@ import { GENDER_ENUM_TO_KOR, STYLE_ENUM_TO_KOR } from '../matching/utils/matchin
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons'
 
-LogBox.ignoreLogs([
+
+
+LogBox.ignoreLogs([  // text 괄호 경고 메세지 무시
   'Warning: Text strings must be rendered within a <Text> component',
 ]);
+
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+const BASE_WIDTH = 390;
+const BASE_HEIGHT = 844;
+const scale = (size) => (SCREEN_WIDTH / BASE_WIDTH) * size;
+const vScale = (size) => (SCREEN_HEIGHT / BASE_HEIGHT) * size;
+
+// 백엔드에서 받아온 지역 NONE 처리 변환 함수
+function formatDestination(province, cities = []) {
+  // province: 'SEOUL' 등 ENUM, cities: ['NONE'] 또는 []
+  if (!province || province === 'NONE') {
+    return '선택없음';
+  }
+  // cities가 없거나 'NONE'만 있으면 → 도만
+  if (!cities || cities.length === 0 || (cities.length === 1 && (cities[0] === 'NONE' || !cities[0]))) {
+    return ENUM_TO_PROVINCE_KOR[province] || province;
+  }
+  // 도+시 모두 있을 때
+  const cityNames = cities
+    .filter((c) => c !== 'NONE' && !!c)
+    .map((code) => ENUM_TO_CITY_KOR[code] || code);
+  return `${ENUM_TO_PROVINCE_KOR[province] || province} / ${cityNames.join(', ')}`;
+}
 
 const ChatRoomScreen = ({ route, navigation }) => {
   const params = route.params?.params || route.params || {}; // 중첩구조 예상해서
@@ -99,13 +121,13 @@ const ChatRoomScreen = ({ route, navigation }) => {
     }, 100);
 
     // [실시간 읽음 처리] 추가!
-    markAsRead(roomId, user.token)
-      .then(() => {
-        console.log('[실시간 읽음 처리] markAsRead 호출 완료');
-      })
-      .catch(err => {
-        console.error('[실시간 읽음 처리] markAsRead 에러', err);
-      });
+    // markAsRead(roomId, user.token)
+    //   .then(() => {
+    //     console.log('[실시간 읽음 처리] markAsRead 호출 완료');
+    //   })
+    //   .catch(err => {
+    //     console.error('[실시간 읽음 처리] markAsRead 에러', err);
+    //   });
   };
 
     useEffect(() => {
@@ -188,9 +210,16 @@ const ChatRoomScreen = ({ route, navigation }) => {
 
       init();
 
+      // ✅ beforeRemove 이벤트 리스너 등록
+      const removeListener = navigation.addListener('beforeRemove', () => {
+        console.log('[beforeRemove] disconnect 실행!');
+        disconnectStompClient(user.token);
+      });
+
       return () => {
         console.log('📴 [STOMP 연결 종료]');
         disconnectStompClient(user.token);
+        removeListener();
       };
     }, [user]);
 
@@ -265,6 +294,14 @@ const ChatRoomScreen = ({ route, navigation }) => {
     //   localeTime: new Date(item.timestamp).toLocaleTimeString('ko-KR'),
     // });}
 
+    // 출력되는 미국시간 ,한국시간을 보정.
+    const formatToKoreanTime = (timestamp) => {
+    const date = new Date(timestamp);
+    const utcTime = date.getTime();
+    const koreaTime = new Date(utcTime + 9 * 60 * 60 * 1000); // KST 보정
+    return koreaTime.toTimeString().slice(0, 5); // "HH:MM"
+  };
+
     const showDateLabel =
       index === 0 ||
       new Date(item.timestamp).toDateString() !==
@@ -302,13 +339,7 @@ const ChatRoomScreen = ({ route, navigation }) => {
               <Text style={styles.readText}>읽음</Text>
             )}
             <Text style={styles.timeText}>
-              {item.timestamp
-                ? new Date(item.timestamp).toLocaleTimeString('ko-KR', {
-                    hour: '2-digit',
-                    minute: '2-digit',
-                    hour12: false,
-                  })
-                : ''}
+              {item.timestamp ? formatToKoreanTime(item.timestamp) : ''}
             </Text>
           </View>
         </View>
@@ -321,6 +352,12 @@ const ChatRoomScreen = ({ route, navigation }) => {
 
 
   return (
+    <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={0} // 키보드와 하단 공백값.
+      >
+
     <SafeAreaView style={styles.container}>
 
       {/* ✅ 상단 헤더 */}
@@ -357,11 +394,7 @@ const ChatRoomScreen = ({ route, navigation }) => {
       {/* 구분선 */}
       <View style={styles.headerLine} /> 
 
-      <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={80}
-      >
+      
 
 
       {/* ✅ 채팅 메시지 리스트 */}
@@ -393,10 +426,15 @@ const ChatRoomScreen = ({ route, navigation }) => {
             }
           />
           <TouchableOpacity style={styles.sendButton} onPress={handleSend}>
-            <MaterialIcons name="navigation" size={22} color="#4F46E5" />
+            <MaterialIcons
+              name="navigation"
+              size={22}
+              color="#4F46E5"
+              style={{ transform: [{ rotate: '40deg' }] }} // ⭐️ 90도 회전
+            />
           </TouchableOpacity>
         </View>
-      </KeyboardAvoidingView>
+      
 
 
       <Modal
@@ -435,11 +473,9 @@ const ChatRoomScreen = ({ route, navigation }) => {
                   <View style={styles.infoRow}>
                     <Text style={styles.infoLabel}>목적지</Text>
                     <Text style={styles.infoTag3}>
-                      {profileData.destination ||
-                        `${ENUM_TO_PROVINCE_KOR[profileData.province] || profileData.province} / ${
-                          (profileData.cities || []).map((code) => ENUM_TO_CITY_KOR[code] || code).join(', ')
-                        }`
-                      }
+                      {selectedMatch.destination
+                        ? selectedMatch.destination // destination 문자열 있으면 그대로 사용
+                        : formatDestination(selectedMatch.province, selectedMatch.cities)}
                     </Text>
                   </View>
                   <View style={styles.infoRow}>
@@ -455,6 +491,7 @@ const ChatRoomScreen = ({ route, navigation }) => {
       </Modal>
 
     </SafeAreaView>
+  </KeyboardAvoidingView>
 
     
   );
@@ -465,15 +502,24 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#FAFAFA',
   },
+  // ----- 상단 헤더 -----
   header: {
-    height: 80,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingTop: 30,
-    paddingHorizontal: 16,
+    width: '100%',
+    height: vScale(60),
     backgroundColor: '#FAFAFA',
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    paddingTop: vScale(10),
+    paddingHorizontal: 0,
+    justifyContent: 'space-between',
     position: 'relative',
+  },
+  sideButton: {
+    width: scale(60),
+    height: vScale(50),
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 1,
   },
   centerWrapper: {
     flex: 1,
@@ -481,90 +527,29 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   headerTitle: {
-    fontSize: 16,
+    fontSize: scale(18),
     fontFamily: 'Roboto',
     fontWeight: '400',
     color: '#000000',
-    marginLeft: 8,
-    maxWidth: 120,
+    marginLeft: scale(4),
+    maxWidth: scale(140),
     overflow: 'hidden',
   },
-
-  sideButton: {
-  zIndex: 1,
-  },
-
-  logoutIcon: {
-  },
   headerLine: {
-  height: 1,
-  backgroundColor: '#999999',
-  marginHorizontal: 16, // 좌우 여백
-},
-  messageWrapper: {
-    flexDirection: 'column',
+    position: 'absolute',
+    top: vScale(60),
+    left: scale(16),
+    width: scale(358),
+    height: 1,
+    backgroundColor: '#999999',
   },
-  messageWithTimeWrapper: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-  },
-  reverseRow: {
-    flexDirection: 'row-reverse', // 🆕 내 메시지면 시간이 왼쪽에 오도록 반전
-  },
-  sideMetaWrapper: {
-    flexDirection: 'column',
-    marginLeft: 6,
-    marginRight: 6,
-    alignItems: 'center',
-    justifyContent: 'flex-end',
-  },
-  messageBubble: {
-    maxWidth: '100%',
-    borderRadius: 20,
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-  },
-  myBubble: {
-    backgroundColor: '#D9D7FF',
-  },
-  otherBubble: {
-    backgroundColor: '#E2E2E2',
-  },
-  timeText: {
-    fontSize: 10,
-    color: '#999999',
-    fontFamily: 'Roboto',
-  },
-  readText: {
-    fontSize: 8,
-    fontFamily: 'Roboto',
-    fontWeight: '400',
-    color: '#373737',
-    marginBottom: 2,
-  },
-  dateLabelWrapper: {
-    alignSelf: 'center',
-    backgroundColor: '#EFEAE5',
-    borderRadius: 30,
-    height: 20,
-    paddingHorizontal: 12, // ✅ 좌우 여백
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginVertical: 8,
-  },
-  dateLabelText: {
-    fontSize: 10,
-    fontFamily: 'Roboto',
-    fontWeight: '400',
-    color: '#616161',
-    textAlign: 'center',
-  },
+  // ----- 채팅 메시지 리스트 -----
   messageList: {
-    paddingHorizontal: 16,
+    paddingHorizontal: scale(16),
     flexGrow: 1,
   },
   messageRow: {
-    marginVertical: 6,
+    marginVertical: vScale(6),
   },
   leftAlign: {
     alignSelf: 'flex-start',
@@ -573,83 +558,119 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-end',
     alignItems: 'flex-end',
   },
+  messageWithTimeWrapper: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+  },
+  reverseRow: {
+    flexDirection: 'row-reverse',
+  },
   messageBubble: {
     maxWidth: '85%',
-    borderRadius: 20,
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-  },
-  otherBubble: {
-    backgroundColor: '#E2E2E2',
+    borderRadius: scale(20),
+    paddingVertical: vScale(8),
+    paddingHorizontal: scale(14),
   },
   myBubble: {
     backgroundColor: '#D9D7FF',
   },
+  otherBubble: {
+    backgroundColor: '#E2E2E2',
+  },
   messageText: {
     fontFamily: 'Roboto',
-    fontSize: 16,
+    fontSize: scale(16),
     color: '#333333',
-    
   },
+  sideMetaWrapper: {
+    flexDirection: 'column',
+    marginLeft: scale(6),
+    marginRight: scale(6),
+    alignItems: 'flex-end',
+    justifyContent: 'flex-end',
+  },
+  timeText: {
+    fontSize: scale(10),
+    color: '#999999',
+    fontFamily: 'Roboto',
+  },
+  readText: {
+    fontSize: scale(8),
+    fontFamily: 'Roboto',
+    fontWeight: '400',
+    color: '#373737',
+    marginBottom: vScale(2),
+    marginRight: -vScale(3), // 읽음 오른쪽 살짝 붙이기
+  },
+  dateLabelWrapper: {
+    alignSelf: 'center',
+    backgroundColor: '#EFEAE5',
+    borderRadius: scale(30),
+    height: vScale(20),
+    paddingHorizontal: scale(12),
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginVertical: vScale(8),
+  },
+  dateLabelText: {
+    fontSize: scale(10),
+    fontFamily: 'Roboto',
+    fontWeight: '400',
+    color: '#616161',
+    textAlign: 'center',
+  },
+  // ----- 입력창 -----
   inputBar: {
-    minHeight: 60,                 // 최소 높이만 지정 (고정 X)
+    minHeight: vScale(60),
     backgroundColor: '#D9D9D9',
     flexDirection: 'row',
-    alignItems: 'center',        // 입력창 중앙 정렬
-    paddingHorizontal: 15,
-    paddingVertical: 10,
+    alignItems: 'center',
+    paddingHorizontal: scale(15),
+    paddingVertical: vScale(10),
   },
   textInput: {
     flex: 1,
-    height: 45,
+    height: vScale(45),
     backgroundColor: '#FFFFFF',
-    borderRadius: 25,
-    paddingHorizontal: 16,
-    fontSize: 16,
+    borderRadius: scale(25),
+    paddingHorizontal: scale(16),
+    fontSize: scale(16),
     fontFamily: 'Roboto',
     color: '#000000',
-    textAlignVertical: 'top',
+    textAlignVertical: 'center', // Android 세로중앙
+    paddingVertical: Platform.OS === 'ios' ? vScale(14) : 0, // iOS 세로중앙
   },
   sendButton: {
-    marginLeft: 10,
-    width: 33,
-    height: 33,
-    borderRadius: 40,
+    marginLeft: scale(10),
+    width: scale(33),
+    height: scale(33),
+    borderRadius: scale(40),
     backgroundColor: '#FFFFFF',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  // MODAL 상세정보 관련 styleshhet
-    // 모달 배경
-modalBoxUpdated: {
-    width: 340, // 모바일 기준 넉넉하게 (원하는 경우 '90%' 등으로 수정 가능)
-    backgroundColor: '#FFF', // 모달 배경 (필요시 '#F8F6FF' 등 연보라 가능)
-    borderRadius: 18,
-    padding: 24,
-    alignItems: 'flex-start', // 왼쪽정렬 → 'center'로 바꾸면 중앙정렬
-    // 그림자 효과 추가(선택)
+  // ---- 모달/상세정보 ----
+  modalBoxUpdated: {
+    width: scale(340),
+    backgroundColor: '#FFF',
+    borderRadius: scale(18),
+    padding: scale(24),
+    alignItems: 'flex-start',
     shadowColor: '#888',
-    shadowOffset: { width: 0, height: 8 },
+    shadowOffset: { width: 0, height: vScale(8) },
     shadowOpacity: 0.12,
     shadowRadius: 20,
     elevation: 8,
     position: 'relative',
   },
   modalProfileImageUpdated: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+    width: scale(64),
+    height: scale(64),
+    borderRadius: scale(14),
     backgroundColor: '#ECECEC',
     borderWidth: 2,
     borderColor: '#E0E7FF',
   },
-  matchImage: { width: 60, height: 60, borderRadius: 30, marginRight: 12 },
-  matchName: { fontSize: 18, color: '#1E1E1E' },
-  matchDate: { fontSize: 16, color: '#7E7E7E', marginTop: 8 },
-  tagsContainer: { flexDirection: 'row', flexWrap: 'wrap', marginTop: 8 },
-  tag: { backgroundColor: '#EFEAE5', paddingVertical: 3, paddingHorizontal: 6, borderRadius: 4, marginRight: 6 },
-  tagText: { fontSize: 12, color: '#7E7E7E' },
-
   modalCenter: {
     flex: 1,
     justifyContent: 'center',
@@ -657,115 +678,94 @@ modalBoxUpdated: {
   },
   modalCloseIcon: {
     position: 'absolute',
-    top: 14,
-    right: 14,
+    top: scale(14),
+    right: scale(14),
     zIndex: 2,
   },
   modalHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: vScale(20),
   },
   modalUserName: {
-    fontSize: 22,
+    fontSize: scale(22),
     fontWeight: 'bold',
     color: '#4F46E5',
-    marginBottom: 2,
+    marginBottom: vScale(2),
   },
   modalDate: {
-    fontSize: 15,
+    fontSize: scale(15),
     color: '#888',
-    marginTop: 2,
+    marginTop: vScale(2),
   },
   infoRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     width: '100%',
-    marginBottom: 14,
+    marginBottom: vScale(16),
   },
   infoLabel: {
-    fontSize: 16,
+    fontSize: scale(16),
     color: '#1E1E1E',
     fontWeight: '500',
-    width: 70, // 라벨 넓이 고정
-    marginTop: 6,
+    width: scale(70),  
+    marginTop: vScale(8),
   },
   tagGroup: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
+    gap: scale(6),
     flex: 1,
-    marginLeft: 8,
-  },
-  infoRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    width: '100%',
-    marginBottom: 16,
-  },
-  infoLabel: {
-    fontSize: 16,
-    color: '#1E1E1E',
-    fontWeight: '500',
-    width: 60, // 고정 너비로 정렬 기준 맞추기
-    marginTop: 8, // 텍스트 상단 맞춤
-  },
-  tagGroup: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
-    flex: 1,
-    marginLeft: 12,
+    // marginLeft: scale(12),
   },
   infoTag1: {
     backgroundColor: '#ADB3DD',
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: 8,
-    fontSize: 14,
+    paddingHorizontal: scale(14),
+    paddingVertical: vScale(7),
+    borderRadius: scale(8),
+    fontSize: scale(14),
     color: '#fff',
-    minWidth: 60,
+    minWidth: scale(60),
     textAlign: 'center',
-    marginBottom: 4,
-    marginLeft: 8,
+    marginBottom: vScale(4),
+    marginLeft: scale(16),
   },
   infoTag2: {
     backgroundColor: '#B3A4F7',
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: 8,
-    fontSize: 14,
+    paddingHorizontal: scale(14),
+    paddingVertical: vScale(7),
+    borderRadius: scale(8),
+    fontSize: scale(14),
     color: '#fff',
-    minWidth: 60,
+    minWidth: scale(60),
     textAlign: 'center',
-    marginBottom: 4,
-    marginLeft: 8,
+    marginBottom: vScale(4),
+    marginLeft: scale(16),
   },
   infoTag3: {
-    backgroundColor: '#F4F4FF',
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: 8,
-    fontSize: 14,
-    color: '#7E7E7E',
-    minWidth: 60,
+    backgroundColor: '#B3A4F7',
+    paddingHorizontal: scale(14),
+    paddingVertical: vScale(7),
+    borderRadius: scale(8),
+    fontSize: scale(14),
+    color: '#fff',
+    minWidth: scale(60),
     textAlign: 'center',
-    borderWidth: 1,
-    borderColor: '#D6C9DF',
-    marginBottom: 4,
-    marginLeft: 8,
+    marginBottom: vScale(4),
+    marginLeft: scale(16),
   },
   infoTag4: {
-    backgroundColor: '#B3A4F7',
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: 8,
-    fontSize: 14,
-    color: '#fff',
-    minWidth: 60,
+    backgroundColor: '#F4F4FF',
+    paddingHorizontal: scale(14),
+    paddingVertical: vScale(7),
+    borderRadius: scale(8),
+    fontSize: scale(14),
+    color: '#7E7E7E',
+    minWidth: scale(60),
     textAlign: 'center',
-    marginBottom: 4,
-    marginLeft: 8,
+    marginBottom: vScale(4),
+    marginLeft: scale(16),    borderWidth: 1,
+    borderColor: '#D6C9DF',
   },
 });
 
