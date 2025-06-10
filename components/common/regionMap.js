@@ -152,3 +152,13 @@ export const ENUM_TO_CITY_KOR = Object.values(REGION_MAP).flat().reduce((acc, { 
   acc[code] = name;
   return acc;
 }, {});
+
+
+// regionMap.js 내부
+export function getKorProvince(provinceEnum) {
+  return provinceEnum === "NONE" ? "선택없음" : (ENUM_TO_PROVINCE_KOR[provinceEnum] || provinceEnum);
+}
+
+export function getKorCity(cityEnum) {
+  return cityEnum === "NONE" ? "선택없음" : (ENUM_TO_CITY_KOR[cityEnum] || cityEnum);
+}
