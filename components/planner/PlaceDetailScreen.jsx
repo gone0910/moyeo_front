@@ -6,6 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { saveCacheData, getCacheData, CACHE_KEYS } from '../../caching/cacheService';
 import { KAKAO_REST_API_KEY, KAKAO_JS_KEY } from '@env';
+import { Linking } from 'react-native';
 
 // === 반응형 유틸 함수 ===
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -41,6 +42,9 @@ export default function PlaceDetailScreen() {
   const defaultLng = lng || 126.570667;
   const [resolvedAddress, setResolvedAddress] = useState(address);
 
+  // 카카오맵으로 이동하는 함수
+  
+
   useEffect(() => {
     const fetchAddressFromCoords = async () => {
       try {
@@ -73,6 +77,32 @@ export default function PlaceDetailScreen() {
       console.log('PLAN_DETAIL:', detail);
     })();
   }, []);
+
+  const openKakaoPlaceDetail = async () => {
+  try {
+    // 카카오 장소검색 API 요청
+    const res = await fetch(
+      `https://dapi.kakao.com/v2/local/search/keyword.json?query=${encodeURIComponent(name)}`,
+      {
+        headers: {
+          Authorization: `KakaoAK ${KAKAO_REST_API_KEY}`,
+        },
+      }
+    );
+    const data = await res.json();
+    const placeId = data.documents?.[0]?.id;
+    if (placeId) {
+      // 상세페이지로 이동
+      Linking.openURL(`https://place.map.kakao.com/${placeId}`);
+    } else {
+      // 검색 결과로 이동
+      Linking.openURL(`https://map.kakao.com/?q=${encodeURIComponent(name)}`);
+    }
+  } catch (e) {
+    // 오류 시 검색 결과로 이동
+    Linking.openURL(`https://map.kakao.com/?q=${encodeURIComponent(name)}`);
+  }
+};
 
   const mapHtml = `
     <!DOCTYPE html>
@@ -118,7 +148,11 @@ export default function PlaceDetailScreen() {
     <SafeAreaView style={{ flex: 1, backgroundColor: '#F4F6FB' }}>
       <View style={styles.screen}>
         {/* 지도 */}
-        <View style={[styles.mapBox, { height: MAP_HEIGHT }]}>
+        <TouchableOpacity
+          activeOpacity={0.92}
+          onPress={openKakaoPlaceDetail}
+          style={[styles.mapBox, { height: MAP_HEIGHT }]}
+        >
           <WebView
             originWhitelist={['*']}
             source={{ html: mapHtml }}
@@ -131,6 +165,7 @@ export default function PlaceDetailScreen() {
             useWebKit
             scrollEnabled={false}
             scalesPageToFit
+            pointerEvents="none" // WebView는 조작 안 되고 클릭만 동작
           />
           {/* 뒤로가기 버튼 (지도 위에 고정) */}
           <TouchableOpacity
@@ -140,7 +175,7 @@ export default function PlaceDetailScreen() {
           >
             <Ionicons name="chevron-back" size={normalize(24)} color="#fff" />
           </TouchableOpacity>
-        </View>
+        </TouchableOpacity>
         {/* 카드 */}
         <View style={[styles.infoCard, { height: CARD_HEIGHT }]}>
           {/* 상단: 장소명/카테고리/가격 */}
@@ -151,7 +186,9 @@ export default function PlaceDetailScreen() {
                 <Text style={styles.type}>{type}</Text>
               )}
             </View>
-            {estimatedCost ? (
+            {estimatedCost === 0 ? (
+              <Text style={styles.cost}>무료</Text>
+            ) : estimatedCost ? (
               <Text style={styles.cost}>{estimatedCost.toLocaleString()}원</Text>
             ) : null}
           </View>
