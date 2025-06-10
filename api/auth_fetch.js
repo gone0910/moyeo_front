@@ -5,6 +5,7 @@
 // - 사용자 정보 조회 및 수정도 포함
 
 import * as Linking from 'expo-linking';
+import * as FileSystem from 'expo-file-system';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // ✅ 백엔드 서버 주소 설정 auth.js도 똑같이 바꿔줘야함함
@@ -53,6 +54,20 @@ export const registerUserWithFetch = async (userData, image, token) => {
       console.log('type:', image.type);
       console.log('name:', image.name);
 
+
+      // Base64 인코딩된 이미지 크기 로그 (전송 직전,) 파악 후 삭제 요먕.
+      if (image.uri && image.uri.startsWith('data:image')) {
+        const base64String = image.uri.split(',')[1];
+        const size = Math.floor((base64String.length * 3) / 4);
+        console.log('📏 [전송 Base64 이미지 용량] ' + size + ' bytes ≈ ' + (size / 1024).toFixed(1) + ' KB');
+      } else if (image.uri && image.uri.startsWith('file://')) {
+        // 원본 파일 크기 (Base64 변환 전 참고용)
+        const info = await FileSystem.getInfoAsync(image.uri);
+        console.log('📏 [원본 파일 용량] ' + info.size + ' bytes ≈ ' + (info.size / 1024).toFixed(1) + ' KB');
+      }
+
+
+
       formData.append('profileImage', {
         uri: image.uri,
         type: image.type?.includes('image') ? 'image/jpeg' : image.type || 'image/jpeg', // 💡 fallback 처리
@@ -85,7 +100,7 @@ export const registerUserWithFetch = async (userData, image, token) => {
       const errorText = await response.text();
       console.error('❌ [fetch] 응답 오류 상태:', response.status);
       console.error('📦 응답 바디:', errorText);
-      throw new Error(`회원가입 실패 (status ${response.status})`);
+      throw new Error(errorText); // 응답 바디 전체를 Error에
     }
 
     const result = await response.json();
@@ -159,14 +174,33 @@ export const editUserProfileWithFetch = async (userData, image, token) => {
     name: 'userInfo.json',
   });
 
-  // ✅ 새 이미지가 선택된 경우에만 파일 전송
+    // ✅ 새 이미지가 선택된 경우에만 파일 전송
   if (image?.uri) {
+    // 💡 Base64 인코딩된 이미지 크기 로그 (전송 직전!)
+    if (image.uri.startsWith('data:image')) {
+      const base64String = image.uri.split(',')[1];
+      const size = Math.floor((base64String.length * 3) / 4);
+      console.log('📏 [전송 Base64 이미지 용량] ' + size + ' bytes ≈ ' + (size / 1024).toFixed(1) + ' KB');
+    } else if (image.uri.startsWith('file://')) {
+      const info = await FileSystem.getInfoAsync(image.uri);
+      console.log('📏 [원본 파일 용량] ' + info.size + ' bytes ≈ ' + (info.size / 1024).toFixed(1) + ' KB');
+    }
+
     formData.append('profileImage', {
       uri: image.uri,
       name: image.name || 'profile.jpg',
       type: image.type?.includes('image') ? 'image/jpeg' : image.type || 'image/jpeg',
     });
   }
+
+  // ✅ 새 이미지가 선택된 경우에만 파일 전송, 파일 사이즈 파악 후 활성화 요망.
+  // if (image?.uri) {
+  //   formData.append('profileImage', {
+  //     uri: image.uri,
+  //     name: image.name || 'profile.jpg',
+  //     type: image.type?.includes('image') ? 'image/jpeg' : image.type || 'image/jpeg',
+  //   });
+  // }
   // ❌ image가 string(URL) or null이면 아무 것도 전송하지 않음
   // → 백엔드에서는 profileImage 필드가 없으면 null 처리되기에 default 이미지로 변경.
 
@@ -190,7 +224,7 @@ export const editUserProfileWithFetch = async (userData, image, token) => {
 
     if (!response.ok) {
       console.error('❌ 프로필 수정 실패:', response.status, text);
-      throw new Error(`수정 실패 (${response.status}): ${text}`);
+      throw new Error(text); // 에러 메시지 body
     }
 
     console.log('✅ 프로필 수정 성공:', data);
@@ -219,6 +253,28 @@ export const convertUrlToImageObject = (imageUrl) => {
     name: 'profile.jpg',
   };
 };
+
+export async function urlToBase64ProfileImage(url) {
+  const filename = 'profile_from_url.jpg'; // 변환한 사진고정.
+  const downloadResumable = FileSystem.createDownloadResumable(
+    url,
+    FileSystem.cacheDirectory + filename
+  );
+  const { uri } = await downloadResumable.downloadAsync();
+  // console.log('✅ [이미지 다운로드 성공] 로컬 파일 경로:', uri);
+
+  const base64 = await FileSystem.readAsStringAsync(uri, { encoding: FileSystem.EncodingType.Base64 });
+  // console.log('✅ [base64 인코딩 성공] base64 앞 80자:', base64.slice(0, 80));
+
+  const obj = {
+    uri: `data:image/jpeg;base64,${base64}`,
+    name: filename,
+    type: 'image/jpeg',
+  };
+  // console.log('✅ [최종 변환 파일 객체] :', obj);
+
+  return obj;
+}
 
 
 // // 적용 예시 (editUserProfileWithFetch 호출 전에)

@@ -5,9 +5,8 @@ export const convertMatchingInputToDto = (input) => {
   // 🔹 한글 → ENUM 변환용 맵
   const groupTypeMap = {
     '단둘이': 'ALONE',
-    '같이': 'TOGETHER',
-    '무관': 'FLEXIBLE',
-    '선택없음': null,
+    '여럿이': 'GROUP',
+    '선택없음': 'NONE',
   };
 
   // 🔹 성별 한글 → 영문 ENUM
@@ -62,6 +61,9 @@ export const convertMatchingInputToDto = (input) => {
       !input.travelStyles || input.travelStyles.includes('NONE') // ✅ NONE 감지
       ? ['NONE']
       : input.travelStyles.map((s) => styleMap[s] || 'NONE'),
+
+    preferenceGender: genderMap[input.preferenceGender] ?? 'NONE',
+    
   };
 
   // 🟢 변환 후 DTO 로그 출력
