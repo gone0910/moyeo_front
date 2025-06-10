@@ -5,6 +5,7 @@ import { UserContext } from '../../contexts/UserContext';
 import { KaushanScript_400Regular } from '@expo-google-fonts/kaushan-script';
 import { useFonts } from 'expo-font';
 import { RFValue } from 'react-native-responsive-fontsize';
+import HeaderBar from '../../components/common/HeaderBar';
 
 const matchingImage = require('../../assets/images/Planner_image.png');
 
@@ -28,27 +29,7 @@ export default function PlannerScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.headerWrapper}>
-        <Text
-          style={[
-            styles.logotext,
-            { fontSize: normalize(36), fontFamily: 'KaushanScript' }
-          ]}
-          numberOfLines={1}
-          adjustsFontSizeToFit
-        >
-          moyeo
-        </Text>
-        <TouchableOpacity onPress={() => navigation.navigate('ProfileHome', user)}>
-          {user?.profileImageUrl ? (
-            <Image source={{ uri: user.profileImageUrl }} style={styles.profileImage} />
-          ) : (
-            <View style={styles.profilePlaceholder} />
-          )}
-        </TouchableOpacity>
-      </View>
-      <View style={styles.headerLine} />
+      <HeaderBar/>
 
       {/* Main 안내 문구 */}
       <View style={styles.mainSection}>
@@ -68,8 +49,8 @@ export default function PlannerScreen() {
         <Image
           source={matchingImage}
           style={{
-            width: SCREEN_WIDTH * 0.8,
-            height: SCREEN_WIDTH * 0.8,
+            width: SCREEN_WIDTH * 0.75,
+            height: SCREEN_WIDTH * 0.75,
             borderRadius: SCREEN_WIDTH * 0.4,
           }}
           resizeMode="contain"
@@ -96,7 +77,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#FAFAFA',
-    paddingTop: Platform.OS === 'ios' ? 48 : 28,
   },
   headerWrapper: {
     flexDirection: 'row',
@@ -158,21 +138,23 @@ const styles = StyleSheet.create({
     marginBottom: normalize(24),
   },
   bottomSection: {
-    flex: 1,
-    justifyContent: 'flex-end',
+    position: 'absolute',
+    bottom: normalize(35, 'height'), // 하단탭과 겹치지 않게 조정
+    left: normalize(16),
+    right: normalize(16),
     alignItems: 'center',
-    marginBottom: normalize(25),
   },
   button: {
+    width: normalize(358),
+    height: normalize(58, 'height'),
     backgroundColor: '#4F46E5',
-    borderRadius: 10,
-    alignItems: 'center',
+    borderRadius: normalize(10),
     justifyContent: 'center',
-    // width/padding은 인라인에서 반응형 적용
+    alignItems: 'center',
+    top: normalize(10, 'height'),
   },
   buttonText: {
     color: '#fff',
-    fontWeight: 'bold',
     // fontSize는 인라인에서 반응형 적용
   },
 });
