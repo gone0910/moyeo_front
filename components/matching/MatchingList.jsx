@@ -39,6 +39,29 @@ function formatDestination(province, cities = []) {
   return `${ENUM_TO_PROVINCE_KOR[province] || province} / ${cityNames.join(', ')}`;
 }
 
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+const BASE_WIDTH = 390;
+const BASE_HEIGHT = 844;
+const scale = (size) => (SCREEN_WIDTH / BASE_WIDTH) * size;
+const vScale = (size) => (SCREEN_HEIGHT / BASE_HEIGHT) * size;
+
+// 백엔드에서 받아온 지역 NONE 처리 변환 함수
+function formatDestination(province, cities = []) {
+  // province: 'SEOUL' 등 ENUM, cities: ['NONE'] 또는 []
+  if (!province || province === 'NONE') {
+    return '선택없음';
+  }
+  // cities가 없거나 'NONE'만 있으면 → 도만
+  if (!cities || cities.length === 0 || (cities.length === 1 && (cities[0] === 'NONE' || !cities[0]))) {
+    return ENUM_TO_PROVINCE_KOR[province] || province;
+  }
+  // 도+시 모두 있을 때
+  const cityNames = cities
+    .filter((c) => c !== 'NONE' && !!c)
+    .map((code) => ENUM_TO_CITY_KOR[code] || code);
+  return `${ENUM_TO_PROVINCE_KOR[province] || province} / ${cityNames.join(', ')}`;
+}
+
 
 // 🟡 더미 데이터 (mock 모드에서만 사용)
 const dummyMatches = [

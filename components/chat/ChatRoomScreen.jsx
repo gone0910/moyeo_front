@@ -17,6 +17,8 @@ import { ENUM_TO_PROVINCE_KOR, ENUM_TO_CITY_KOR } from '../common/regionMap';
 import { GENDER_ENUM_TO_KOR, STYLE_ENUM_TO_KOR } from '../matching/utils/matchingUtils'; // modal을 위한 ENUM 역변환
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons'
+import { getKorProvince, getKorCity } from '../common//regionMap';
+
 
 
 
@@ -393,8 +395,6 @@ const ChatRoomScreen = ({ route, navigation }) => {
       </View>
       {/* 구분선 */}
       <View style={styles.headerLine} /> 
-
-      
 
 
       {/* ✅ 채팅 메시지 리스트 */}

@@ -1,15 +1,31 @@
-// 📁 components/common/AccordionCardInfo.jsx
-// 매칭 기입화면 (MatchingInfoScreen.jsx) 요소에 쓰이는 아코디언 카드.
-
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Dimensions, PixelRatio, Platform } from 'react-native';
 import { AntDesign } from '@expo/vector-icons';
+
+// ==== 반응형 유틸 함수 (아이폰 13 기준) ====
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+const BASE_WIDTH = 390;
+const BASE_HEIGHT = 844;
+function normalize(size, based = 'width') {
+  const scale = based === 'height'
+    ? SCREEN_HEIGHT / BASE_HEIGHT
+    : SCREEN_WIDTH / BASE_WIDTH;
+  const newSize = size * scale;
+  if (Platform.OS === 'ios') {
+    return Math.round(PixelRatio.roundToNearestPixel(newSize));
+  } else {
+    return Math.round(PixelRatio.roundToNearestPixel(newSize)) - 1;
+  }
+}
 
 export default function AccordionCard({ title, children }) {
   const [expanded, setExpanded] = useState(false);
 
   return (
-    <View style={[styles.card, expanded && styles.cardExpanded]}>
+    <View style={[
+  styles.card,
+  expanded ? styles.cardExpanded : { height: normalize(62, 'height') },
+]}>
       <TouchableOpacity
         style={styles.header}
         onPress={() => setExpanded(!expanded)}
@@ -18,8 +34,8 @@ export default function AccordionCard({ title, children }) {
         <Text style={styles.title}>{title}</Text>
         <AntDesign
           name={expanded ? 'up' : 'down'}
-          size={16}
-          color="##7E7E7E"
+          size={normalize(16)}
+          color="#7E7E7E"
         />
       </TouchableOpacity>
 
@@ -30,39 +46,39 @@ export default function AccordionCard({ title, children }) {
 
 const styles = StyleSheet.create({
   card: {
-    width: 358,
-    height: 62,
+    width: normalize(358),
+    height: normalize(62, 'height'),
     backgroundColor: '#FFFFFF',
-    borderRadius: 20,
+    borderRadius: normalize(20),
     alignSelf: 'center',
-    paddingHorizontal: 16,
+    paddingHorizontal: normalize(16),
     justifyContent: 'center',
-    marginBottom: 12,
+    marginBottom: normalize(12, 'height'),
     shadowColor: '#000000',
     shadowOpacity: 0.05,
-    shadowRadius: 10,
+    shadowRadius: normalize(10),
     shadowOffset: { width: 0, height: 0 },
     elevation: 1,
   },
   cardExpanded: {
-    height: undefined, // ✅ 고정 해제 → 내용물에 따라 자동 높이
+    height: undefined, // ✅ 내용물에 따라 자동 높이
     justifyContent: 'flex-start',
-    paddingTop: 20,
-    paddingBottom: 20,
+    paddingTop: normalize(20, 'height'),
+    paddingBottom: normalize(20, 'height'),
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 0,  // 아이폰은 0, 갤럭시는 5. 내부 텍스트 최대한 중심에 맞게.
+    marginBottom: 0,
   },
   title: {
-    fontSize: 14,
+    fontSize: normalize(14),
     fontWeight: '400',
     color: '#373737',
     fontFamily: 'Roboto',
   },
   content: {
-    marginTop: 14,
+    marginTop: normalize(14, 'height'),
   },
 });
