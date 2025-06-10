@@ -20,7 +20,8 @@ import { useNavigation } from '@react-navigation/native';
 import { UserContext } from '../../contexts/UserContext';
 import ProfileImagePicker from '../common/ProfileImagePicker';
 import Dropdown from '../common/Dropdown'; // DropDownPicker 기반
-import { editUserProfileWithFetch, getUserInfoWithFetch } from '../../api/auth_fetch'; // fetch 기반 API 사용
+
+import { editUserProfileWithFetch, getUserInfoWithFetch, urlToBase64ProfileImage } from '../../api/auth_fetch'; // ✅ fetch 기반 API 사용
 
 // ==== 반응형 유틸 함수 ====
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -36,6 +37,7 @@ function normalize(size, based = 'width') {
   }
 }
 
+
 export default function EditProfileScreen() {
   const navigation = useNavigation();
   const { user, setUser } = useContext(UserContext);
@@ -45,6 +47,18 @@ export default function EditProfileScreen() {
   const [age, setAge] = useState('');
   const [gender, setGender] = useState('');
   const [mbti, setMbti] = useState('');
+
+  // 프로필 이미지 삭제 버튼
+  const handleRemoveImage = () => {
+    Alert.alert(
+      '사진 삭제',
+      '프로필 사진을 삭제하시겠습니까?',
+      [
+        { text: '취소', style: 'cancel' },
+        { text: '삭제', style: 'destructive', onPress: () => setImage(null) },
+      ]
+    );
+  };
 
   useEffect(() => {
     const init = async () => {
@@ -98,16 +112,28 @@ export default function EditProfileScreen() {
     }
 
     try {
-      await editUserProfileWithFetch(userData, image, token);
+    let imageForUpload = image;
+    // 기존 이미지가 URL(string)이면 base64 파일 객체로 변환!
+    if (typeof image === 'string' && image.startsWith('http')) {
+      imageForUpload = await urlToBase64ProfileImage(image);
+    }
+      // ✅ 실제 사용자: 이미지 파일과 함께 수정 요청 전송
+      await editUserProfileWithFetch(userData, imageForUpload, token);
       const updated = await getUserInfoWithFetch(token);
       setUser(updated);
       await AsyncStorage.setItem('user', JSON.stringify(updated));
       Alert.alert('성공', '프로필이 수정되었습니다.');
       navigation.goBack();
     } catch (e) {
-      console.error('❌ 프로필 저장 실패:', e);
-      Alert.alert('실패', '프로필 저장에 실패했습니다.');
-    }
+        let errorMessage = '회원가입에 실패했습니다.';
+        try {
+          const data = JSON.parse(e.message);
+          if (data?.message === 'Nickname already exists') {
+            errorMessage = '중복된 닉네임입니다.';
+          }
+        } catch {}
+        Alert.alert('오류', errorMessage);
+      }
   };
 
   return (
@@ -128,9 +154,19 @@ export default function EditProfileScreen() {
         </TouchableOpacity>
         <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
           <ProfileImagePicker defaultImage={image} onChange={setImage} />
+          {/* 이미지 삭제 버튼, 임시 */}
+          {image && (
+            <TouchableOpacity
+              onPress={handleRemoveImage}
+              style={styles.deleteButton}
+              accessibilityLabel="프로필 사진 삭제"
+            >
+              <MaterialIcons name="delete" size={28} color="#EF4444" />
+            </TouchableOpacity>
+          )}
 
           <View style={styles.formGrouped}>
-            <Text style={styles.label}>닉네임 </Text>
+            <Text style={styles.label}>닉네임<Text style={styles.asterisk}> *</Text></Text>
             <TextInput
               style={styles.input}
               placeholder="닉네임을 입력해 주세요"
@@ -141,7 +177,7 @@ export default function EditProfileScreen() {
               }}
             />
           </View>
-          <Text style={styles.labelss}>성별 </Text>
+          <Text style={styles.labels}>성별<Text style={styles.asterisk}> *</Text></Text>
           <View style={styles.genderContainer}>
             <TouchableOpacity
               style={[styles.genderButton, gender === '남성' && styles.genderSelected]}
@@ -162,7 +198,7 @@ export default function EditProfileScreen() {
           </View>
 
           <View style={styles.formGroup}>
-            <Text style={styles.label}>나이 </Text>
+            <Text style={styles.label}>나이<Text style={styles.asterisk}> *</Text></Text>
             <TextInput
               style={styles.input}
               placeholder="나이를 입력해 주세요"
@@ -291,6 +327,11 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     right: normalize(157),
   },
+  asterisk: {
+  color: '#EF4444',   // 빨간색
+  fontWeight: 'bold',
+  fontSize: 18,
+  },
   input: {
     paddingHorizontal: normalize(12),
     paddingVertical: normalize(10, 'height'),
@@ -365,5 +406,11 @@ const styles = StyleSheet.create({
     right: 0,
     paddingHorizontal: normalize(18),
     backgroundColor: 'transparent',
+  },
+  deleteButton: {
+    alignSelf: 'center',  // 가운데 정렬
+    marginTop: 8,
+    padding: 6,
+    borderRadius: 24,
   },
 });
