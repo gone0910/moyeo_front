@@ -1,19 +1,19 @@
-import  { useState, useContext, useRef, useEffect } from 'react';
+import  { useState, useContext, useRef } from 'react';
 import {
   View,
   Text,
   Image,
   StyleSheet,
-  ScrollView,
   TouchableOpacity,
-  PanResponder,
-  TextInput,
+  Animated,
   Dimensions,
+  TextInput,
+  Alert,
+  Modal,
 } from 'react-native';
-import { Calendar } from 'react-native-calendars';
+import { Calendar, LocaleConfig } from 'react-native-calendars';
 import { UserContext } from '../../contexts/UserContext';
 import { useNavigation } from '@react-navigation/native';
-import { Animated } from 'react-native';
 import ToggleSelector from '../common/ToggleSelector';
 import ToggleSelector3 from '../common/ToggleSelector3';
 import Slider from '@react-native-community/slider';
@@ -22,7 +22,24 @@ import { planner_create_request } from '../../api/planner_create_request';
 import { saveCacheData, CACHE_KEYS } from '../../caching/cacheService';
 import axios from 'axios';
 import SplashScreen from '../../components/common/SplashScreen';
-import { Modal } from 'react-native';
+import HeaderBar from '../../components/common/HeaderBar';
+
+LocaleConfig.locales['ko'] = {
+  monthNames: [
+    '1월', '2월', '3월', '4월', '5월', '6월',
+    '7월', '8월', '9월', '10월', '11월', '12월'
+  ],
+  monthNamesShort: [
+    '1월', '2월', '3월', '4월', '5월', '6월',
+    '7월', '8월', '9월', '10월', '11월', '12월'
+  ],
+  dayNames: [
+    '일요일', '월요일', '화요일', '수요일', '목요일', '금요일', '토요일'
+  ],
+  dayNamesShort: ['일', '월', '화', '수', '목', '금', '토'],
+  today: '오늘'
+};
+LocaleConfig.defaultLocale = 'ko';
 
 // === 반응형 유틸 함수 ===
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -46,6 +63,29 @@ export default function PlannerInfoScreen() {
   const [budget, setBudget] = useState(0);
   const [isActive, setIsActive] = useState(false);
 
+  const slidesCount = 4;
+
+  const navigation = useNavigation();
+
+  const [selectedItems, setSelectedItems] = useState({
+    group: '',
+    tripstyle: '',
+    gender: '',
+    age: '',
+  });
+
+  const handleSelect = (key) => (value) => {
+    setSelectedItems((prev) => ({
+      ...prev,
+      [key]: value,
+    }));
+  };
+
+  const handleValueChange = (value) => {
+    setIsActive(true);
+    setBudget(value);
+  };
+
   const toggleMbti = () => {
     setSelectedMbti((prev) => (prev === 'NONE' ? null : 'NONE'));
   };
@@ -59,16 +99,41 @@ export default function PlannerInfoScreen() {
       setSelectedTravelStyles(['선택없음']);
     }
   };
-
-  const navigation = useNavigation();
-
-  const handleValueChange = (value) => {
-    setIsActive(true);
-    setBudget(value);
+  const toggleTravelStyle = (style) => {
+    setSelectedTravelStyles((prev) => {
+      if (style === '선택없음') {
+        return ['선택없음'];
+      } else {
+        const filtered = prev.filter((s) => s !== '선택없음');
+        if (filtered.includes(style)) {
+          return filtered.filter((s) => s !== style);
+        } else {
+          return [...filtered, style];
+        }
+      }
+    });
   };
 
   // -- 실제 API, ENUM 변환 및 저장/네비게이션 로직은 기존 그대로 두세요! --
   const handleCreateSchedule = async () => {
+    if (
+    (selectedRegion && !selectedCity) && selectedRegion !== "선택안함"
+  ) {
+    Alert.alert(
+      "목적지 선택",
+      "시(구/군)까지 입력해 주세요.",
+      [
+        {
+          text: "확인",
+          onPress: () => {
+            // 목적지 슬라이드(2번째)로 이동
+            goToSlide(1);
+          },
+        },
+      ]
+    );
+    return;
+  }
     setLoading(true);
     // 도/시 ENUM 변환 
     const Province = {
@@ -86,132 +151,49 @@ export default function PlannerInfoScreen() {
     };
     const City = {
       // 서울특별시
-      '강남구': 'GANGNAM_GU',
-      '강동구': 'GANGDONG_GU',
-      '강북구': 'GANGBUK_GU',
-      '강서구': 'GANGSEO_GU',
-      '관악구': 'GWANAK_GU',
-      '광진구': 'GWANGJIN_GU',
-      '구로구': 'GURO_GU',
-      '금천구': 'GEUMCHEON_GU',
-      '노원구': 'NOWON_GU',
-      '도봉구': 'DOBONG_GU',
-      '동대문구': 'DONGDAEMUN_GU',
-      '동작구': 'DONGJAK_GU',
-      '마포구': 'MAPO_GU',
-      '서대문구': 'SEODAEMUN_GU',
-      '서초구': 'SEOCHO_GU',
-      '성동구': 'SEONGDONG_GU',
-      '성북구': 'SEONGBUK_GU',
-      '송파구': 'SONGPA_GU',
-      '양천구': 'YANGCHEON_GU',
-      '영등포구': 'YEONGDEUNGPO_GU',
-      '용산구': 'YONGSAN_GU',
-      '은평구': 'EUNPYEONG_GU',
-      '종로구': 'JONGNO_GU',
-      '중구': 'JUNG_GU',
-      '중랑구': 'JUNGNANG_GU',
+      '강남구': 'GANGNAM_GU', '강동구': 'GANGDONG_GU', '강북구': 'GANGBUK_GU', '강서구': 'GANGSEO_GU',
+      '관악구': 'GWANAK_GU', '광진구': 'GWANGJIN_GU', '구로구': 'GURO_GU', '금천구': 'GEUMCHEON_GU',
+      '노원구': 'NOWON_GU', '도봉구': 'DOBONG_GU', '동대문구': 'DONGDAEMUN_GU', '동작구': 'DONGJAK_GU',
+      '마포구': 'MAPO_GU', '서대문구': 'SEODAEMUN_GU', '서초구': 'SEOCHO_GU', '성동구': 'SEONGDONG_GU',
+      '성북구': 'SEONGBUK_GU', '송파구': 'SONGPA_GU', '양천구': 'YANGCHEON_GU', '영등포구': 'YEONGDEUNGPO_GU',
+      '용산구': 'YONGSAN_GU', '은평구': 'EUNPYEONG_GU', '종로구': 'JONGNO_GU', '중구': 'JUNG_GU', '중랑구': 'JUNGNANG_GU',
       // 제주특별자치도
-      '제주시': 'JEJU_SI',
-      '서귀포시': 'SEOGWIPO_SI',
+      '제주시': 'JEJU_SI', '서귀포시': 'SEOGWIPO_SI',
       // 경기도
-      '수원시': 'SUWON_SI',
-      '성남시': 'SEONGNAM_SI',
-      '고양시': 'GOYANG_SI',
-      '용인시': 'YONGIN_SI',
-      '부천시': 'BUCHEON_SI',
-      '안산시': 'ANSAN_SI',
-      '안양시': 'ANYANG_SI',
-      '남양주시': 'NAMYANGJU_SI',
-      '화성시': 'HWASeong_SI',
-      '평택시': 'PYEONGTAEK_SI',
-      '의정부시': 'UIJEONGBU_SI',
-      '파주시': 'PAJU_SI',
-      '시흥시': 'SIHEUNG_SI',
-      '김포시': 'GIMPO_SI',
-      '광명시': 'GWANGMYEONG_SI',
-      '군포시': 'GUNPO_SI',
-      '이천시': 'ICHEON_SI',
-      '오산시': 'OSAN_SI',
-      '하남시': 'HANAM_SI',
-      '양주시': 'YANGJU_SI',
-      '구리시': 'GURI_SI',
-      '안성시': 'ANSEONG_SI',
-      '포천시': 'POCHEON_SI',
-      '의왕시': 'UIWANG_SI',
-      '여주시': 'YEOJU_SI',
-      '양평군': 'YANGPYEONG_GUN',
-      '동두천시': 'DONGDUCHEON_SI',
-      '과천시': 'GWACHEON_SI',
-      '가평군': 'GAPYEONG_GUN',
-      '연천군': 'YEONCHEON_GUN',
+      '수원시': 'SUWON_SI', '성남시': 'SEONGNAM_SI', '고양시': 'GOYANG_SI', '용인시': 'YONGIN_SI',
+      '부천시': 'BUCHEON_SI', '안산시': 'ANSAN_SI', '안양시': 'ANYANG_SI', '남양주시': 'NAMYANGJU_SI',
+      '화성시': 'HWASeong_SI', '평택시': 'PYEONGTAEK_SI', '의정부시': 'UIJEONGBU_SI', '파주시': 'PAJU_SI',
+      '시흥시': 'SIHEUNG_SI', '김포시': 'GIMPO_SI', '광명시': 'GWANGMYEONG_SI', '군포시': 'GUNPO_SI',
+      '이천시': 'ICHEON_SI', '오산시': 'OSAN_SI', '하남시': 'HANAM_SI', '양주시': 'YANGJU_SI',
+      '구리시': 'GURI_SI', '안성시': 'ANSEONG_SI', '포천시': 'POCHEON_SI', '의왕시': 'UIWANG_SI',
+      '여주시': 'YEOJU_SI', '양평군': 'YANGPYEONG_GUN', '동두천시': 'DONGDUCHEON_SI', '과천시': 'GWACHEON_SI',
+      '가평군': 'GAPYEONG_GUN', '연천군': 'YEONCHEON_GUN',
       // 강원특별자치도
-      '춘천시': 'CHUNCHEON_SI',
-      '원주시': 'WONJU_SI',
-      '강릉시': 'GANGNEUNG_SI',
-      '동해시': 'DONGHAE_SI',
-      '태백시': 'TAEBAEK_SI',
-      '속초시': 'SOKCHO_SI',
-      '삼척시': 'SAMCHEOK_SI',
+      '춘천시': 'CHUNCHEON_SI', '원주시': 'WONJU_SI', '강릉시': 'GANGNEUNG_SI', '동해시': 'DONGHAE_SI',
+      '태백시': 'TAEBAEK_SI', '속초시': 'SOKCHO_SI', '삼척시': 'SAMCHEOK_SI',
       // 충청북도
-      '청주시': 'CHEONGJU_SI',
-      '충주시': 'CHUNGJU_SI',
-      '제천시': 'JECEHON_SI',
+      '청주시': 'CHEONGJU_SI', '충주시': 'CHUNGJU_SI', '제천시': 'JECEHON_SI',
       // 충청남도
-      '천안시': 'CHEONAN_SI',
-      '공주시': 'GONGJU_SI',
-      '보령시': 'BOREONG_SI',
-      '아산시': 'ASAN_SI',
-      '서산시': 'SEOSAN_SI',
-      '논산시': 'NONSAN_SI',
-      '계릉시': 'GYERYONG_SI',  
-      '당진시': 'DANGJIN_SI',
-      '부여군': 'BUYEO_GUN',
-      '홍성군': 'HONGSEONG_GUN',
+      '천안시': 'CHEONAN_SI', '공주시': 'GONGJU_SI', '보령시': 'BOREONG_SI', '아산시': 'ASAN_SI', '서산시': 'SEOSAN_SI',
+      '논산시': 'NONSAN_SI', '계릉시': 'GYERYONG_SI', '당진시': 'DANGJIN_SI', '부여군': 'BUYEO_GUN', '홍성군': 'HONGSEONG_GUN',
       // 전라북도
-      '전주시': 'JEONJU_SI',
-      '군산시': 'GUNSAN_SI',
-      '익산시': 'IKSAN_SI',
-      '정읍시': 'JEONGEUP_SI',
-      '남원시': 'NAMWON_SI',
-      '김제시': 'GIMJE_SI',
-      '순창군': 'SUNCHANG_GUN',
+      '전주시': 'JEONJU_SI', '군산시': 'GUNSAN_SI', '익산시': 'IKSAN_SI', '정읍시': 'JEONGEUP_SI', '남원시': 'NAMWON_SI',
+      '김제시': 'GIMJE_SI', '순창군': 'SUNCHANG_GUN',
       // 전라남도
-      '목포시': 'MOKPO_SI',
-      '여수시': 'YEOSU_SI',
-      '순천시': 'SUNCHEON_SI',
-      '나주시': 'NAJU_SI',
-      '광양시': 'GWANGYANG_SI',
-      '해남군': 'HAENAM_GUN',
+      '목포시': 'MOKPO_SI', '여수시': 'YEOSU_SI', '순천시': 'SUNCHEON_SI', '나주시': 'NAJU_SI', '광양시': 'GWANGYANG_SI', '해남군': 'HAENAM_GUN',
       // 경상북도
-      '포항시': 'POHANG_SI',
-      '경주시': 'GYEONGJU_SI',
-      '김천시': 'GIMCHEON_SI',
-      '안동시': 'ANDONG_SI',
-      '구미시': 'GUMI_SI',
-      '영주시': 'YEONGJU_SI',
-      '영천시': 'YEONGCHEON_SI',
-      '상주시': 'SANGJU_SI',
-      '문경시': 'MUNGYEONG_SI',
-      '경산시': 'GYEONGSAN_SI',
-      '울진군': 'ULJIN_GUN',
-      '울릉군': 'ULLUNG_GUN',
+      '포항시': 'POHANG_SI', '경주시': 'GYEONGJU_SI', '김천시': 'GIMCHEON_SI', '안동시': 'ANDONG_SI', '구미시': 'GUMI_SI',
+      '영주시': 'YEONGJU_SI', '영천시': 'YEONGCHEON_SI', '상주시': 'SANGJU_SI', '문경시': 'MUNGYEONG_SI',
+      '경산시': 'GYEONGSAN_SI', '울진군': 'ULJIN_GUN', '울릉군': 'ULLUNG_GUN',
       // 경상남도
-      '창원시': 'CHANGWON_SI',
-      '진주시': 'JINJU_SI',
-      '통영시': 'TONGYEONG_SI',
-      '사천시': 'SACHEON_SI',
-      '김해시': 'GIMHAE_SI',
-      '밀양시': 'MIRYANG_SI',
-      '거제시': 'GEOJE_SI',
-      '양산시': 'YANGSAN_SI',
-      '남해군': 'NAMHAE_GUN',
+      '창원시': 'CHANGWON_SI', '진주시': 'JINJU_SI', '통영시': 'TONGYEONG_SI', '사천시': 'SACHEON_SI', '김해시': 'GIMHAE_SI',
+      '밀양시': 'MIRYANG_SI', '거제시': 'GEOJE_SI', '양산시': 'YANGSAN_SI', '남해군': 'NAMHAE_GUN',
     };
     const TravelStyle = {
       '선택안함': 'NONE',
       '액티비티': 'ACTIVITY',
       '문화/관광': 'CULTURE',
-      '힐링': 'RELAXED',
+      '힐링': 'HEALING',
       '맛집': 'FOOD',
       '도심': 'CITY',
       '자연': 'NATURE',
@@ -290,37 +272,23 @@ export default function PlannerInfoScreen() {
     }
   };
 
-  const [selectedItems, setSelectedItems] = useState({
-    group: '',
-    tripstyle: '',
-    gender: '',
-    age: '',
-  });
+  // 슬라이드 애니메이션
+  const scrollX = useRef(new Animated.Value(0)).current;
+  const scrollViewRef = useRef(null);
 
-  const handleSelect = (key) => (value) => {
-    setSelectedItems((prev) => ({
-      ...prev,
-      [key]: value,
-    }));
+  const goToSlide = (index) => {
+  if (index >= 0 && index < slidesCount) {
+    setCurrentSlide(index);
+    if (scrollViewRef.current) {
+      scrollViewRef.current.scrollTo({ x: SCREEN_WIDTH * index, animated: true });
+    }
+  }
+};
+
+  const onMomentumScrollEnd = (e) => {
+    const slideIdx = Math.round(e.nativeEvent.contentOffset.x / SCREEN_WIDTH);
+    setCurrentSlide(slideIdx);
   };
-
-  const toggleTravelStyle = (style) => {
-    setSelectedTravelStyles((prev) => {
-      if (style === '선택없음') {
-        return ['선택없음'];
-      } else {
-        const filtered = prev.filter((s) => s !== '선택없음');
-        if (filtered.includes(style)) {
-          return filtered.filter((s) => s !== style);
-        } else {
-          return [...filtered, style];
-        }
-      }
-    });
-  };
-
-  const slideIndicatorPosition = useRef(new Animated.ValueXY({ x: 0, y: 0 })).current;
-  const slideIndicatorWidth = normalize(40);
 
   const handleDayPress = (day) => {
     const selected = day.dateString;
@@ -373,54 +341,26 @@ export default function PlannerInfoScreen() {
 
   const isDateSelected = startDate && endDate;
 
-  const goToSlide = (index) => {
-    if (index >= 0 && index < 4) {
-      setCurrentSlide(index);
-      Animated.spring(slideIndicatorPosition, {
-        toValue: { x: index * slideIndicatorWidth, y: 0 },
-        useNativeDriver: true,
-      }).start();
-    }
-  };
-
-  const panResponder = PanResponder.create({
-    onStartShouldSetPanResponder: () => true,
-    onPanResponderMove: (e, gestureState) => {
-      slideIndicatorPosition.setValue({ x: gestureState.dx, y: 0 });
-    },
-    onPanResponderRelease: (e, gestureState) => {
-      const newPosition = Math.max(0, Math.min(3 * slideIndicatorWidth, gestureState.moveX));
-      const index = Math.floor(newPosition / slideIndicatorWidth);
-      setCurrentSlide(index);
-      slideIndicatorPosition.setValue({ x: newPosition, y: 0 });
-      Animated.spring(slideIndicatorPosition, {
-        toValue: { x: index * slideIndicatorWidth, y: 0 },
-        useNativeDriver: true,
-      }).start();
-    },
-  });
-
   return (
     <View style={styles.container}>
-      <View style={styles.fixedHeader}>
-        <View style={styles.topHeader}>
-          <TouchableOpacity onPress={() => navigation.replace('BottomTab')}>
-            <Text style={styles.logoText}>moyeo </Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={() => navigation.navigate('ProfileHome', user)}>
-            {user?.profileImageUrl ? (
-              <Image source={{ uri: user.profileImageUrl }} style={styles.profileImage} />
-            ) : (
-              <View style={styles.profilePlaceholder} />
-            )}
-          </TouchableOpacity>
-        </View>
-        <View style={styles.headerLine} />
-      </View>
+    <HeaderBar/>
 
-      <ScrollView style={styles.scrollArea} contentContainerStyle={[styles.wrapper, { paddingTop: normalize(220, 'height') }]}>
+      <Animated.ScrollView
+        ref={scrollViewRef}
+        style={styles.scrollArea}
+        contentContainerStyle={[styles.wrapper, { paddingTop: normalize(150, 'height') }]}
+        horizontal
+        pagingEnabled
+        showsHorizontalScrollIndicator={false}
+        scrollEventThrottle={16}
+        onMomentumScrollEnd={onMomentumScrollEnd}
+        onScroll={Animated.event(
+          [{ nativeEvent: { contentOffset: { x: scrollX } } }],
+          { useNativeDriver: false }
+        )}
+      >
         {/* Slide 1: 일정 선택 */}
-        {currentSlide === 0 && (
+        <View style={{ width: SCREEN_WIDTH }}>
           <View style={styles.calendarBox}>
             <Text style={styles.calendarLabel}>일정 선택</Text>
             <Calendar
@@ -447,9 +387,11 @@ export default function PlannerInfoScreen() {
                       <Text style={{ color: isSelected ? '#fff' : textColor, fontSize: normalize(16) }}>{date.day}</Text>
                     </View>
                   </TouchableOpacity>
+                  
                 );
               }}
             />
+            <View style={styles.divider4} />
             {(startDate || endDate) && (
               <View style={styles.dateButtonContainer}>
                 {startDate && <View style={styles.dateButton}><Text style={styles.dateButtonText}>시작일: {formatDate(startDate)}</Text></View>}
@@ -457,10 +399,10 @@ export default function PlannerInfoScreen() {
               </View>
             )}
           </View>
-        )}
+        </View>
 
         {/* Slide 2: 목적지/인원/예산 */}
-        {currentSlide === 1 && (
+        <View style={{ width: SCREEN_WIDTH }}>
           <View style={{ paddingHorizontal: normalize(20), marginTop: normalize(10), top: normalize(-90) }}>
             <Text style={styles.firstTitle}>목적지</Text>
             <View style={styles.divider1} />
@@ -586,38 +528,40 @@ export default function PlannerInfoScreen() {
             <Text style={styles.thirdTitle}>예산 <Text style={styles.thirdTitlesmall}> 1인 기준</Text></Text>
             <View style={styles.divider3} />
             <View style={{ marginTop: normalize(10) }}>
-              <Slider
-                style={{ width: '100%', height: normalize(40) }}
-                minimumValue={0}
-                maximumValue={1000000}
-                step={10000}
-                minimumTrackTintColor={isActive ? '#c7c4ff' : '#ccc'}
-                maximumTrackTintColor={isActive ? '#c7c4ff' : '#eee'}
-                thumbTintColor={isActive ? '#726BEA' : '#999'}
-                value={budget}
-                onValueChange={handleValueChange}
-              />
-              <View
-                style={[
-                  styles.budgetValueBox,
-                  !isActive && styles.disabledBudgetBox,
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.budgetValueText,
-                    !isActive && styles.disabledBudgetText,
-                  ]}
-                >
-                  예산: {budget.toLocaleString()}원
-                </Text>
-              </View>
-            </View>
+  {/* 예산 텍스트 - 0원일 때는 회색/비활성 */}
+  <View
+    style={[
+      styles.budgetValueBox,
+      budget === 0 && styles.disabledBudgetBox, // 0원이면 회색 박스
+    ]}
+  >
+    <Text
+      style={[
+        styles.budgetValueText,
+        budget === 0 && styles.disabledText, // 0원이면 회색 글씨
+      ]}
+    >
+      예산: {budget.toLocaleString()}원
+    </Text>
+  </View>
+  {/* 예산 슬라이더 - 값이 바뀔 때마다 budget 업데이트 */}
+  <Slider
+    style={{ width: '100%', height: normalize(40) }}
+    minimumValue={0}
+    maximumValue={1000000}
+    step={10000}
+    minimumTrackTintColor={budget === 0 ? '#ccc' : '#c7c4ff'}
+    maximumTrackTintColor={budget === 0 ? '#eee' : '#c7c4ff'}
+    thumbTintColor={budget === 0 ? '#999' : '#726BEA'}
+    value={budget}
+    onValueChange={setBudget}
+  />
+</View>
           </View>
-        )}
+        </View>
 
         {/* Slide 3: MBTI */}
-        {currentSlide === 2 && (
+        <View style={{ width: SCREEN_WIDTH }}>
           <View style={{ paddingHorizontal: normalize(20), marginTop: normalize(20) }}>
             <Text
               style={{
@@ -671,35 +615,37 @@ export default function PlannerInfoScreen() {
               ))}
             </View>
             <View style={{ alignItems: 'center', marginTop: normalize(10) }}>
-              <TouchableOpacity
-                onPress={toggleMbti}
-                style={{
-                  width: '23%',
-                  padding: normalize(10),
-                  marginBottom: normalize(10),
-                  borderRadius: normalize(8),
-                  borderWidth: 1,
-                  borderColor: '#726BEA',
-                  alignItems: 'center',
-                  backgroundColor: selectedMbti === 'NONE' ? '#B3A4F7' : '#FFF',
-                }}
-              >
-                <Text
-                  style={{
-                    color: selectedMbti === 'NONE' ? '#FFFFFF' : '#000',
-                    fontWeight: '500',
-                    fontSize: normalize(16),
-                  }}
-                >
-                  선택없음
-                </Text>
-              </TouchableOpacity>
-            </View> 
+  <TouchableOpacity
+    onPress={toggleMbti}
+    style={{
+      width: '23%',
+      padding: normalize(10),
+      marginBottom: normalize(10),
+      marginTop: normalize(40),
+      borderRadius: normalize(8),
+      borderWidth: 1,
+      borderColor: '#726BEA',
+      alignItems: 'center',
+      backgroundColor: selectedMbti === 'NONE' ? '#B3A4F7' : '#FFFFFF',
+      // 위 MBTI 박스와 똑같이 맞추기!
+    }}
+  >
+    <Text
+      style={{
+        color: selectedMbti === 'NONE' ? '#FFFFFF' : '#000',
+        fontWeight: '500',
+        fontSize: normalize(16),
+      }}
+    >
+      선택없음
+    </Text>
+  </TouchableOpacity>
+</View>
           </View> 
-        )}
+        </View>
 
         {/* Slide 4: 여행 스타일 */}
-        {currentSlide === 3 && (
+        <View style={{ width: SCREEN_WIDTH }}>
           <View style={{ paddingHorizontal: normalize(20), marginTop: normalize(20) }}>
             <Text style={{
               fontSize: normalize(24), marginBottom: normalize(5), fontWeight: '400', color:'#1E1E1E',
@@ -747,6 +693,7 @@ export default function PlannerInfoScreen() {
                   width: '30%',
                   padding: normalize(10),
                   marginBottom: normalize(10),
+                  marginTop: normalize(70),
                   paddingVertical: normalize(13),
                   paddingHorizontal: normalize(20),
                   borderRadius: normalize(8),
@@ -766,10 +713,10 @@ export default function PlannerInfoScreen() {
               </TouchableOpacity>
             </View>
           </View>
-        )}
-      </ScrollView>
-      
-      {/* ✅ 하단 버튼 조건 분기 */}
+        </View>
+      </Animated.ScrollView>
+
+      {/* ✅ 하단 버튼 조건 분기(기존 그대로) */}
       {currentSlide === 3 ? (
         <View style={styles.customPlanButtonContainer}>
           <TouchableOpacity style={styles.customPlanButton} onPress={handleCustomPlan}>
@@ -827,8 +774,8 @@ export default function PlannerInfoScreen() {
           </View>
         </>
       )}
-      {/* 슬라이드 닷 */}
-      <View style={[styles.slideIndicatorContainer, { marginBottom: normalize(60), marginTop: normalize(-40) }]} {...panResponder.panHandlers}>
+      {/* 슬라이드 닷(인디케이터) */}
+      <View style={[styles.slideIndicatorContainer, { marginBottom: normalize(60), marginTop: normalize(-40) }]}>
         {[0, 1, 2, 3].map((index) => (
           <TouchableOpacity key={index} onPress={() => goToSlide(index)} style={[styles.slideDot, currentSlide === index ? styles.activeDot : styles.inactiveDot]} />
         ))}
@@ -839,6 +786,9 @@ export default function PlannerInfoScreen() {
     </View>
   );
 }
+
+// styles 객체는 기존 코드에서 그대로 사용!
+
 
 const styles = StyleSheet.create({
   container: {
@@ -905,7 +855,7 @@ const styles = StyleSheet.create({
     backgroundColor:'#fafafa',
   },
   calendarLabel: {
-    fontSize: normalize(16),
+    fontSize: normalize(18),
     fontWeight: '400',
     fontFamily: 'Roboto',
     lineHeight: normalize(24, 'height'),
@@ -918,7 +868,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: normalize(10),
     backgroundColor:'#fafafa',
-    marginTop: normalize(12),
+    marginTop: normalize(-10),
     marginBottom: normalize(12),
   },
   dateButton: {
@@ -989,7 +939,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     position: 'absolute',
-    bottom: normalize(100),
+    bottom: normalize(80),
     left: '53%',
     transform: [{ translateX: -50 }],
     zIndex: 10,
@@ -1008,15 +958,18 @@ const styles = StyleSheet.create({
   },
   firstTitle: {
     fontSize: normalize(18),
-    top:normalize(-15)
+    top:normalize(-15),
+    left: normalize(5),
   },
   secondTitle: {
     fontSize: normalize(18),
-    top:normalize(26)
+    top:normalize(26),
+    left: normalize(5),
   },
   thirdTitle: {
     fontSize: normalize(18),
-    top:normalize(25)
+    top:normalize(25),
+    left: normalize(5),
   },
   thirdTitlesmall: {
     color:'#7E7E7E',
@@ -1049,6 +1002,15 @@ const styles = StyleSheet.create({
     marginTop: normalize(50),
     marginBottom: normalize(10),
     top:0
+  },
+  divider4: {
+    width: '100%',
+    height: 1,
+    backgroundColor: '#E6E6E6',
+    alignSelf: 'center',
+    marginTop: normalize(10),
+    marginBottom: normalize(5),
+    top:normalize(-7)
   },
   sliderLabel: {
     fontSize: normalize(12),
