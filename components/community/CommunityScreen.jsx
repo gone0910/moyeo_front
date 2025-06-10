@@ -412,7 +412,14 @@ const CommunityScreen = () => {
             <TouchableOpacity
   style={styles.postCard}
   activeOpacity={0.85}
-  onPress={() => navigation.navigate('PostDetail', { postId: item.id })}
+  onPress={() => {
+    const postId = item.postId ?? item.id;
+    if (!postId) {
+      Alert.alert('게시글 ID를 찾을 수 없습니다.');
+      return;
+    }
+    navigation.navigate('PostDetail', { postId });
+  }}
 >
   <View style={styles.leftCol}>
     <View style={styles.profileRow}>
