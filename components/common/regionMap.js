@@ -8,6 +8,7 @@
 
 export const REGION_MAP = {
     서울: [
+
         { name: '강남구', code: 'GANGNAM_GU' },
         { name: '강동구', code: 'GANGDONG_GU' },
         { name: '강북구', code: 'GANGBUK_GU' },
@@ -152,3 +153,13 @@ export const ENUM_TO_CITY_KOR = Object.values(REGION_MAP).flat().reduce((acc, { 
   acc[code] = name;
   return acc;
 }, {});
+
+
+// regionMap.js 내부
+export function getKorProvince(provinceEnum) {
+  return provinceEnum === "NONE" ? "선택없음" : (ENUM_TO_PROVINCE_KOR[provinceEnum] || provinceEnum);
+}
+
+export function getKorCity(cityEnum) {
+  return cityEnum === "NONE" ? "선택없음" : (ENUM_TO_CITY_KOR[cityEnum] || cityEnum);
+}

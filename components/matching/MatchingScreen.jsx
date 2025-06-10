@@ -1,12 +1,28 @@
 // 📁 /components/matching/MatchingScreen.jsx
 import React, { useContext } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Image, Dimensions, PixelRatio, Platform } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { UserContext } from '../../contexts/UserContext'; // Ensure correct import path
+import { UserContext } from '../../contexts/UserContext';
 import { KaushanScript_400Regular } from '@expo-google-fonts/kaushan-script';
 import { useFonts } from 'expo-font';
 
 const matchingImage = require('../../assets/images/match_image.jpg');
+
+// ==== 반응형 유틸 함수 (iPhone 13 기준) ====
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+const BASE_WIDTH = 390;
+const BASE_HEIGHT = 844;
+function normalize(size, based = 'width') {
+  const scale = based === 'height'
+    ? SCREEN_HEIGHT / BASE_HEIGHT
+    : SCREEN_WIDTH / BASE_WIDTH;
+  const newSize = size * scale;
+  if (Platform.OS === 'ios') {
+    return Math.round(PixelRatio.roundToNearestPixel(newSize));
+  } else {
+    return Math.round(PixelRatio.roundToNearestPixel(newSize)) - 1;
+  }
+}
 
 export default function MatchingScreen() {
   const navigation = useNavigation();
@@ -42,10 +58,12 @@ export default function MatchingScreen() {
         {/* New Container Bar Section */}
         <View style={styles.containerBar}>
           <Text style={styles.containerBarText}>동행자 찾기</Text>
-          <TouchableOpacity style={styles.containerBarButton}
-          후에 변경 필요
-              onPress={() => navigation.navigate('MatchingInfo')}>   
-           <Text style={styles.containerBarButtonText}>동행자 찾기</Text>
+          <TouchableOpacity
+            style={styles.containerBarButton}
+            // 후에 변경 필요
+            onPress={() => navigation.navigate('MatchingInfo')}
+          >
+            <Text style={styles.containerBarButtonText}>동행자 찾기</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -57,8 +75,8 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#FAFAFA',
-    paddingHorizontal: 16,
-    paddingTop: 24,
+    paddingHorizontal: normalize(16),
+    paddingTop: normalize(24, 'height'),
   },
   headerWrapper: {
     flexDirection: 'row',
@@ -66,31 +84,31 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   logoText: {
-    fontSize: 40,
+    fontSize: normalize(40),
     fontFamily: 'KaushanScript',
     color: '#4F46E5',
-    lineHeight: 80,
-    letterSpacing: 0,
+    lineHeight: normalize(80, 'height'),
+    letterSpacing: normalize(0),
   },
   profileImage: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    marginTop: 22,
-    top:-5,
+    width: normalize(44),
+    height: normalize(44),
+    borderRadius: normalize(22),
+    marginTop: normalize(22, 'height'),
+    top: normalize(-5, 'height'),
   },
   profilePlaceholder: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    top:5,
+    width: normalize(44),
+    height: normalize(44),
+    borderRadius: normalize(22),
+    top: normalize(5, 'height'),
     backgroundColor: '#D1D5DB',
   },
   headerLine: {
-    height: 1,
+    height: normalize(1, 'height'),
     backgroundColor: '#999',
-    marginVertical: 8,
-    top:-10,
+    marginVertical: normalize(8, 'height'),
+    top: normalize(-10, 'height'),
   },
   centerWrapper: {
     flex: 1,
@@ -98,63 +116,62 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   matchingImage: {
-    width: 360, 
-    height: 425, 
-    marginBottom: 20, 
-    borderRadius:16,
-    marginTop:150,
-    top:-5,
+    width: normalize(360),
+    height: normalize(425, 'height'),
+    marginBottom: normalize(20, 'height'),
+    borderRadius: normalize(16),
+    marginTop: normalize(150, 'height'),
+    top: normalize(-5, 'height'),
   },
   title: {
-    fontSize: 26,
+    fontSize: normalize(24),
     color: '#000000',
     textAlign: 'center',
-    top: -560,
-    fontFamily: 'Inter_400Regular',                                                                                                                                                                                                                                                                                                                                                                                                                                
+    top: normalize(-560, 'height'),
+    fontFamily: 'Inter_400Regular',
   },
   titletext: {
-    fontSize: 20,
-    marginTop: 16,
-    color: '#999999', 
+    fontSize: normalize(20),
+    marginTop: normalize(16, 'height'),
+    color: '#999999',
     textAlign: 'center',
-    top: -555,
+    top: normalize(-555, 'height'),
     fontFamily: 'Inter_400Regular',
   },
   titletext2: {
-    fontSize: 20,
-    marginTop: 10,
-    color: '#999999', 
+    fontSize: normalize(20),
+    marginTop: normalize(0, 'height'),
+    color: '#999999',
     textAlign: 'center',
-    top: -550,
+    top: normalize(-550, 'height'),
     fontFamily: 'Inter_400Regular',
-    marginTop:0,
   },
   containerBar: {
     width: '100%',
-    padding: 16,
+    padding: normalize(16),
     backgroundColor: '#FAFAFA',
-    borderRadius: 8,
-    marginTop: 0,
+    borderRadius: normalize(8),
+    marginTop: normalize(0, 'height'),
     alignItems: 'center',
   },
   containerBarText: {
-    fontSize: 20,
+    fontSize: normalize(20),
     color: '#FAFAFA',
-    marginBottom: 10,
+    marginBottom: normalize(10, 'height'),
   },
   containerBarButton: {
     backgroundColor: '#4F46E5',
-    paddingVertical: 20,
-    paddingHorizontal: 20,
-    borderRadius: 8,
+    paddingVertical: normalize(20, 'height'),
+    paddingHorizontal: normalize(20),
+    borderRadius: normalize(8),
     alignItems: 'center',
     width: '110%',
     marginLeft: 0,
-    marginTop:-102,
-    top:-5,
+    marginTop: normalize(-102, 'height'),
+    top: normalize(-5, 'height'),
   },
   containerBarButtonText: {
     color: '#FFFFFF',
-    fontSize: 20,
+    fontSize: normalize(20),
   },
 });

@@ -20,6 +20,8 @@ import { ENUM_TO_PROVINCE_KOR, ENUM_TO_CITY_KOR } from '../common/regionMap';
 import { GENDER_ENUM_TO_KOR, STYLE_ENUM_TO_KOR } from '../matching/utils/matchingUtils'; // modal을 위한 ENUM 역변환
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons'
+import { getKorProvince, getKorCity } from '../common//regionMap';
+
 
 LogBox.ignoreLogs([
   'Warning: Text strings must be rendered within a <Text> component',
@@ -360,7 +362,7 @@ const ChatRoomScreen = ({ route, navigation }) => {
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={80}
+        keyboardVerticalOffset={10}
       >
 
 
@@ -436,8 +438,10 @@ const ChatRoomScreen = ({ route, navigation }) => {
                     <Text style={styles.infoLabel}>목적지</Text>
                     <Text style={styles.infoTag3}>
                       {profileData.destination ||
-                        `${ENUM_TO_PROVINCE_KOR[profileData.province] || profileData.province} / ${
-                          (profileData.cities || []).map((code) => ENUM_TO_CITY_KOR[code] || code).join(', ')
+                        `${getKorProvince(profileData.province)} / ${
+                          (profileData.cities || [])
+                            .map(code => getKorCity(code))
+                            .join(', ')
                         }`
                       }
                     </Text>
