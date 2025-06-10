@@ -20,7 +20,6 @@ import TravelSection from './TravelSection';
 import SplashScreen from '../common/SplashScreen';
 import { fetchPlanList } from '../../api/MyPlanner_fetch_list'; // <-- 실제 플랜 목록 fetch
 import { useFocusEffect } from '@react-navigation/native';
-import HeaderBar from '../../components/common/HeaderBar';
 
 // ==== 반응형 유틸 함수 (iPhone 13 기준) ====
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -69,7 +68,41 @@ export default function HomeScreen() {
 
   return (
     <View style={styles.container}>
-      <HeaderBar/>
+      {/* ✅ Splash 모달 */}
+      <Modal visible={showSplash} transparent animationType="fade">
+        <SplashScreen />
+      </Modal>
+
+      {/* 헤더 */}
+      <View style={styles.headerWrapper}>
+        <Text style={styles.logoText} numberOfLines={1} adjustsFontSizeToFit>
+          moyeo{' '}
+        </Text>
+        {/*임시 챗봇 */}
+        <TouchableOpacity
+          style={{ marginRight: normalize(1) }}
+          onPress={() => navigation.navigate('ChatBot')}
+        >
+          <MaterialIcons name="smart-toy" size={normalize(24)} color="#4F46E5" />
+        </TouchableOpacity>
+        <View style={styles.profileContainer} />
+        <View style={styles.profileContainer}>
+          <TouchableOpacity
+            onPress={() => navigation.navigate('ProfileHome', user)}
+          >
+            {user?.profileImageUrl ? (
+              <Image
+                source={{ uri: user.profileImageUrl }}
+                style={styles.profileImage}
+              />
+            ) : (
+              <View style={styles.profilePlaceholder} />
+            )}
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      <View style={styles.headerLine} />
 
       {/* 사용자 인사말 */}
       <View style={styles.greetingWrapper}>
@@ -96,13 +129,14 @@ export default function HomeScreen() {
             <View style={[styles.iconCircle, { backgroundColor: '#E9CDFF' }]}>
               <MaterialIcons
                 name="route"
-                borderRadius={ normalize(30)}
                 size={normalize(64)}
                 color="#533E92"
               />
             </View>
             <Text style={styles.featureTitle}>AI 여행 플랜 제작</Text>
-            <Text style={styles.featureDesc}>나만의 여행계획을 세워볼까요?   </Text>
+            <Text style={styles.featureDesc}>
+              나에게 맞춘 여행계획을 세워볼까요?
+            </Text>
           </View>
         </TouchableOpacity>
 
@@ -115,13 +149,14 @@ export default function HomeScreen() {
               '#FFF1A8' }]}>
               <MaterialIcons
                 name="person-outline"
-                borderRadius={ normalize(30)}
                 size={normalize(64)}
                 color="#928023"
               />
             </View>
             <Text style={styles.featureTitle}>여행 동행자 찾기</Text>
-            <Text style={styles.featureDesc}>나와 함께할 동행자를 찾아볼까요?     </Text>
+            <Text style={styles.featureDesc}>
+              나와 함께할 동행자를 찾아볼까요?
+            </Text>
           </View>
         </TouchableOpacity>
       </View>
@@ -145,16 +180,9 @@ export default function HomeScreen() {
           showsVerticalScrollIndicator={false}
         >
           <TravelSection
-  travelList={myTrips}
-  onPressCreate={() => navigation.navigate('Planner')}
-  onPressCard={(scheduleId) => {
-  console.log('[TravelCard 클릭됨] scheduleId:', scheduleId);
-  navigation.navigate('PlannerResponse', {
-    scheduleId,
-    from: 'Home', // ✅ 이 값을 넘겨야 PlannerResponseHome에서 인식 가능
-  });
-}}
-/>
+            travelList={myTrips}
+            onPressCreate={() => navigation.navigate('Planner')}
+          />
         </ScrollView>
       ) : (
         <View style={styles.travelScrollArea}>
@@ -172,21 +200,47 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#FAFAFA',
+    paddingHorizontal: normalize(16),
+    paddingTop: normalize(24, 'height'),
   },
   headerWrapper: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
+  logoText: {
+    fontSize: normalize(40),
+    fontFamily: 'KaushanScript_400Regular',
+    color: '#4F46E5',
+    lineHeight: normalize(80, 'height'),
+    letterSpacing: normalize(0),
+  },
+  profileImage: {
+    width: normalize(44),
+    height: normalize(44),
+    borderRadius: normalize(22),
+    marginTop: normalize(20, 'height'),
+  },
+  profilePlaceholder: {
+    width: normalize(44),
+    height: normalize(44),
+    borderRadius: normalize(22),
+    marginTop: normalize(20, 'height'),
+    backgroundColor: '#D1D5DB',
+  },
+  headerLine: {
+    borderBottomWidth: normalize(1, 'height'),
+    borderColor: '#999',
+    marginTop: normalize(1, 'height'),
+  },
   greetingWrapper: {
-    marginTop: normalize(28, 'height'),
+    marginTop: normalize(4, 'height'),
   },
   greetingText: {
     fontFamily: 'Inter_400Regular',
     fontSize: normalize(25),
     color: '#141414',
     letterSpacing: normalize(0),
-    marginLeft: normalize(16),
   },
   subGreetingText: {
     fontFamily: 'Inter_400Regular',
@@ -194,14 +248,12 @@ const styles = StyleSheet.create({
     color: '#999999',
     marginTop: normalize(4, 'height'),
     letterSpacing: normalize(0),
-    marginLeft: normalize(16),
   },
   featureRow: {
-  flexDirection: 'row',
-  justifyContent: 'space-between',
-  marginTop: normalize(12, 'height'), // ✅ 상단 간격 줄이기
-  paddingHorizontal: normalize(14),    // ✅ 좌우 여백 추가
-},
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: normalize(24, 'height'),
+  },
   featureItem: {
     width: '48%',
     aspectRatio: 1,
@@ -226,14 +278,14 @@ const styles = StyleSheet.create({
     marginBottom: normalize(8, 'height'),
   },
   featureTitle: {
-    fontSize: normalize(17),
+    fontSize: normalize(15),
     fontFamily: 'Inter_400Regular',
     color: '#000000',
     marginTop: normalize(4, 'height'),
     letterSpacing: normalize(0),
   },
   featureDesc: {
-    fontSize: normalize(12),
+    fontSize: normalize(10),
     fontFamily: 'Inter_400Regular',
     color: '#7E7E7E',
     textAlign: 'center',
@@ -248,20 +300,17 @@ const styles = StyleSheet.create({
   travelTitle: {
     fontFamily: 'Inter_400Regular',
     fontSize: normalize(25),
-    marginLeft: normalize(19),
     color: '#000000',
     letterSpacing: normalize(0),
   },
   travelViewAll: {
     fontFamily: 'Inter_400Regular',
     fontSize: normalize(15),
-    marginRight: normalize(24),
     color: '#4F46E5B2',
     letterSpacing: normalize(0),
   },
   travelDesc: {
     fontSize: normalize(12),
-    marginLeft: normalize(22),
     fontFamily: 'Inter_400Regular',
     color: '#999999',
     textAlign: 'left',
