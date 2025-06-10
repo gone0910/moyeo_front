@@ -94,7 +94,20 @@ export default function BottomTabNavigator() {  //하단탭이 홈화면 및 라
         tabBarInactiveTintColor: '#A1A1AA',
       })}
     >
-      <Tab.Screen name="Home" component={HomeNavigator} />
+      <Tab.Screen
+  name="Home"
+  component={HomeNavigator}
+  listeners={({ navigation }) => ({
+    tabPress: e => {
+      // 기본 동작 막기 (탭만 누르면 스택이 남을 수 있으므로)
+      e.preventDefault();
+      navigation.reset({
+        index: 0,
+        routes: [{ name: 'Home' }], // HomeStack의 루트로 리셋!
+      });
+    },
+  })}
+/>
       <Tab.Screen name="MyTrips" component={MyTripsScreen} />
       <Tab.Screen name="Chat" component={ChatNavigator} 
         listeners={({ navigation }) => ({
