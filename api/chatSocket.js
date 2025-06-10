@@ -67,7 +67,8 @@ export const connectStompClient = (roomId, onMessage, token, onConnected, onRead
         }
         console.log('📩 수신된 메시지:', body);
         onMessage(body);
-      }, { Authorization: `Bearer ${token}` });
+      }); 
+      // { Authorization: `Bearer ${token}` });토큰 제거
 
       // ✅ 📌 읽음 알림 수신 구독 추가
       if (onReadNotice) {
@@ -75,7 +76,7 @@ export const connectStompClient = (roomId, onMessage, token, onConnected, onRead
           const notice = JSON.parse(message.body);
           console.log('📥 읽음 알림 수신:', notice);
           onReadNotice(notice);
-        }, { Authorization: `Bearer ${token}` });
+        },); //{ Authorization: `Bearer ${token}` });
       }
 
       if (onConnected) {

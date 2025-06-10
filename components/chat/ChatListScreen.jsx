@@ -1,12 +1,20 @@
 // components//chat//ChatListScreen.jsx 채팅 리스트 화면
 import React, { useState, useEffect } from 'react';
-import { View, FlatList, StyleSheet, Text, TouchableOpacity, Alert } from 'react-native';
+import { View, FlatList, StyleSheet, Text, TouchableOpacity, Alert, Dimensions } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { MaterialIcons } from '@expo/vector-icons';
 import HeaderBar from '../../components/common/HeaderBar';
 import ChatRoomCard from '../../components/chat/common/ChatRoomCard';
 import { fetchChatRooms, exitChatRoom } from '../../api/chat';
+
+
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+const BASE_WIDTH = 390;
+const BASE_HEIGHT = 844;
+const scale = (size) => (SCREEN_WIDTH / BASE_WIDTH) * size;
+const vScale = (size) => (SCREEN_HEIGHT / BASE_HEIGHT) * size;
+
 
 // ✅ 더미 채팅방 리스트 (mock용)
 const dummyChatRoomsData = [
@@ -123,16 +131,18 @@ const loadChatRooms = async () => {
       {/* 상단 타이틀 + 편집/더보기 버튼 */}
       <View style={styles.titleRow}>
         <Text style={styles.title}>채팅</Text>
-        <TouchableOpacity onPress={() => setIsEditing(!isEditing)}>
-          {isEditing ? (
-            <Text style={styles.editDone}>편집완료</Text> // 편집모드일 때 표시
-          ) : (
-            <MaterialIcons name="more-vert" size={24} color="#1E1E1E" /> // 기본 모드 아이콘
-          )}
-        </TouchableOpacity>
+        {chatRooms.length > 0 && (
+          <TouchableOpacity onPress={() => setIsEditing(!isEditing)}>
+            {isEditing ? (
+              <Text style={styles.editDone}>편집완료</Text>
+            ) : (
+              <MaterialIcons name="more-vert" size={scale(24)} color="#1E1E1E" />
+            )}
+          </TouchableOpacity>
+        )}
       </View>
 
-      {/* 채팅방 리스트 표시 */}
+      {/* 채팅방 리스트 표시 및 공백일때 안내메세지 */}
       <View style={styles.listContainer}>
         <FlatList
           data={chatRooms}
@@ -140,11 +150,20 @@ const loadChatRooms = async () => {
           renderItem={({ item }) => (
             <ChatRoomCard
               chat={item}
-              isEditing={isEditing} // 편집 모드 여부 전달
-              onDeletePress={() => confirmDelete(item.roomId)} // 삭제 버튼 클릭 핸들러
+              isEditing={isEditing}
+              onDeletePress={() => confirmDelete(item.roomId)}
             />
           )}
-          contentContainerStyle={{ paddingTop: 8 }}
+          contentContainerStyle={{
+            paddingTop: vScale(8),
+            flexGrow: 1,
+          }}
+          ListEmptyComponent={
+            <View style={styles.emptyWrapper}>
+              <Text style={styles.emptyTitle}>아직 채팅을 시작한 사람이 없어요</Text>
+              <Text style={styles.emptyDesc}>같이 떠날 동행자를 찾으러 가볼까요?</Text>
+            </View>
+          }
         />
       </View>
     </View>
@@ -154,26 +173,67 @@ const loadChatRooms = async () => {
 const styles = StyleSheet.create({
   listContainer: {
     flex: 1,
-    paddingHorizontal: 20, // 좌우 패딩
+    paddingHorizontal: scale(20),
   },
   titleRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    marginTop: 8,
-    marginBottom: 4,
+    paddingHorizontal: scale(20),
+    marginTop: vScale(20),
+    marginBottom: vScale(4),
   },
   title: {
     fontFamily: 'Roboto_400Regular',
-    fontSize: 24,
-    lineHeight: 32,
+    fontSize: scale(24),
+    lineHeight: vScale(32),
     color: '#1E1E1E',
   },
   editDone: {
     fontFamily: 'Roboto_400Regular',
-    fontSize: 14,
+    fontSize: scale(14),
     textAlign: 'center',
     color: '#FF8181',
+  },
+  // 🟣 빈 채팅방 안내 스타일 (디자인 가이드 100% 반영)
+  emptyWrapper: {
+    width: scale(338),
+    alignSelf: 'center',
+    marginTop: vScale(224),
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  emptyTitle: {
+    width: scale(338),
+    height: vScale(54),
+    fontFamily: 'Roboto',
+    fontWeight: '400',
+    fontSize: scale(22),
+    lineHeight: vScale(44),
+    color: '#1E1E1E',
+    textAlign: 'center',
+    backgroundColor: '#FAFAFA',
+    borderRadius: scale(16),
+    overflow: 'hidden',
+    marginBottom: vScale(12),
+    includeFontPadding: false,
+    textAlignVertical: 'center',
+    justifyContent: 'center',
+  },
+  emptyDesc: {
+    width: scale(338),
+    height: vScale(35),
+    fontFamily: 'Roboto',
+    fontWeight: '400',
+    fontSize: scale(16),
+    lineHeight: vScale(45),
+    color: '#4F46E5',
+    textAlign: 'center',
+    backgroundColor: '#FAFAFA',
+    borderRadius: scale(12),
+    overflow: 'hidden',
+    includeFontPadding: false,
+    textAlignVertical: 'center',
+    justifyContent: 'center',
   },
 });

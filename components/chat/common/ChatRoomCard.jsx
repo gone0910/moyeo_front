@@ -1,8 +1,14 @@
 // components/chat/common/ChatRoomCard.jsx  채팅 리스트에서 채팅방들을 카드로 보여주는 컴포넌트
 import React from 'react';
-import { View, Text, Image, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, Image, StyleSheet, TouchableOpacity, Dimensions } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { MaterialIcons } from '@expo/vector-icons';
+
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+const BASE_WIDTH = 390;
+const BASE_HEIGHT = 844;
+const scale = (size) => (SCREEN_WIDTH / BASE_WIDTH) * size;
+const vScale = (size) => (SCREEN_HEIGHT / BASE_HEIGHT) * size;
 
 export default function ChatRoomCard({ chat, isEditing, onDeletePress }) {
   const navigation = useNavigation();
@@ -43,7 +49,7 @@ export default function ChatRoomCard({ chat, isEditing, onDeletePress }) {
       {/* 삭제 아이콘: 편집모드에서만 우측 */}
       {isEditing && (
         <TouchableOpacity onPress={onDeletePress} style={styles.deleteIconWrapper}>
-          <MaterialIcons name="remove-circle" size={21} color="#FF7E7E" />
+          <MaterialIcons name="remove-circle" size={scale(21)} color="#FF7E7E" />
         </TouchableOpacity>
       )}
     </TouchableOpacity>
@@ -55,22 +61,20 @@ const styles = StyleSheet.create({
   card: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 14,
-    borderBottomWidth: 1,
-    borderColor: '#E0E0E0',
+    paddingVertical: vScale(14),
     position: 'relative',
   },
   deleteIconWrapper: {
     position: 'absolute',
-    top: '55%', // ✅ 상하 가운데 정렬을 위해 top 기준 50%
-    right: 8,
+    top: '55%', // 상대적 위치 유지 (fixed size 쓰고 싶으면 vScale로 조정)
+    right: scale(8),
     zIndex: 1,
   },
   avatar: {
-    width: 56,
-    height: 56,
-    borderRadius: 22,
-    marginRight: 36,
+    width: scale(56),
+    height: scale(56),
+    borderRadius: scale(22),
+    marginRight: scale(36),
     backgroundColor: '#E0E0E0',
   },
   textWrapper: {
@@ -79,14 +83,14 @@ const styles = StyleSheet.create({
   },
   name: {
     fontFamily: 'Roboto_400Regular',
-    fontSize: 20,
+    fontSize: scale(20),
     color: '#333333',
-    lineHeight: 24,
+    lineHeight: vScale(24),
   },
   badge: {
-    width: 32,
-    height: 20,
-    borderRadius: 16,
+    width: scale(32),
+    height: vScale(20),
+    borderRadius: scale(16),
     backgroundColor: '#FF7272',
     justifyContent: 'center',
     alignItems: 'center',
@@ -94,10 +98,10 @@ const styles = StyleSheet.create({
   badgeText: {
     color: 'white',
     fontWeight: 'bold',
-    fontSize: 12,
+    fontSize: scale(12),
   },
   badgeEditing: {
-    marginRight: 44,
+    marginRight: scale(44),
   },
 
 });
