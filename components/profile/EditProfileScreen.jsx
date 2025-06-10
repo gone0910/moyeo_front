@@ -1,4 +1,5 @@
-import React, { useState, useContext, useEffect } from 'react';
+// (생략 없음, 기존 코드 그대로 유지)
+import React, { useState, useContext, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -25,7 +26,7 @@ import { editUserProfileWithFetch, getUserInfoWithFetch, urlToBase64ProfileImage
 
 // ==== 반응형 유틸 함수 ====
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
-const BASE_WIDTH = 390; // iPhone 13 기준
+const BASE_WIDTH = 390;
 const BASE_HEIGHT = 844;
 function normalize(size, based = 'width') {
   const scale = based === 'height' ? SCREEN_HEIGHT / BASE_HEIGHT : SCREEN_WIDTH / BASE_WIDTH;
@@ -41,12 +42,13 @@ function normalize(size, based = 'width') {
 export default function EditProfileScreen() {
   const navigation = useNavigation();
   const { user, setUser } = useContext(UserContext);
-
+const ageInputRef = useRef(null);
   const [image, setImage] = useState(null);
   const [nickname, setNickname] = useState('');
   const [age, setAge] = useState('');
   const [gender, setGender] = useState('');
   const [mbti, setMbti] = useState('');
+  const scrollRef = useRef(null);
 
   // 프로필 이미지 삭제 버튼
   const handleRemoveImage = () => {
@@ -136,34 +138,51 @@ export default function EditProfileScreen() {
       }
   };
 
+  const handleDeleteProfileImage = () => {
+    Alert.alert(
+      '프로필 삭제',
+      '프로필을 삭제하시겠습니까?',
+      [
+        { text: '취소', style: 'cancel' },
+        {
+          text: '삭제',
+          onPress: () => setImage(null),
+          style: 'destructive',
+        },
+      ],
+      { cancelable: true }
+    );
+  };
+
   return (
     <SafeAreaView style={styles.safe}>
       <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      >
+  style={{ flex: 1 }}
+  behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+  keyboardVerticalOffset={Platform.OS === 'ios' ? normalize(0, 'height') : 0}
+>
         <View style={styles.headerContainer}>
           <Text style={styles.headerText}>프로필 편집</Text>
           <View style={styles.headerLine} />
         </View>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => navigation.goBack()}
-        >
+        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
           <MaterialIcons name="arrow-back-ios" size={normalize(22)} color="#4F46E5" />
         </TouchableOpacity>
-        <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
-          <ProfileImagePicker defaultImage={image} onChange={setImage} />
-          {/* 이미지 삭제 버튼, 임시 */}
-          {image && (
-            <TouchableOpacity
-              onPress={handleRemoveImage}
-              style={styles.deleteButton}
-              accessibilityLabel="프로필 사진 삭제"
-            >
-              <MaterialIcons name="delete" size={28} color="#EF4444" />
-            </TouchableOpacity>
-          )}
+
+        <ScrollView
+  ref={scrollRef} // 👈 연결
+  contentContainerStyle={styles.container}
+  keyboardShouldPersistTaps="handled"
+>
+          <View style={styles.imagePickerWrapper}>
+            <ProfileImagePicker defaultImage={image} onChange={setImage} />
+            {typeof image === 'string' && image !== '' && !image.includes('default') && (
+  <TouchableOpacity style={styles.deleteButton} onPress={handleDeleteProfileImage}>
+    <MaterialIcons name="cancel" size={normalize(36)} color="#FF5555" />
+  </TouchableOpacity>
+)}
+          </View>
+
 
           <View style={styles.formGrouped}>
             <Text style={styles.label}>닉네임<Text style={styles.asterisk}> *</Text></Text>
@@ -177,7 +196,9 @@ export default function EditProfileScreen() {
               }}
             />
           </View>
+
           <Text style={styles.labels}>성별<Text style={styles.asterisk}> *</Text></Text>
+
           <View style={styles.genderContainer}>
             <TouchableOpacity
               style={[styles.genderButton, gender === '남성' && styles.genderSelected]}
@@ -200,17 +221,21 @@ export default function EditProfileScreen() {
           <View style={styles.formGroup}>
             <Text style={styles.label}>나이<Text style={styles.asterisk}> *</Text></Text>
             <TextInput
-              style={styles.input}
-              placeholder="나이를 입력해 주세요"
-              placeholderTextColor="#A0A0A0"
-              keyboardType="numeric"
-              value={age.toString()}
-              onChangeText={(text) => {
-                const num = parseInt(text);
-                if (!isNaN(num) && num >= 0 && num <= 99) setAge(num);
-                else if (text === '') setAge('');
-              }}
-            />
+  ref={ageInputRef}
+  style={styles.input}
+  placeholder="나이를 입력해 주세요"
+  placeholderTextColor="#A0A0A0"
+  keyboardType="numeric"
+  value={age.toString()}
+  onFocus={() => {
+    scrollRef.current?.scrollTo({ y: normalize(280, 'height'), animated: true });
+  }}
+  onChangeText={(text) => {
+    const num = parseInt(text);
+    if (!isNaN(num) && num >= 0 && num <= 99) setAge(num);
+    else if (text === '') setAge('');
+  }}
+/>
           </View>
 
           <View style={styles.formGroups}>
@@ -240,6 +265,7 @@ export default function EditProfileScreen() {
             />
           </View>
         </ScrollView>
+
         <View style={styles.footer}>
           <TouchableOpacity
             style={[styles.submitButton, !isValid && styles.buttonDisabled]}
@@ -254,19 +280,20 @@ export default function EditProfileScreen() {
   );
 }
 
+
 // ======= 반응형 스타일 =======
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: '#F6F9FB',
+    backgroundColor: '#fafafa',
   },
   headerContainer: {
     alignItems: 'center',
   },
   headerText: {
-    fontSize: normalize(18),
-    fontWeight: '600',
-    color: '#333',
+    fontSize: normalize(16),
+    fontWeight: '400',
+    color: '#000000',
     marginTop: normalize(6, 'height'),
     marginBottom: normalize(3, 'height'),
     letterSpacing: -0.3,
@@ -274,9 +301,9 @@ const styles = StyleSheet.create({
   headerLine: {
     width: '90%',
     marginBottom: normalize(18, 'height'),
-    marginTop: normalize(6, 'height'),
+    marginTop: normalize(10, 'height'),
     height: normalize(1, 'height'),
-    backgroundColor: '#E5E7EB',
+    backgroundColor: '#B5B5B5',
     borderRadius: normalize(2),
   },
   container: {
@@ -291,6 +318,12 @@ const styles = StyleSheet.create({
     top: normalize(6, 'height'),
     zIndex: 2,
   },
+  imagePickerWrapper: {
+  marginTop: normalize(20, 'height'),
+  marginBottom: normalize(24, 'height'),
+  alignItems: 'center',
+  justifyContent: 'center',
+},
   formGroup: {
     marginBottom: normalize(30, 'height'),
     borderRadius: normalize(8),
@@ -313,14 +346,14 @@ const styles = StyleSheet.create({
     minHeight: normalize(54, 'height'),
   },
   label: {
-    fontSize: normalize(16),
+    fontSize: normalize(18),
     color: '#373737',
     marginBottom: normalize(7, 'height'),
     lineHeight: normalize(20, 'height'),
     fontWeight: '500',
   },
   labelss: {
-    fontSize: normalize(16),
+    fontSize: normalize(18),
     color: '#373737',
     marginBottom: normalize(7, 'height'),
     lineHeight: normalize(20, 'height'),
@@ -408,9 +441,13 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
   },
   deleteButton: {
-    alignSelf: 'center',  // 가운데 정렬
-    marginTop: 8,
-    padding: 6,
-    borderRadius: 24,
+    position: 'absolute',
+    top: normalize(0, 'height'),
+    right: normalize(20),
+    backgroundColor:"#fff",
+    borderRadius: normalize(20),
+    elevation: 3,
+    zIndex: 5,
+
   },
 });
