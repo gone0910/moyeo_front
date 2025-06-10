@@ -1,5 +1,13 @@
-import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Dimensions, PixelRatio, Platform } from 'react-native';
+import React, { useState, forwardRef } from 'react';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  Dimensions,
+  PixelRatio,
+  Platform
+} from 'react-native';
 import { AntDesign } from '@expo/vector-icons';
 
 // ==== 반응형 유틸 함수 (아이폰 13 기준) ====
@@ -11,24 +19,35 @@ function normalize(size, based = 'width') {
     ? SCREEN_HEIGHT / BASE_HEIGHT
     : SCREEN_WIDTH / BASE_WIDTH;
   const newSize = size * scale;
-  if (Platform.OS === 'ios') {
-    return Math.round(PixelRatio.roundToNearestPixel(newSize));
-  } else {
-    return Math.round(PixelRatio.roundToNearestPixel(newSize)) - 1;
-  }
+  return Platform.OS === 'ios'
+    ? Math.round(PixelRatio.roundToNearestPixel(newSize))
+    : Math.round(PixelRatio.roundToNearestPixel(newSize)) - 1;
 }
 
-export default function AccordionCard({ title, children }) {
+// ✅ forwardRef 사용 및 View에 직접 ref 연결
+const AccordionCard = forwardRef(({ title, children, onToggle, contentStyle }, ref) => {
   const [expanded, setExpanded] = useState(false);
 
+  const handlePress = () => {
+    const newExpanded = !expanded;
+    setExpanded(newExpanded);
+    if (newExpanded && typeof onToggle === 'function') {
+      onToggle();
+    }
+  };
+
   return (
-    <View style={[
-  styles.card,
-  expanded ? styles.cardExpanded : { height: normalize(62, 'height') },
-]}>
+    <View
+      ref={ref}
+      collapsable={false} // ✅ Android에서 measureLayout 오류 방지
+      style={[
+        styles.card,
+        expanded ? styles.cardExpanded : { height: normalize(62, 'height') },
+      ]}
+    >
       <TouchableOpacity
         style={styles.header}
-        onPress={() => setExpanded(!expanded)}
+        onPress={handlePress}
         activeOpacity={0.8}
       >
         <Text style={styles.title}>{title}</Text>
@@ -39,10 +58,16 @@ export default function AccordionCard({ title, children }) {
         />
       </TouchableOpacity>
 
-      {expanded && <View style={styles.content}>{children}</View>}
+      {expanded && (
+  <View style={[styles.content, contentStyle]}>
+    {children}
+  </View>
+)}
     </View>
   );
-}
+});
+
+export default AccordionCard;
 
 const styles = StyleSheet.create({
   card: {
@@ -61,7 +86,7 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   cardExpanded: {
-    height: undefined, // ✅ 내용물에 따라 자동 높이
+    height: undefined,
     justifyContent: 'flex-start',
     paddingTop: normalize(20, 'height'),
     paddingBottom: normalize(20, 'height'),
