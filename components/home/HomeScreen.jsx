@@ -7,6 +7,7 @@ import { MaterialIcons, Ionicons, Feather } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import TravelSection from './TravelSection';
 import SplashScreen from '../common/SplashScreen'; // 🔁 팀원 코드 병합
+import ChatBotIcon from '../icons/ChatBotIcon';
 
 
 // (📌 임시 데이터)
@@ -47,17 +48,16 @@ export default function HomeScreen() {
       <View style={styles.headerWrapper}>
         <Text style={styles.logoText} numberOfLines={1} adjustsFontSizeToFit>moyeo </Text>
 
-        {/*임시 로그아웃 + 임시 챗봇 */}
+        {/* 챗봇 아이콘 버튼 (프로필 왼쪽에, 간격 8) */}
         <TouchableOpacity
-          style={{ marginRight: 8 }} // 적당히 띄우기
+          style={{ marginRight: 2 }}
           onPress={() => navigation.navigate('ChatBot')}
+          activeOpacity={0.7}
         >
-          <MaterialIcons name="smart-toy" size={24} color="#4F46E5" />
+          <ChatBotIcon width={28} height={28} />
         </TouchableOpacity>
 
-        <TouchableOpacity onPress={handleLogout}>
-            <Feather name="log-out" size={24} color="#4B5563" />
-          </TouchableOpacity>
+
         <View style={styles.profileContainer}>
           
         </View>

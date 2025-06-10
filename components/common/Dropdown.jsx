@@ -1,6 +1,6 @@
 // 폴더: capStone_1/components/common/Dropdown.jsx
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import DropDownPicker from 'react-native-dropdown-picker';
 
@@ -15,6 +15,12 @@ export default function Dropdown({ label, selectedValue, onValueChange, items })
   const [open, setOpen] = useState(false);
   const [value, setValue] = useState(selectedValue);
   const [options, setOptions] = useState(items);
+
+  // selectedValue가 변경되면 내부 value 업데이트
+  // 프로필 편집 방문시 mbti 값 가져오기
+  useEffect(() => {
+    setValue(selectedValue);
+  }, [selectedValue]);
 
   const handleChangeValue = (val) => {
     setValue(val);

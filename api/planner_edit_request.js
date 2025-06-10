@@ -30,11 +30,11 @@ export async function editSchedule(names) {
     );
 
     // 결과 반환
-    console.log('✏️ 일정 편집 성공:', response.data);
+    // console.log('✏️ 일정 편집 성공:', response.data);
     return response.data;
 
   } catch (error) {
-    console.error('❌ 일정 편집 실패:', error.response?.data || error.message);
+    // console.error('❌ 일정 편집 실패:', error.response?.data || error.message);
     throw error;
   }
 }

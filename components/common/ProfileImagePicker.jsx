@@ -1,6 +1,11 @@
 import { useState, useEffect } from 'react';
 import * as ImagePicker from 'expo-image-picker';
 import { View, Image, TouchableOpacity, Text, StyleSheet } from 'react-native';
+import * as ImageManipulator from 'expo-image-manipulator';
+import * as FileSystem from 'expo-file-system';
+
+// 리사이징을 거친 사진의 최대용량 30mb
+const MAX_ORIGINAL_SIZE = 30 * 1024 * 1024; // 30MB
 
 /**
  * 프로필 사진 선택 컴포넌트
@@ -36,16 +41,47 @@ export default function ProfileImagePicker({ onChange, defaultImage }) {
     });
 
     if (!result.canceled) {
-      const asset = result.assets[0];
+    let asset = result.assets[0];
+    let imageUri = asset.uri;
+    let quality = 0.7;
+    let resized = null;
+    let info = await FileSystem.getInfoAsync(imageUri);
+
+    // 💡 파일 크기가 30MB 초과라면 반복적으로 리사이즈/품질 다운!
+    while (info.size > MAX_ORIGINAL_SIZE) {
+      // 해상도나 품질을 반복적으로 낮추기 (예시: 90% → 80% → ... 50%)
+      if (quality > 0.4) quality -= 0.1;
+      resized = await ImageManipulator.manipulateAsync(
+        imageUri,
+        [{ resize: { width: 1200 } }], // 1200px 이하로 제한 (원한다면 동적으로 줄여도 됨)
+        { compress: quality, format: ImageManipulator.SaveFormat.JPEG }
+      );
+      imageUri = resized.uri;
+      info = await FileSystem.getInfoAsync(imageUri);
+
+      // 무한루프 방지: 품질이 0.4 이하로 내려가면 break
+      if (quality <= 0.4) break;
+    }
+
+    // 최종 크기 로그
+    console.log(
+      `📏 [리사이즈 후 최종 파일 용량] ${info.size} bytes ≈ ${(info.size / 1024 / 1024).toFixed(2)} MB`
+    );
+
+    if (info.size > MAX_ORIGINAL_SIZE) {
+      alert('이미지 크기가 30MB를 초과합니다. 더 작은 사진을 선택해 주세요.');
+      return;
+    }
+
 
       // ✅ Axios에서 multipart/form-data로 전송 가능한 구조로 가공
       const imageObject = {
-        uri: asset.uri,
+        uri: imageUri,
         name: asset.fileName || 'profile.jpg',   // fileName이 없을 수도 있으니 기본값 설정
         type: asset.type || 'image/jpeg',        // type도 없으면 기본값 설정
       };
 
-      setImageUri(asset.uri);             // ✅ 로컬에서 이미지 미리 보기용
+      setImageUri(imageUri,);             // ✅ 로컬에서 이미지 미리 보기용
       onChange && onChange(imageObject); // ✅ 전체 이미지 객체 전달
     }
   };
