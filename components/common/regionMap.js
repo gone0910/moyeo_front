@@ -8,7 +8,6 @@
 
 export const REGION_MAP = {
     서울: [
-
         { name: '강남구', code: 'GANGNAM_GU' },
         { name: '강동구', code: 'GANGDONG_GU' },
         { name: '강북구', code: 'GANGBUK_GU' },
