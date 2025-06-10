@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useLayoutEffect } from 'react';
+import React, { useEffect, useState, useRef, useLayoutEffect } from 'react';
 import {
   View,
   Text,
@@ -65,12 +65,30 @@ export default function PlannerResponseHome() {
   const route = useRoute();
   const isReadOnly = route.params?.mode === 'read';
   const [isRegenerating, setIsRegenerating] = useState(false);
+  const scrollRef = useRef();
+  const [originalScheduleData, setOriginalScheduleData] = useState(null);
+  const [editDraft, setEditDraft] = useState(null);
+  const from = route.params?.from;
 
   useLayoutEffect(() => {
     const parent = navigation.getParent();
     parent?.setOptions({ tabBarStyle: { display: 'none' } });
     return () => parent?.setOptions({ tabBarStyle: { display: 'flex' } });
   }, [navigation]);
+  
+  useEffect(() => {
+    if (!isEditing && scrollRef.current) {
+      scrollRef.current.scrollTo({ y: 0, animated: false });
+    }
+  }, [selectedDayIndex, isEditing]);
+
+  useEffect(() => {
+  if (route.params?.mode === 'edit') {
+    setOriginalScheduleData(null); // 기존 원본 필요 없으면 null로
+    setEditDraft(null); // 불필요한 초기화
+    setIsEditing(true); // ✅ 자동 수정 모드 진입
+  }
+}, [route.params?.mode]);
 
   const ensurePlaceIds = (data) => ({
     ...data,
@@ -124,47 +142,104 @@ export default function PlannerResponseHome() {
     );
   }
 
-  const selectedDay = scheduleData.days[selectedDayIndex];
-  const places = scheduleData.days[selectedDayIndex].places;
+  // 편집모드면 임시본에서, 아니면 원본에서 읽어옴
+  const selectedDay = isEditing
+    ? editDraft?.days[selectedDayIndex]
+    : scheduleData.days[selectedDayIndex];
+  const places = selectedDay?.places ?? [];
 
-  const handleDragEnd = ({ data }) => {
-    const updatedDays = scheduleData.days.map((day, idx) =>
-      idx === selectedDayIndex ? { ...day, places: [...data] } : day
-    );
-    setScheduleData({ ...scheduleData, days: updatedDays });
+  // 수정모드 진입: 임시본 생성
+  const enterEditMode = () => {
+    setOriginalScheduleData(JSON.parse(JSON.stringify(scheduleData))); // 원본 백업
+    setEditDraft(JSON.parse(JSON.stringify(scheduleData))); // 편집본 생성
+    setIsEditing(true);
   };
 
+  // 뒤로가기: 임시본 파기, 수정모드 해제
+  const handleBack = () => {
+  console.log('🔙 handleBack 호출됨');
+  if (isEditing) {
+    console.log('✏️ 수정모드 종료');
+    setEditDraft(null);
+    setIsEditing(false);
+    return;
+  }
+
+  const tabNav = navigation.getParent();
+  console.log('📦 tabNav:', tabNav);
+  console.log('🧭 from:', from);
+
+  if (from === 'Home') {
+    if (tabNav?.reset) {
+      console.log('🏠 Home으로 reset 이동');
+      tabNav.reset({
+        index: 0,
+        routes: [{ name: 'Home' }],
+      });
+    } else {
+      console.log('📌 tabNav 없음 → navigation.navigate("Home")');
+      navigation.navigate('Home');
+    }
+  } else if (tabNav && tabNav.navigate) {
+    console.log('📄 MyTrips로 이동');
+    tabNav.navigate('MyTrips');
+  } else if (navigation.canGoBack()) {
+    console.log('🔙 goBack() 실행');
+    navigation.goBack();
+  } else {
+    console.log('📌 fallback: navigation.navigate("MyTrips")');
+    navigation.navigate('MyTrips');
+  }
+};
+
+
+  // 드래그 결과 임시본에 반영
+  const handleDragEnd = ({ data }) => {
+    setEditDraft(prev => {
+      const updatedDays = prev.days.map((day, idx) =>
+        idx === selectedDayIndex ? { ...day, places: [...data] } : day
+      );
+      return { ...prev, days: updatedDays };
+    });
+  };
+
+  // 장소 추가: 임시본에만 반영
   const handleAddPlace = (insertIndex) => {
     if (newlyAddedPlaceId) return;
-    const currentPlaces = [...scheduleData.days[selectedDayIndex].places];
-    const newPlaceId = uuid.v4();
-    const newPlace = {
-      id: newPlaceId,
-      name: '',
-      type: '카테고리',
-      estimatedCost: 0,
-      gptOriginalName: '예시태그',
-      fromPrevious: { car: 5, publicTransport: 8, walk: 12 },
-    };
-    const updatedPlaces = [
-      ...currentPlaces.slice(0, insertIndex + 1),
-      newPlace,
-      ...currentPlaces.slice(insertIndex + 1),
-    ];
-    const updatedDays = scheduleData.days.map((day, i) =>
-      i === selectedDayIndex ? { ...day, places: updatedPlaces } : day
-    );
-    setScheduleData({ ...scheduleData, days: updatedDays });
-    setNewlyAddedPlaceId(newPlaceId);
+    setEditDraft(prev => {
+      const currentPlaces = [...prev.days[selectedDayIndex].places];
+      const newPlaceId = uuid.v4();
+      const newPlace = {
+        id: newPlaceId,
+        name: '',
+        type: '카테고리',
+        estimatedCost: 0,
+        gptOriginalName: '예시태그',
+        fromPrevious: { car: 5, publicTransport: 8, walk: 12 },
+      };
+      const updatedPlaces = [
+        ...currentPlaces.slice(0, insertIndex + 1),
+        newPlace,
+        ...currentPlaces.slice(insertIndex + 1),
+      ];
+      const updatedDays = prev.days.map((day, i) =>
+        i === selectedDayIndex ? { ...day, places: updatedPlaces } : day
+      );
+      setNewlyAddedPlaceId(newPlaceId);
+      return { ...prev, days: updatedDays };
+    });
   };
 
+  // 삭제: 임시본에만 반영
   const handleDeletePlace = (placeId) => {
-    const currentPlaces = [...scheduleData.days[selectedDayIndex].places];
-    const updatedPlaces = currentPlaces.filter((p) => p.id !== placeId);
-    const updatedDays = scheduleData.days.map((day, i) =>
-      i === selectedDayIndex ? { ...day, places: updatedPlaces } : day
-    );
-    setScheduleData({ ...scheduleData, days: updatedDays });
+    setEditDraft(prev => {
+      const currentPlaces = [...prev.days[selectedDayIndex].places];
+      const updatedPlaces = currentPlaces.filter((p) => p.id !== placeId);
+      const updatedDays = prev.days.map((day, i) =>
+        i === selectedDayIndex ? { ...day, places: updatedPlaces } : day
+      );
+      return { ...prev, days: updatedDays };
+    });
     if (newlyAddedPlaceId === placeId) setNewlyAddedPlaceId(null);
     setEditedPlaces((prev) => {
       const updated = { ...prev };
@@ -173,47 +248,103 @@ export default function PlannerResponseHome() {
     });
   };
 
+  // 인풋 편집 완료: 임시본에만 반영
   const handleEndEditing = (placeId) => {
-    const currentPlaces = [...scheduleData.days[selectedDayIndex].places];
-    const newName = editedPlaces[placeId] ?? '';
-    const updatedPlaces = currentPlaces.map((p) =>
-      p.id === placeId
-        ? {
-            ...p,
-            name: newName,
-            type: (!newName || newName !== p.name) ? '' : p.type,
-            gptOriginalName: (!newName || newName !== p.name) ? '' : p.gptOriginalName,
-            estimatedCost: (!newName || newName !== p.name) ? '' : p.estimatedCost,
-          }
-        : p
-    );
-    const updatedDays = scheduleData.days.map((day, i) =>
-      i === selectedDayIndex ? { ...day, places: updatedPlaces } : day
-    );
-    setScheduleData({ ...scheduleData, days: updatedDays });
+    setEditDraft(prev => {
+      const currentPlaces = [...prev.days[selectedDayIndex].places];
+      const newName = editedPlaces[placeId] ?? '';
+      const updatedPlaces = currentPlaces.map((p) =>
+        p.id === placeId
+          ? {
+              ...p,
+              name: newName,
+              type: (!newName || newName !== p.name) ? '' : p.type,
+              gptOriginalName: (!newName || newName !== p.name) ? '' : p.gptOriginalName,
+              estimatedCost: (!newName || newName !== p.name) ? '' : p.estimatedCost,
+            }
+          : p
+      );
+      const updatedDays = prev.days.map((day, i) =>
+        i === selectedDayIndex ? { ...day, places: updatedPlaces } : day
+      );
+      return { ...prev, days: updatedDays };
+    });
     setNewlyAddedPlaceId(null);
+  };
+
+  // 수정 완료: editDraft를 실제 데이터로 반영
+  const handleEditDone = async () => {
+    setNewlyAddedPlaceId(null);
+    setEditedPlaces({});
+    setIsRegenerating(true);
+    try {
+      await saveCacheData(CACHE_KEYS.PLAN_EDITED, editDraft);
+      const placeNames = editDraft.days[selectedDayIndex].places.map(p => p.name);
+      const result = await editSchedule(placeNames);
+      if (result.places && result.totalEstimatedCost !== undefined) {
+        const newPlaces = ensurePlaceIds({ days: [{ places: result.places }] }).days[0].places;
+        const updatedDraft = {
+          ...editDraft,
+          days: editDraft.days.map((day, idx) =>
+            idx === selectedDayIndex
+              ? {
+                  ...day,
+                  places: newPlaces,
+                  totalEstimatedCost: result.totalEstimatedCost,
+                }
+              : day
+          ),
+        };
+        setScheduleData(updatedDraft);
+        setEditDraft(null);
+      } else if (Array.isArray(result)) {
+        const newPlaces = ensurePlaceIds({ days: [{ places: result }] }).days[0].places;
+        const updatedDraft = {
+          ...editDraft,
+          days: editDraft.days.map((day, idx) =>
+            idx === selectedDayIndex
+              ? { ...day, places: newPlaces }
+              : day
+          ),
+        };
+        setScheduleData(updatedDraft);
+        setEditDraft(null);
+      } else {
+        setScheduleData(editDraft);
+        setEditDraft(null);
+      }
+    } catch (e) {
+      console.warn('⚠️ PLAN_EDITED 캐시 저장 or API 호출 실패:', e);
+    }
+    setIsEditing(false);
+    setOriginalScheduleData(null);
+    setIsRegenerating(false);
   };
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={{ flex: 1 }}>
         {/* 헤더 */}
-        <View style={styles.headerLine}>
-          <TouchableOpacity
-            onPress={() => {
-              if (isEditing) {
-                setIsEditing(false);
-              } else {
-                navigation.goBack();
-              }
-            }}
-          >
-            <Ionicons name="chevron-back" size={normalize(24)} color="black" />
+        <View style={{
+  flexDirection: 'row',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  paddingHorizontal: normalize(16),
+  paddingVertical: normalize(12),
+}}>
+          <TouchableOpacity onPress={handleBack}>
+           <Ionicons
+             name="chevron-back"
+             size={24}
+             color="#4F46E5"
+             style={{ marginTop: -12 }} // ✅ 여기서 위로 올림
+           />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>여행플랜</Text>
           <View style={{ width: normalize(24) }} />
+          </View>
+          <View style={styles.headerLine}>
         </View>
-
         {/* 여행 정보 */}
         <View style={styles.tripInfo}>
           <View style={styles.tripInfoRow}>
@@ -319,7 +450,7 @@ export default function PlannerResponseHome() {
                           }}
                           onPress={() => handleDeletePlace(place.id)}
                         >
-                          <Ionicons name="remove" size={normalize(22)} color="#fff" />
+                          <Ionicons name="remove" size={normalize(14)} color="#fff" />
                         </TouchableOpacity>
                         {/* placeCard */}
                         <TouchableOpacity
@@ -353,11 +484,6 @@ export default function PlannerResponseHome() {
                             <View style={{ minHeight: normalize(60, 'height'), justifyContent: 'center' }}>
                               <View style={styles.placeHeader}>
                                 <Text style={styles.placeName}>{place.name}</Text>
-                                {(place.name && place.estimatedCost !== '' && place.estimatedCost !== undefined && place.estimatedCost !== null) && (
-                                  <Text style={styles.placeCost}>
-                                    {place.estimatedCost?.toLocaleString()}원
-                                  </Text>
-                                )}
                               </View>
                               {place.name && place.type && (
                                 <Text style={styles.placeType}>{place.type}</Text>
@@ -374,10 +500,12 @@ export default function PlannerResponseHome() {
                     <TouchableOpacity
                       style={{
                         backgroundColor: '#A19CFF',
-                        paddingVertical: normalize(8),
+                        paddingVertical: normalize(4),
                         borderRadius: normalize(16),
                         marginTop: normalize(16),
-                        marginBottom: normalize(14),
+                        marginBottom: currentIndex === places.length - 1
+                          ? normalize(28)
+                          : normalize(10),
                         alignSelf: 'flex-start',
                         width: '50%',
                         marginLeft: normalize(90),
@@ -389,8 +517,7 @@ export default function PlannerResponseHome() {
                       <Text
                         style={{
                           color: '#fff',
-                          fontSize: normalize(18),
-                          fontWeight: 'bold',
+                          fontSize: normalize(16),
                           textAlign: 'center',
                           lineHeight: normalize(20),
                         }}
@@ -404,6 +531,7 @@ export default function PlannerResponseHome() {
             />
           ) : (
             <ScrollView
+              ref={scrollRef}
               style={styles.container}
               contentContainerStyle={{ paddingBottom: normalize(120, 'height') }}
             >
@@ -413,15 +541,15 @@ export default function PlannerResponseHome() {
                   {idx !== 0 && place.fromPrevious && (
                     <View style={styles.transportRow}>
                       <View style={styles.transportItem}>
-                        <Ionicons name="car-outline" size={normalize(22)} color="#6B7280" />
-                        <Text style={styles.transportText}>{place.fromPrevious.car}분</Text>
+                        <Ionicons name="car-outline" size={normalize(19)} color="#6B7280" style={{ marginRight: normalize(-10) }}/>
+                        <Text style={styles.transportTextss}>{place.fromPrevious.car}분</Text>
                       </View>
                       <View style={styles.transportItem}>
-                        <Ionicons name="bus-outline" size={normalize(22)} color="#6B7280" />
+                        <Ionicons name="bus-outline" size={normalize(17)} color="#6B7280" />
                         <Text style={styles.transportText}>{place.fromPrevious.publicTransport}분</Text>
                       </View>
                       <View style={styles.transportItem}>
-                        <MaterialCommunityIcons name="walk" size={normalize(22)} color="#6B7280" style={{ marginRight:normalize(20)}}/>
+                        <MaterialCommunityIcons name="walk" size={normalize(17)} color="#6B7280" style={{ marginRight: normalize(30) }}/>
                         <Text style={styles.transportTexts}>{place.fromPrevious.walk}분</Text>
                       </View>
                     </View>
@@ -443,13 +571,28 @@ export default function PlannerResponseHome() {
                         <View style={styles.placeHeader}>
                           <Text style={styles.placeName}>{place.name}</Text>
                           <Text style={styles.placeCost}>
-                            {place.estimatedCost?.toLocaleString()}원
+                            {place.estimatedCost === 0 ? '무료' : `${place.estimatedCost?.toLocaleString()}원`}
                           </Text>
                         </View>
                         <Text style={styles.placeType}>{place.type}</Text>
                         {place.gptOriginalName && (
-                          <Text style={styles.keywords}>#{place.gptOriginalName}</Text>
-                        )}
+  <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginTop: 2 }}>
+    {place.gptOriginalName.split(' ').map((tag, i) => (
+      <Text
+        key={i}
+        style={{
+          color: '#606060',
+          fontSize: 14,
+          marginRight: 4,
+          fontWeight: '400',
+          lineHeight: 19,
+        }}
+      >
+        #{tag}
+      </Text>
+    ))}
+  </View>
+)}
                       </TouchableOpacity>
                     </View>
                   </View>
@@ -457,15 +600,15 @@ export default function PlannerResponseHome() {
                   {idx === places.length - 1 && place.fromPrevious && selectedDayIndex !== scheduleData.days.length - 1 && (
                     <View style={styles.transportRow}>
                       <View style={styles.transportItem}>
-                        <Ionicons name="car-outline" size={normalize(22)} color="#6B7280" />
-                        <Text style={styles.transportText}>{place.fromPrevious.car}분</Text>
+                        <Ionicons name="car-outline" size={normalize(19)} color="#6B7280" style={{ marginRight: normalize(-10)}}/>
+                        <Text style={styles.transportTextss}>{place.fromPrevious.car}분</Text>
                       </View>
                       <View style={styles.transportItem}>
-                        <Ionicons name="bus-outline" size={normalize(22)} color="#6B7280" />
+                        <Ionicons name="bus-outline" size={normalize(17)} color="#6B7280" />
                         <Text style={styles.transportText}>{place.fromPrevious.publicTransport}분</Text>
                       </View>
                       <View style={styles.transportItem}>
-                        <MaterialCommunityIcons name="walk" size={normalize(22)} color="#6B7280" style={{ marginRight:normalize(20)}}/>
+                        <MaterialCommunityIcons name="walk" size={normalize(17)} color="#6B7280" style={{ marginRight: normalize(30) }}/>
                         <Text style={styles.transportTexts}>{place.fromPrevious.walk}분</Text>
                       </View>
                     </View>
@@ -475,56 +618,17 @@ export default function PlannerResponseHome() {
             </ScrollView>
           )}
         </View>
-
-        {/* 하단 버튼, 아래 한 번만! */}
+        {/* 하단 버튼 */}
         {isEditing ? (
           <View style={styles.fixedDoneButtonWrapper}>
             <TouchableOpacity
               style={styles.fixedDoneButton}
-              onPress={async () => {
-                setNewlyAddedPlaceId(null);
-                setEditedPlaces({});
-                setIsRegenerating(true);
-                try {
-                  await saveCacheData(CACHE_KEYS.PLAN_EDITED, scheduleData);
-                  const placeNames = scheduleData.days[selectedDayIndex].places.map(p => p.name);
-                  const result = await editSchedule(placeNames);
-                  if (result.places && result.totalEstimatedCost !== undefined) {
-                    const newPlaces = ensurePlaceIds({ days: [{ places: result.places }] }).days[0].places;
-                    setScheduleData({
-                      ...scheduleData,
-                      days: scheduleData.days.map((day, idx) =>
-                        idx === selectedDayIndex
-                          ? {
-                            ...day,
-                            places: newPlaces,
-                            totalEstimatedCost: result.totalEstimatedCost
-                          }
-                          : day
-                      )
-                    });
-                  } else if (Array.isArray(result)) {
-                    const newPlaces = ensurePlaceIds({ days: [{ places: result }] }).days[0].places;
-                    setScheduleData({
-                      ...scheduleData,
-                      days: scheduleData.days.map((day, idx) =>
-                        idx === selectedDayIndex
-                          ? { ...day, places: newPlaces }
-                          : day
-                      )
-                    });
-                  }
-                } catch (e) {
-                  console.warn('⚠️ PLAN_EDITED 캐시 저장 or API 호출 실패:', e);
-                }
-                setIsEditing(false);
-                setIsRegenerating(false);
-              }}
+              onPress={handleEditDone}
             >
               <Text style={styles.fixedDoneButtonText}>수정 완료</Text>
             </TouchableOpacity>
           </View>
-        ) : (isReadOnly || isSaved) ? (
+        ) : (from === 'Home' || isReadOnly || isSaved) ? (  // ✅ 여기 수정됨
           <View style={styles.bottomButtonContainer}>
             <TouchableOpacity
               style={[
@@ -561,17 +665,17 @@ export default function PlannerResponseHome() {
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.editButton, { flex: 1, backgroundColor: '#4F46E5', borderColor: '#4F46E5' }]}
-              onPress={() => setIsEditing(true)}
+              onPress={enterEditMode}
             >
               <Text style={[styles.editButtonText, { color: '#fff' }]}>플랜 수정</Text>
             </TouchableOpacity>
           </View>
         ) : (
           <>
-            <View style={styles.bottomButtonContainer}>
+            <View style={styles.bottomButtonContainer1}>
               <TouchableOpacity
                 style={[styles.editButton, { marginRight: normalize(2) }]}
-                onPress={() => setIsEditing(true)}
+                onPress={enterEditMode}
               >
                 <Text style={styles.editButtonText}>플랜 수정</Text>
               </TouchableOpacity>
@@ -581,8 +685,8 @@ export default function PlannerResponseHome() {
                   setIsRegenerating(true);
                   try {
                     const excludedNames = scheduleData.days
-                    .flatMap(day => day.places.map(place => place.name))
-                    .filter(name => !!name);
+                      .flatMap(day => day.places.map(place => place.name))
+                      .filter(name => !!name);
                     const destinationToSend = scheduleData.destination || "NONE";
                     const mbtiToSend = scheduleData.mbti || "NONE";
                     const travelStyleToSend = scheduleData.travelStyle || "NONE";
@@ -693,29 +797,23 @@ const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: '#Fafafa' },
   screen: { flex: 1, backgroundColor: '#FAFAFA' },
   loadingText: { marginTop: normalize(100, 'height'), textAlign: 'center', fontSize: normalize(16) },
-  headerLine: {
-    height: normalize(48, 'height'),
-    width: '90%',
-    alignSelf: 'center',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    borderBottomWidth: 1,
-    borderBottomColor: '#999',
-    backgroundColor: '#FAFAFA',
+ headerLine: {
+    height: 1,
+    backgroundColor: '#B5B5B5',
+    marginTop: normalize(-1),
   },
-  headerTitle: { fontSize: normalize(18), color: '#000' },
+  headerTitle: { fontSize: normalize(18), alignItems: 'center', color: '#000' , marginTop: normalize(-8),},
   tripInfo: { backgroundColor: '#FAFAFA', padding: normalize(16), paddingBottom: normalize(4) },
   tripInfoRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-end',
   },
-  tripTitle: { fontSize: normalize(24), color: '#1E1E1E' },
-  totalBudgetLabel: { fontSize: normalize(18), color: '#1E1E1E', top: -2 },
-  budget: { color: '#4F46E5', fontSize: normalize(18), marginTop: normalize(4) },
+  tripTitle: { fontSize: normalize(22), color: '#1E1E1E' },
+  totalBudgetLabel: { fontSize: normalize(16), color: '#1E1E1E', top: -2 },
+  budget: { color: '#4F46E5', fontSize: normalize(16), marginTop: normalize(4) },
   budgetUnit: { color: '#4F46E5', fontSize: normalize(14) },
-  dateText: { fontSize: normalize(20), color: '#7E7E7E', marginTop: normalize(4), marginBottom: 0 },
+  dateText: { fontSize: normalize(16), color: '#7E7E7E', marginTop: normalize(4), marginBottom: 0 },
   tabScrollWrapper: {
     backgroundColor: '#FAFAFA',
     borderBottomWidth: 1,
@@ -723,7 +821,7 @@ const styles = StyleSheet.create({
   },
   tabContainer: { flexDirection: 'row', paddingHorizontal: normalize(6), paddingVertical: normalize(6) },
   tabBox: { alignItems: 'center', marginHorizontal: normalize(6), paddingHorizontal: normalize(10) },
-  tabText: { fontSize: normalize(20), color: '#9CA3AF' },
+  tabText: { fontSize: normalize(18), color: '#9CA3AF' },
   tabTextSelected: { color: '#4F46E5', fontWeight: 'bold' },
   activeBar: {
     marginTop: normalize(5),
@@ -734,18 +832,26 @@ const styles = StyleSheet.create({
   },
   container: {
     paddingHorizontal: normalize(16),
-    marginBottom: -normalize(80),
+    marginBottom: -normalize(70),
     marginTop: normalize(20),
     backgroundColor: '#FAFAFA',
   },
-  bottomButtonContainer: {
+  bottomButtonContainer1: {
     flexDirection: 'row',
     backgroundColor: '#fafafa',
-    paddingVertical: normalize(12),
+    paddingVertical: normalize(20),
     paddingHorizontal: normalize(16),
     borderRadius: normalize(12),
-    marginBottom: -normalize(20),
+    marginBottom: -normalize(20)
   },
+bottomButtonContainer: {
+  flexDirection: 'row',
+  backgroundColor: '#fafafa',
+  paddingVertical: normalize(18),
+  paddingHorizontal: normalize(16),
+  borderRadius: normalize(12),
+  paddingBottom: normalize(20), // 👈 이거 추가
+},
   placeRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -806,16 +912,16 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     padding: normalize(16),
     paddingRight: normalize(5),
-    paddingLeft: normalize(12),
+    paddingLeft: normalize(16),
     paddingBottom: normalize(6),
     borderRadius: normalize(20),
-    marginBottom: -normalize(35),
+    marginBottom: -normalize(40),
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
     shadowRadius: 6,
     elevation: 4,
-    width: '85%',
+    width: '88%',
     left: -normalize(20),
   },
   placeHeader: {
@@ -847,20 +953,25 @@ const styles = StyleSheet.create({
     paddingTop: normalize(18),
   },
   transportItem: {
-  flexDirection: 'row',
-  alignItems: 'center',
-  minWidth: normalize(120), // 동일 너비, 너무 짧으면 60~80 정도 추천
-  marginLeft: normalize(10),
-  justifyContent: 'center',
-},
+    flexDirection: 'row',
+    alignItems: 'center',
+    minWidth: normalize(120),
+    marginLeft: normalize(10),
+    justifyContent: 'center',
+  },
   transportText: {
     marginLeft: normalize(6),
-    fontSize: normalize(16),
+    fontSize: normalize(14),
     color: '#000',
   },
   transportTexts: {
-    marginLeft: normalize(-18),
-    fontSize: normalize(16),
+    marginLeft: normalize(-28),
+    fontSize: normalize(14),
+    color: '#000',
+  },
+  transportTextss: {
+    marginLeft: normalize(14),
+    fontSize: normalize(14),
     color: '#000',
   },
   dragHandle: {
@@ -901,7 +1012,7 @@ const styles = StyleSheet.create({
   },
   regenerateButtonWrapper: {
     position: 'absolute',
-    bottom: normalize(40),
+    bottom: normalize(50),
     left: normalize(16),
     right: normalize(16),
     backgroundColor: '#fafafa',
