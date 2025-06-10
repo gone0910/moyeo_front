@@ -1,6 +1,21 @@
-// components/common/ToggleSelector2.jsx
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Dimensions, PixelRatio, Platform } from 'react-native';
+
+// ==== 반응형 유틸 함수 (아이폰 13 기준) ====
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+const BASE_WIDTH = 390;
+const BASE_HEIGHT = 844;
+function normalize(size, based = 'width') {
+  const scale = based === 'height'
+    ? SCREEN_HEIGHT / BASE_HEIGHT
+    : SCREEN_WIDTH / BASE_WIDTH;
+  const newSize = size * scale;
+  if (Platform.OS === 'ios') {
+    return Math.round(PixelRatio.roundToNearestPixel(newSize));
+  } else {
+    return Math.round(PixelRatio.roundToNearestPixel(newSize)) - 1;
+  }
+}
 
 export default function ToggleSelector2({ items, selectedItem, onSelect, size = 'large' }) {
   return (
@@ -28,8 +43,8 @@ export default function ToggleSelector2({ items, selectedItem, onSelect, size = 
 const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
-    flexWrap: 'wrap', // ✅ 줄바꿈!
-    gap: 8,           // 버튼 사이 여백
+    flexWrap: 'wrap',
+    gap: normalize(8),
   },
   toggle: {
     borderWidth: 1,
@@ -37,25 +52,25 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 8,  // 아래 여백
-    marginRight:8,
-    marginTop:-1
+    marginBottom: normalize(8, 'height'),
+    marginRight: normalize(8),
+    marginTop: normalize(-1, 'height'),
   },
   selectedToggle: {
     backgroundColor: '#B3A4F7',
   },
   large: {
-    width: 95,
-    height: 40,
-    borderRadius: 12,
+    width: normalize(95),
+    height: normalize(40, 'height'),
+    borderRadius: normalize(12),
   },
   small: {
-    width: 76,
-    height: 32,
-    borderRadius: 12,
+    width: normalize(76),
+    height: normalize(32, 'height'),
+    borderRadius: normalize(12),
   },
   toggleText: {
-    fontSize: 14,
+    fontSize: normalize(14),
     color: '#373737',
   },
   selectedText: {

@@ -5,6 +5,7 @@ import NewPostScreen from '../components/community/NewPostScreen';
 import PostDetailScreen from '../components/community/PostDetailScreen';
 import EditPostScreen from '../components/community/EditPostScreen';
 
+
 const Stack = createNativeStackNavigator();
 
 export default function CommunityStackNavigator() {
@@ -21,6 +22,7 @@ export default function CommunityStackNavigator() {
       tabBarVisible: false, // (버전별로 이 옵션도 혹시 필요)
     }}
   />
+
   <Stack.Screen name="PostDetail" component={PostDetailScreen} />
   <Stack.Screen
   name="EditPost"
@@ -35,3 +37,4 @@ export default function CommunityStackNavigator() {
 </Stack.Navigator>
   );
 }
+

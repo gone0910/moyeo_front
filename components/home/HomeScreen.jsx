@@ -1,78 +1,75 @@
-// 📁 components/home/HomeScreen.jsx (병합 버전)
 import React, { useContext, useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, Image, StyleSheet, ScrollView, Alert, Modal } from 'react-native';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  Image,
+  StyleSheet,
+  ScrollView,
+  Alert,
+  Modal,
+  Dimensions,
+  PixelRatio,
+  Platform,
+} from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { UserContext } from '../../contexts/UserContext';
 import { MaterialIcons, Ionicons, Feather } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import TravelSection from './TravelSection';
-import SplashScreen from '../common/SplashScreen'; // 🔁 팀원 코드 병합
+import SplashScreen from '../common/SplashScreen';
+import { fetchPlanList } from '../../api/MyPlanner_fetch_list'; // <-- 실제 플랜 목록 fetch
+import { useFocusEffect } from '@react-navigation/native';
+import HeaderBar from '../../components/common/HeaderBar';
 
-
-// (📌 임시 데이터)
-const dummyTravelList = [
-  // { id: 1, title: '경주 여행', period: '2025.04.20 ~ 2025.04.30', dDay: 'D-5', route: ['첨성대', '국밥'] },
-  // { id: 2, title: '부산 여행', period: '2025.05.05 ~ 2025.05.07', dDay: 'D-20', route: ['광안리', '해운대'] }
-];
+// ==== 반응형 유틸 함수 (iPhone 13 기준) ====
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+const BASE_WIDTH = 390;
+const BASE_HEIGHT = 844;
+function normalize(size, based = 'width') {
+  const scale =
+    based === 'height'
+      ? SCREEN_HEIGHT / BASE_HEIGHT
+      : SCREEN_WIDTH / BASE_WIDTH;
+  const newSize = size * scale;
+  if (Platform.OS === 'ios') {
+    return Math.round(PixelRatio.roundToNearestPixel(newSize));
+  } else {
+    return Math.round(PixelRatio.roundToNearestPixel(newSize)) - 1;
+  }
+}
 
 export default function HomeScreen() {
   const navigation = useNavigation();
-  const { user, setUser } = useContext(UserContext); //  user 불러옴
+  const { user, setUser } = useContext(UserContext);
   const nickname = user?.nickname || '사용자';
   const isLong = nickname.length > 4;
 
-  const [showSplash, setShowSplash] = useState(false); //  팀원 기능: splash
-
-  const handleLogout = async () => {
-    try {
-      await AsyncStorage.removeItem('user');
-      setUser(null);
-    } catch (e) {
-      Alert.alert('로그아웃 실패', '다시 시도해주세요.');
-    }
-  };
+  const [showSplash, setShowSplash] = useState(false);
+  const [myTrips, setMyTrips] = useState([]); // 여행 플랜 리스트 관리
 
   useEffect(() => {
     if (!user) navigation.replace('Login');
   }, [user]);
 
+  // 여행 플랜 불러오기 (마운트 시 한 번)
+  useFocusEffect(
+    React.useCallback(() => {
+      const fetchTrips = async () => {
+        try {
+          const trips = await fetchPlanList();
+          setMyTrips(trips);
+        } catch (err) {
+          setMyTrips([]);
+        }
+      };
+      fetchTrips();
+    }, [])
+  );
+
   return (
     <View style={styles.container}>
-      {/* ✅ Splash 모달 */}
-      <Modal visible={showSplash} transparent animationType="fade">
-        <SplashScreen />
-      </Modal>
-
-      {/* 헤더 */}
-      <View style={styles.headerWrapper}>
-        <Text style={styles.logoText} numberOfLines={1} adjustsFontSizeToFit>moyeo </Text>
-
-        {/*임시 로그아웃 + 임시 챗봇 */}
-        <TouchableOpacity
-          style={{ marginRight: 8 }} // 적당히 띄우기
-          onPress={() => navigation.navigate('ChatBot')}
-        >
-          <MaterialIcons name="smart-toy" size={24} color="#4F46E5" />
-        </TouchableOpacity>
-
-        <TouchableOpacity onPress={handleLogout}>
-            <Feather name="log-out" size={24} color="#4B5563" />
-          </TouchableOpacity>
-        <View style={styles.profileContainer}>
-          
-        </View>
-        <View style={styles.profileContainer}>
-          <TouchableOpacity onPress={() => navigation.navigate('ProfileHome', user)}>
-            {user?.profileImageUrl ? (
-              <Image source={{ uri: user.profileImageUrl }} style={styles.profileImage} />
-            ) : (
-              <View style={styles.profilePlaceholder} />
-            )}
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      <View style={styles.headerLine} />
+      <HeaderBar/>
 
       {/* 사용자 인사말 */}
       <View style={styles.greetingWrapper}>
@@ -82,30 +79,49 @@ export default function HomeScreen() {
             <Text style={styles.greetingText}>좋은 하루 보내세요</Text>
           </>
         ) : (
-          <Text style={styles.greetingText}>{nickname}님 좋은 하루 보내세요</Text>
+          <Text style={styles.greetingText}>
+            {nickname}님 좋은 하루 보내세요
+          </Text>
         )}
         <Text style={styles.subGreetingText}>오늘은 어디로 떠나고 싶으세요?</Text>
       </View>
 
       {/* 기능 카드 */}
       <View style={styles.featureRow}>
-        <TouchableOpacity style={styles.featureItem} onPress={() => navigation.navigate('Planner')}>
+        <TouchableOpacity
+          style={styles.featureItem}
+          onPress={() => navigation.navigate('Planner')}
+        >
           <View style={styles.featureCard}>
             <View style={[styles.iconCircle, { backgroundColor: '#E9CDFF' }]}>
-              <MaterialIcons name="route" size={64} color="#533E92" />
+              <MaterialIcons
+                name="route"
+                borderRadius={ normalize(30)}
+                size={normalize(64)}
+                color="#533E92"
+              />
             </View>
             <Text style={styles.featureTitle}>AI 여행 플랜 제작</Text>
-            <Text style={styles.featureDesc}>나에게 맞춘 여행계획을 세워볼까요?</Text>
+            <Text style={styles.featureDesc}>나만의 여행계획을 세워볼까요?   </Text>
           </View>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.featureItem} onPress={() => navigation.navigate('Matching')}>
+        <TouchableOpacity
+          style={styles.featureItem}
+          onPress={() => navigation.navigate('Matching')}
+        >
           <View style={styles.featureCard}>
-            <View style={[styles.iconCircle, { backgroundColor: '#FFF1A8' }]}>
-              <MaterialIcons name="person-outline" size={64} color="#928023" />
+            <View style={[styles.iconCircle, { backgroundColor: 
+              '#FFF1A8' }]}>
+              <MaterialIcons
+                name="person-outline"
+                borderRadius={ normalize(30)}
+                size={normalize(64)}
+                color="#928023"
+              />
             </View>
             <Text style={styles.featureTitle}>여행 동행자 찾기</Text>
-            <Text style={styles.featureDesc}>나와 함께할 동행자를 찾아볼까요?</Text>
+            <Text style={styles.featureDesc}>나와 함께할 동행자를 찾아볼까요?     </Text>
           </View>
         </TouchableOpacity>
       </View>
@@ -113,8 +129,8 @@ export default function HomeScreen() {
       {/* 여행 플랜 타이틀 */}
       <View style={styles.travelHeader}>
         <Text style={styles.travelTitle}>다가오는 여행</Text>
-        {dummyTravelList.length > 0 && (
-          <TouchableOpacity onPress={() => navigation.navigate('Planner')}>
+        {myTrips.length > 0 && (
+          <TouchableOpacity onPress={() => navigation.navigate('MyTrips')}>
             <Text style={styles.travelViewAll}>여행 전체보기</Text>
           </TouchableOpacity>
         )}
@@ -122,158 +138,158 @@ export default function HomeScreen() {
       <Text style={styles.travelDesc}>곧 떠날 여행 플랜</Text>
 
       {/* 여행 카드 리스트 */}
-      {dummyTravelList.length > 1 ? (
+      {myTrips.length > 1 ? (
         <ScrollView
           style={styles.travelScrollArea}
-          contentContainerStyle={{ paddingBottom: 120 }}
+          contentContainerStyle={{ paddingBottom: normalize(120, 'height') }}
           showsVerticalScrollIndicator={false}
         >
-          <TravelSection travelList={dummyTravelList} onPressCreate={() => navigation.navigate('Planner')} />
+          <TravelSection
+  travelList={myTrips}
+  onPressCreate={() => navigation.navigate('Planner')}
+  onPressCard={(scheduleId) => {
+  console.log('[TravelCard 클릭됨] scheduleId:', scheduleId);
+  navigation.navigate('PlannerResponse', {
+    scheduleId,
+    from: 'Home', // ✅ 이 값을 넘겨야 PlannerResponseHome에서 인식 가능
+  });
+}}
+/>
         </ScrollView>
       ) : (
         <View style={styles.travelScrollArea}>
-          <TravelSection travelList={dummyTravelList} onPressCreate={() => navigation.navigate('Planner')} />
+          <TravelSection
+  travelList={Array.isArray(myTrips) ? myTrips : []}
+  onPressCreate={() => navigation.navigate('Planner')}
+/>
         </View>
       )}
-
-      {/* ✅ 하단 우측 버튼 */}
-      <View style={{ position: 'absolute', right: 20, bottom: 20, flexDirection: 'row', gap: 12 }}>
-        <TouchableOpacity style={styles.chatbotButton} onPress={() => console.log('챗봇 열기')}>
-          <Feather name="plus" size={24} color="white" />
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.splashButton} onPress={() => setShowSplash(true)}>
-          <Ionicons name="rocket-outline" size={24} color="white" />
-        </TouchableOpacity>
-      </View>
     </View>
   );
 }
-
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#FAFAFA',
-    paddingHorizontal: 16,
-    paddingTop: 24,
   },
   headerWrapper: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  logoText: {
-    fontSize: 40,
-    fontFamily: 'KaushanScript_400Regular',
-    color: '#4F46E5',
-    lineHeight: 80,
-    letterSpacing: 0,
-  },
-  profileImage: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    marginTop: 20,
-  },
-  profilePlaceholder: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    marginTop: 20,
-    backgroundColor: '#D1D5DB',
-  },
-  headerLine: {
-    borderBottomWidth: 1,
-    borderColor: '#999',
-    marginTop: 1,
-  },
   greetingWrapper: {
-    marginTop: 4,
+    marginTop: normalize(28, 'height'),
   },
   greetingText: {
     fontFamily: 'Inter_400Regular',
-    fontSize: 25,
+    fontSize: normalize(25),
     color: '#141414',
-    letterSpacing: 0,
+    letterSpacing: normalize(0),
+    marginLeft: normalize(16),
   },
   subGreetingText: {
     fontFamily: 'Inter_400Regular',
-    fontSize: 15,
+    fontSize: normalize(15),
     color: '#999999',
-    marginTop: 4,
-    letterSpacing: 0,
+    marginTop: normalize(4, 'height'),
+    letterSpacing: normalize(0),
+    marginLeft: normalize(16),
   },
   featureRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 24,
-  },
+  flexDirection: 'row',
+  justifyContent: 'space-between',
+  marginTop: normalize(12, 'height'), // ✅ 상단 간격 줄이기
+  paddingHorizontal: normalize(14),    // ✅ 좌우 여백 추가
+},
   featureItem: {
     width: '48%',
     aspectRatio: 1,
-    paddingHorizontal: 2,
+    paddingHorizontal: normalize(2),
   },
   featureCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 24,
-    paddingTop: 16,
-    paddingBottom: 16,
-    paddingHorizontal: 12,
+    borderRadius: normalize(24),
+    paddingTop: normalize(16, 'height'),
+    paddingBottom: normalize(16, 'height'),
+    paddingHorizontal: normalize(12),
     alignItems: 'center',
     justifyContent: 'center',
     flex: 1,
   },
   iconCircle: {
-    width: 72,
-    height: 72,
-    borderRadius: 12,
+    width: normalize(72),
+    height: normalize(72),
+    borderRadius: normalize(12),
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: normalize(8, 'height'),
   },
   featureTitle: {
-    fontSize: 15,
+    fontSize: normalize(17),
     fontFamily: 'Inter_400Regular',
     color: '#000000',
-    marginTop: 4,
-    letterSpacing: 0,
+    marginTop: normalize(4, 'height'),
+    letterSpacing: normalize(0),
   },
   featureDesc: {
-    fontSize: 10,
+    fontSize: normalize(12),
     fontFamily: 'Inter_400Regular',
     color: '#7E7E7E',
     textAlign: 'center',
-    letterSpacing: -1,
+    letterSpacing: normalize(-1),
   },
   travelHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: 32,
+    marginTop: normalize(32, 'height'),
   },
   travelTitle: {
     fontFamily: 'Inter_400Regular',
-    fontSize: 25,
+    fontSize: normalize(25),
+    marginLeft: normalize(19),
     color: '#000000',
-    letterSpacing: 0,
+    letterSpacing: normalize(0),
   },
   travelViewAll: {
     fontFamily: 'Inter_400Regular',
-    fontSize: 10,
+    fontSize: normalize(15),
+    marginRight: normalize(24),
     color: '#4F46E5B2',
-    letterSpacing: 0,
+    letterSpacing: normalize(0),
   },
   travelDesc: {
-    fontSize: 12,
+    fontSize: normalize(12),
+    marginLeft: normalize(22),
     fontFamily: 'Inter_400Regular',
     color: '#999999',
     textAlign: 'left',
-    marginTop: 8,
-    marginBottom: 0,
-    letterSpacing: 0,
+    marginTop: normalize(8, 'height'),
+    marginBottom: normalize(0),
+    letterSpacing: normalize(0),
   },
   travelScrollArea: {
     flex: 1,
-    marginTop: 8,
+    marginTop: normalize(8, 'height'),
+  },
+  chatbotButton: {
+    width: normalize(48),
+    height: normalize(48),
+    borderRadius: normalize(24),
+    backgroundColor: "#6D28D9",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  splashButton: {
+    width: normalize(48),
+    height: normalize(48),
+    borderRadius: normalize(24),
+    backgroundColor: "#4F46E5",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  profileContainer: {
+    // 기존 구조 유지
   },
 });

@@ -1,8 +1,33 @@
 // 📁 components/home/TravelSection.jsx
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  Dimensions,
+  PixelRatio,
+  Platform,
+} from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import TravelCard from '../common/TravelCard';
+
+// ==== 반응형 유틸 함수 (iPhone 13 기준) ====
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+const BASE_WIDTH = 390;
+const BASE_HEIGHT = 844;
+function normalize(size, based = 'width') {
+  const scale =
+    based === 'height'
+      ? SCREEN_HEIGHT / BASE_HEIGHT
+      : SCREEN_WIDTH / BASE_WIDTH;
+  const newSize = size * scale;
+  if (Platform.OS === 'ios') {
+    return Math.round(PixelRatio.roundToNearestPixel(newSize));
+  } else {
+    return Math.round(PixelRatio.roundToNearestPixel(newSize)) - 1;
+  }
+}
 
 /**
  * 다가오는 여행 카드 리스트를 출력하는 컴포넌트입니다.
@@ -12,11 +37,14 @@ import TravelCard from '../common/TravelCard';
  *
  * @param {Array} travelList - 여행 플랜 배열
  * @param {Function} onPressCreate - 플랜 생성 버튼 클릭 시 실행될 함수
+ * @param {Function} onPressCard - 플랜 카드 클릭 시 실행될 함수
  */
-export default function TravelSection({ travelList, onPressCreate }) {
+export default function TravelSection({ travelList = [], onPressCreate, onPressCard }) {
+  const safeList = Array.isArray(travelList) ? travelList : [];
+
   return (
     <View style={styles.container}>
-      {travelList.length === 0 ? (
+      {(safeList?.length ?? 0) === 0 ? (
         <View style={styles.noPlanBox}>
           <Text style={styles.noPlanText}>아직 여행 플랜이 없어요</Text>
           <TouchableOpacity onPress={onPressCreate}>
@@ -24,22 +52,38 @@ export default function TravelSection({ travelList, onPressCreate }) {
           </TouchableOpacity>
         </View>
       ) : (
-        travelList.map(plan => (
-          <TravelCard
-            key={plan.id}
-            title={plan.title}
-            dDay={plan.dDay}
-            period={plan.period}
-            route={plan.route}
-          />
-        ))
+        safeList.map(plan => (
+  <TravelCard
+    key={plan.id}
+    title={plan.title}
+    period={
+      plan.startDate && plan.endDate
+        ? `${plan.startDate.replace(/-/g, '.')} ~ ${plan.endDate.replace(/-/g, '.')}`
+        : plan.period || ''
+    }
+    dDay={plan.dDay || plan.dday || ''}
+    route={Array.isArray(plan.route) ? plan.route : []}
+    onPress={() => onPressCard?.(plan.id)} // ✅ 여기서 직접 전달
+  />
+))
       )}
-
       <TouchableOpacity style={styles.createBtn} onPress={onPressCreate}>
         <View style={styles.plusCircle}>
-          <MaterialIcons name="add" size={21} color="#FFFFFF" />
+          <MaterialIcons name="add" size={normalize(36)} color="#FFFFFF" />
         </View>
-        <Text style={styles.createText}>여행 플랜 만들러 가기</Text>
+        <Text
+          style={{
+            fontFamily: 'Roboto',
+            fontWeight: '400',
+            fontSize: normalize(16),
+            color: '#000000',
+            textAlign: 'center',
+            flex: 1,
+            paddingRight: normalize(36),
+          }}
+        >
+          여행 플랜 만들러 가기
+        </Text>
       </TouchableOpacity>
     </View>
   );
@@ -47,66 +91,70 @@ export default function TravelSection({ travelList, onPressCreate }) {
 
 const styles = StyleSheet.create({
   container: {
-    marginTop: 0,
+    marginTop: normalize(0, 'height'),
   },
   noPlanBox: {
-    backgroundColor: '#fff',
-    borderRadius: 20,
-    height: 160,
-    paddingHorizontal: 24,
-    marginTop: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 2,
-  },
+  backgroundColor: '#fff',
+  borderRadius: normalize(20),
+  width: normalize(360), // 👈 너비 직접 지정
+  height: normalize(100, 'height'),
+  paddingHorizontal: normalize(16),
+  marginTop: normalize(8, 'height'),
+  alignSelf: 'center', // 👈 가운데 정렬 (너비 줄이면 필요)
+  alignItems: 'center',
+  justifyContent: 'center',
+  shadowColor: '#000',
+  shadowOffset: { width: 0, height: normalize(4, 'height') },
+  shadowOpacity: 0.15,
+  shadowRadius: normalize(8),
+  elevation: 2,
+},
   noPlanText: {
     fontFamily: 'Roboto',
-    fontSize: 16,
+    fontSize: normalize(16),
     fontWeight: '400',
     color: '#00000',
   },
   noPlanLink: {
     fontFamily: 'Roboto',
-    fontSize: 12,
+    fontSize: normalize(12),
     fontWeight: '400',
     color: '#4F46E5B2',
-    marginTop: 8,
+    marginTop: normalize(8, 'height'),
   },
   createBtn: {
-    height: 48,
-    borderRadius: 20,              // TravelCard radius와 맞추기
+    width: '88%',
+    height: normalize(48, 'height'),
+    borderRadius: normalize(20),
     backgroundColor: '#FFFFFF',
     shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 4 },
+    shadowOffset: { width: 0, height: normalize(4, 'height') },
     shadowOpacity: 0.15,
-    shadowRadius: 1,
+    shadowRadius: normalize(1),
     elevation: 2,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 36,
-    marginTop: 15,
-    marginHorizontal: 0,           // 양옆 딱 맞추기
+    paddingHorizontal: normalize(36),
+    marginTop: normalize(18, 'height'),
+    marginHorizontal: normalize(0),
+    alignSelf: 'center',
   },
   plusCircle: {
-    width: 36,
-    height: 36,
-    borderRadius: 16,
+    width: normalize(36),
+    height: normalize(36),
+    borderRadius: normalize(16),
     backgroundColor: '#4F46E5',
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 12,
+    marginRight: normalize(12),
   },
   createText: {
     fontFamily: 'Roboto',
     fontWeight: '400',
-    fontSize: 12,
+    fontSize: normalize(16),
     color: '#000000',
-    textAlign: 'center',     // 텍스트 중앙 정렬
-    flex: 1,                 // 공간을 다 차지함 → 가운데 위치   
-    paddingRight: 36,        // 오른쪽 여백 추가해서 조금 왼쪽으로 보이게
-  },  
+    textAlign: 'center',
+    flex: 1,
+    paddingRight: normalize(36),
+  },
 });
