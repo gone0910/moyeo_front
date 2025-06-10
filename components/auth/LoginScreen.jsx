@@ -13,10 +13,8 @@ import * as Linking from 'expo-linking';
 import Feather from 'react-native-vector-icons/Feather';
 
 // 아이콘 이미지
-const kakaoIcon = require('../../assets/icons/kakaotalk_icon.png');
-const googleIcon = require('../../assets/icons/google_icon.png');
-const logoIcon = require('../../assets/icons/logo_icon.png');
-
+const kakaoIcon = require('../../assets/icons/kakao_logo.png');
+const googleIcon = require('../../assets/icons/google_loco.png');
 // 📱 iPhone 13 기준 (390 x 844)
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const BASE_WIDTH = 390;
@@ -145,7 +143,7 @@ export default function LoginScreen() {
           style={[styles.loginButton, styles.kakaoButton]}
           onPress={() => handleOAuthLogin('kakao')}
         >
-          <Image source={kakaoIcon} style={styles.icon} />
+          <Image source={kakaoIcon} style={styles.icon1} />
           <Text style={styles.loginButtonText}>카카오 로그인</Text>
         </TouchableOpacity>
 
@@ -154,21 +152,11 @@ export default function LoginScreen() {
           style={[styles.loginButton, styles.googleButton]}
           onPress={() => handleOAuthLogin('google')}
         >
-          <Image source={googleIcon} style={styles.icon} />
+          <Image source={googleIcon} style={styles.icon2} />
           <Text style={styles.loginButtonText}>구글 로그인</Text>
         </TouchableOpacity>
 
         {/* mock 로그인 */}
-        <TouchableOpacity
-          style={[styles.loginButton, styles.mockButton]}
-          onPress={async () => {
-            await AsyncStorage.setItem('mock', 'true');
-            await AsyncStorage.setItem('jwt', 'mock-token');
-            navigation.replace('UserInfo');
-          }}
-        >
-          <Text style={styles.mockButtonText}>테스트 로그인(mock)</Text>
-        </TouchableOpacity>
       </View>
     </View>
   );
@@ -183,7 +171,7 @@ const styles = StyleSheet.create({
   },
   logoContainer: {
     alignItems: 'center',
-    marginTop: normalize(80, 'height'),
+    marginTop: normalize(180, 'height'),
     marginBottom: normalize(100, 'height'),
   },
   appName: {
@@ -191,10 +179,10 @@ const styles = StyleSheet.create({
     fontFamily: 'KaushanScript_400Regular',
     color: '#4F46E5',
     lineHeight: normalize(100, 'height'),
-    marginBottom: normalize(90, 'height'),
+    marginBottom: normalize(40, 'height'),
   },
   buttonContainer: {
-    width: '84%',
+    width: '90%',
     alignItems: 'center',
   },
   loginButton: {
@@ -203,7 +191,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: '#FFFFFF',
     paddingVertical: normalize(13, 'height'),
-    paddingHorizontal: normalize(20),
+    paddingHorizontal: normalize(30),
     borderRadius: normalize(14),
     borderWidth: 1,
     borderColor: '#DDDDDD',
@@ -211,14 +199,14 @@ const styles = StyleSheet.create({
     marginBottom: normalize(20, 'height'),
   },
   kakaoButton: {
-    backgroundColor: '#FEE500',
+    backgroundColor: '#FFEB3B',
     borderWidth: 0,
     marginBottom: normalize(10, 'height'),
   },
   googleButton: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#F3f3f3',
     borderWidth: 1,
-    borderColor: '#DDDDDD',
+    borderColor: '#f3f3f3',
     marginBottom: normalize(10, 'height'),
   },
   mockButton: {
@@ -228,21 +216,28 @@ const styles = StyleSheet.create({
   },
   loginButtonText: {
     fontSize: normalize(17),
-    fontWeight: 'bold',
-    color: '#222',
-    marginLeft: normalize(10),
+    color: '#000000',
+    marginLeft: normalize(-14),
   },
   mockButtonText: {
     fontSize: normalize(17),
     fontWeight: 'bold',
     color: '#FFFFFF',
   },
-  icon: {
-    width: normalize(22),
-    height: normalize(22),
-    marginRight: normalize(8),
-    resizeMode: 'contain',
-  },
+  icon1: {
+  width: normalize(26),
+  height: normalize(26),
+  resizeMode: 'contain',
+  marginRight: normalize(8),
+  transform: [{ translateX: normalize(-110) }], // ← 왼쪽으로 20px 이동
+},
+icon2: {
+  width: normalize(26),
+  height: normalize(26),
+  resizeMode: 'contain',
+  marginRight: normalize(8),
+  transform: [{ translateX: normalize(-115) }], // ← 왼쪽으로 20px 이동
+},
   fabContainer: {
     position: 'absolute',
     right: normalize(18),
