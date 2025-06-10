@@ -27,6 +27,18 @@ function normalize(size) {
   return Math.round(PixelRatio.roundToNearestPixel(size * scale));
 }
 
+
+const TRAVEL_TIPS = [
+  '여행에서는 목적지만큼 그 여정도 소중합니다. 빠르게 이동하는 것보다 한 번쯤은 걸음을 늦추고 주변을 돌아보세요. 사진을 남기기보다는 마음에 기억하세요!',
+  '여행 준비물 체크리스트를 만들어 꼭 필요한 물건만 챙기세요. 가장 좋은 여행 일정은 여유가 있는 일정입니다. 무리하지 마세요. 새로운 사람과의 인연도 여행의 큰 선물입니다!',
+  '여행 일정은 넉넉하게, 예기치 않은 상황도 즐길 수 있도록! 비상연락처와 여권 사본은 따로 보관해두면 좋아요.비상연락처와 여권 사본은 따로 보관해두면 좋아요.',
+  '걷다가 쉬었다가, 여행지의 하늘도 한 번 올려다보세요.가끔은 지도 없이 길을 잃어보는 것도 여행의 묘미! 여행지의 작은 카페에서만 느낄 수 있는 현지 감성을 경험해보세요.'
+];
+
+function getRandomTip(arr) {
+  return arr[Math.floor(Math.random() * arr.length)];
+}
+
 const calculateDday = (startDate) => {
   const today = new Date();
   const target = new Date(startDate);
@@ -37,10 +49,13 @@ const calculateDday = (startDate) => {
 export default function MyTripsScreen() {
   const navigation = useNavigation();
   const { width } = useWindowDimensions();
-
+const [randomTip, setRandomTip] = useState('');
   const [isEditing, setIsEditing] = useState(false);
   const [myTrips, setMyTrips] = useState([]);
 
+  useEffect(() => {
+  setRandomTip(getRandomTip(TRAVEL_TIPS));
+}, []);
   useFocusEffect(
     useCallback(() => {
       const loadTrips = async () => {
@@ -89,18 +104,16 @@ export default function MyTripsScreen() {
     <View style={styles.screen}>
       <HeaderBar />
       <View
-        style={[
-          styles.tipContainer,
-          { alignSelf: 'center', width: containerWidth },
-        ]}
-      >
-        <Text style={styles.tipTitle}>
-          오늘의 여행 <Text style={{ fontStyle: 'italic' }}>TIP</Text>
-        </Text>
-        <Text style={styles.tipText}>
-          전통시장, 관광안내소에서 제공하는 스탬프 투어에 참여하면 지역 특산품 할인권 또는 기념품을 받을 수 있어요!
-        </Text>
-      </View>
+  style={[
+    styles.tipContainer,
+    { alignSelf: 'center', width: containerWidth },
+  ]}
+>
+  <Text style={styles.tipTitle}>
+    오늘의 여행 <Text style={{ fontStyle: 'italic' }}>TIP</Text>
+  </Text>
+  <Text style={styles.tipText}>{randomTip}</Text>
+</View>
 
       <View
         style={[
@@ -245,7 +258,7 @@ export default function MyTripsScreen() {
                     marginRight: normalize(12),
                   }}
                 >
-                  <MaterialIcons name="add" size={normalize(21)} color="#FFFFFF" />
+                  <MaterialIcons name="add" size={normalize(36)} color="#FFFFFF" />
                 </View>
                 <Text
                   style={{
@@ -276,7 +289,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#fafafa',
   },
   tipContainer: {
-    backgroundColor: '#FFF2E5',
+    backgroundColor: '#DFDDFF',
     alignSelf: 'center',
     width: '90%',
     maxWidth: normalize(370),
@@ -287,7 +300,8 @@ const styles = StyleSheet.create({
   },
   tipTitle: {
     fontWeight: 'bold',
-    marginBottom: normalize(6),
+    marginTop: normalize(-10),
+    marginBottom: normalize(10),
     color: '#1E1E1E',
     fontSize: normalize(20),
     fontFamily: 'KaushanScript',
@@ -316,9 +330,10 @@ const styles = StyleSheet.create({
     color: '#1E1E1E',
   },
   editButton: {
-    fontSize: normalize(18),
+    fontSize: normalize(15),
     color: '#F97575',
     marginRight: normalize(15),
+    marginBottom: normalize(-4),
   },
   scrollContent: {
     paddingBottom: normalize(40),
@@ -334,10 +349,13 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     paddingVertical: normalize(28),
     paddingHorizontal: normalize(20),
-    borderWidth: 1,
-    borderColor: '#4F46E5',
     borderRadius: normalize(20),
-    marginBottom: normalize(10),
+    marginBottom: normalize(0),
+    shadowColor: '#000000',
+  shadowOpacity: 0.05, 
+  shadowRadius: normalize(6), 
+  shadowOffset: { width: 0, height: 0 }, 
+  elevation: 12, 
   },
   tripContent: {
     flexDirection: 'row',
@@ -361,19 +379,23 @@ const styles = StyleSheet.create({
     color: '#4F46E5',
   },
   deleteButtonPill: {
-    width: normalize(68),
-    backgroundColor: '#F97575',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderTopLeftRadius: 0,
-    borderBottomLeftRadius: 0,
-    borderTopRightRadius: normalize(20),
-    borderBottomRightRadius: normalize(20),
-    borderWidth: 1,
-    borderColor: '#4F46E5',
-    borderLeftWidth: 0,
-    marginBottom: normalize(10),
-  },
+  width: normalize(68),
+  backgroundColor: '#F97575',
+  justifyContent: 'center',
+  alignItems: 'center',
+  borderTopLeftRadius: 0,
+  borderBottomLeftRadius: 0,
+  borderTopRightRadius: normalize(20),
+  borderBottomRightRadius: normalize(20),
+  borderLeftWidth: 0,
+  marginBottom: 0, // 이거 주의!
+  alignSelf: 'stretch', // tripBox와 높이 맞춤 (핵심)
+  shadowColor: '#000000',
+  shadowOpacity: 0.05, 
+  shadowRadius: normalize(6), 
+  shadowOffset: { width: 0, height: 0 }, 
+  elevation: 12, 
+},
   deleteButtonText: {
     color: '#fff',
     fontSize: normalize(16),
