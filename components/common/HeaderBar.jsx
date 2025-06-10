@@ -12,9 +12,16 @@ export default function CommonHeader({ showDivider = true }) {
   return (
     <View style={styles.headerContainer}>
       <View style={styles.headerRow}>
-        <TouchableOpacity onPress={() => navigation.navigate('Home')}>
-          <Text style={styles.logoText}>moyeo </Text>
-        </TouchableOpacity>
+        <TouchableOpacity
+  onPress={() => {
+    navigation.reset({
+      index: 0,
+      routes: [{ name: 'Home' }],
+    });
+  }}
+>
+  <Text style={styles.logoText}>moyeo </Text>
+</TouchableOpacity>
         <TouchableOpacity onPress={() => navigation.navigate('ProfileHome')}>
           {user?.profileImageUrl ? (
             <Image source={{ uri: user.profileImageUrl }} style={styles.profileImage} />
@@ -60,7 +67,7 @@ const styles = StyleSheet.create({
   },
   headerLine: {
     height: 1,
-    backgroundColor: '#999999',
+    backgroundColor: '#B5B5B5',
     marginTop: 1,
   },
 });
