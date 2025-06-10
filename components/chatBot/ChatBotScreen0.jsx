@@ -1,14 +1,23 @@
-// components/chatBot/ChatBotScreen.jsx  챗봇 전체 화면 (5차 정보 안내 + SafeAreaView 적용, Figma/반응형)
-// 역할: 1~4차(카테고리 선택) + 5차([도/시]의 [카테고리] 정보 안내) + 하단탭 SafeAreaView 반영 통합
+// components/chatBot/ChatBotScreen.jsx
+// 도/시 한 말풍선(합체), 지나간 말풍선/버튼 disable(흑백), '이전하기' 플로우까지 한방에 동작
 
-import React, { useState } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import { ScrollView, View, StyleSheet, Text, TouchableOpacity, Dimensions } from 'react-native';
 import { MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons';
+import ChatBotIcon from '../icons/ChatBotIcon';
 import { useNavigation } from '@react-navigation/native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { REGION_MAP } from '../common/regionMap';
+// import ChatBotIcon from '../../assets/icons/ChatBotIcon'; // 아이콘 사용
+import * as Location from 'expo-location'; // 현재 위치기반
+import ResultSightBubble from './ResultSightBubble';
+import ResultFoodBubble from './ResultFoodBubble';
+import ResultHotelBubble from './ResultHotelBubble';
+import ResultEventBubble from './ResultEventBubble';
+import ResultWeatherBubble from './ResultWeatherBubble';
 
 
+
+const { width } = Dimensions.get('window');
 // 광역시 목록
 const METROPOLITAN_CITIES = [
   '부산', '대구', '인천', '광주', '대전', '울산', '세종'
@@ -17,10 +26,7 @@ const METROPOLITAN_CITIES = [
 const provinces = Object.keys(REGION_MAP).filter(
   name => !METROPOLITAN_CITIES.includes(name)
 );
-const { width } = Dimensions.get('window');
 
-
-// 1차 질문(챗봇 안내)
 const initialMessages = [
   {
     type: 'bot',
@@ -33,7 +39,6 @@ const initialMessages = [
   }
 ];
 
-// 카테고리 리스트
 const CATEGORY_LIST = [
   { label: '관광지', value: 'sight' },
   { label: '맛집/카페', value: 'food' },
@@ -44,44 +49,142 @@ const CATEGORY_LIST = [
 
 export default function ChatBotScreen() {
   const [messages, setMessages] = useState(initialMessages);
+  const [regionStep, setRegionStep] = useState(''); // '', 'province', 'city', 'done'
   const [selectedProvince, setSelectedProvince] = useState(null);
   const [selectedCity, setSelectedCity] = useState(null);
   const navigation = useNavigation();
+  const scrollRef = useRef();
+    // 스크롤 및 챗봇 포커싱
+    useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollToEnd({ animated: true });
+    }
+  }, [messages]);
 
-  // 버튼 클릭시 메시지/버튼 갱신 예시
-  const handleButton = (value, label) => {
-    // 모든 이전 말풍선 비활성화
-    const updated = messages.map(m => ({ ...m, isActive: false }));
-    // 내가 누른 버튼을 내 답변 말풍선으로 추가
+
+  // 인터렉션 핸들러 선언
+  // "처음으로" - 1차 말풍선으로 복귀
+  const handleToFirst = () => {
+    setMessages([
+      ...messages.map(m => ({ ...m, isActive: false })),
+      { ...initialMessages[0], isActive: true },
+    ]);
+    setRegionStep('');
+    setSelectedProvince(null);
+    setSelectedCity(null);
+  };
+  // "카테고리 변경" - 4차 카테고리 말풍선으로 복귀
+  const handleToCategory = () => {
+    // 이미 카테고리 말풍선이 active면 무시
+    const alreadyCategory = messages.some(
+      m => m.type === 'bot' && m.custom === 'category' && m.isActive
+    );
+    if (alreadyCategory) return;
+    setMessages([
+      ...messages.map(m => ({ ...m, isActive: false })),
+      {
+        type: 'bot',
+        text: '정보 제공을 원하시는 카테고리를 선택해 주세요.',
+        isActive: true,
+        custom: 'category',
+      },
+    ]);
+    setRegionStep('done');
+  };
+
+  // "리스트 재조회" - 5차(결과) 말풍선일 때만 동작
+  const handleListReload = () => {
+    const lastBot = messages.slice().reverse().find(m => m.type === 'bot' && m.custom === 'result');
+    if (!lastBot) return;
+    // 👉 여기에 실제 리스트 재조회 로직 (API 재요청 등) 넣으세요
+    setMessages([
+      ...messages,
+      {
+        ...lastBot,
+        text: `${lastBot.catLabel} 정보를 새로 불러왔어요!`,
+        isActive: true,
+      },
+    ]);
+  };
+
+  // 버튼 클릭 처리
+  const handleButton = async (value, label) => {
+  const updated = messages.map(m => ({ ...m, isActive: false }));
+
+  // '이전으로' 클릭 시 (언제든 1차 안내 복귀)
+  if (value === 'prev') {
+    updated.push({ type: 'bot', ...initialMessages[0], isActive: true });
+    setSelectedProvince(null);
+    setSelectedCity(null);
+    setRegionStep('');
+  }
+
+  // === [여기에 아래 코드 붙여넣기!] ===
+  else if (value === 'currentLocation') {
+    // ① 내 대답 말풍선 추가
     updated.push({ type: 'user', text: label });
+    setMessages([...updated]);
 
-    // 2차: 목적지 관련 정보제공 클릭시 도 리스트 버튼(2차 말풍선) 추가
-    if (value === 'destination') {
+    // ② 위치권한 팝업 요청 (권한 거부/허용 모두 대응)
+    let { status } = await Location.requestForegroundPermissionsAsync();
+    if (status !== 'granted') {
+      // ③ 권한 거부 안내 봇 말풍선
+      updated.push({
+        type: 'bot',
+        text: '위치 정보 접근이 거부되었습니다. 위치기반 서비스 이용이 제한됩니다.',
+        isActive: true,
+      });
+      setMessages([...updated]);
+      return;
+    }
+    // ④ 권한 허용: 실제 위치값 얻기(터미널에 출력)
+    let location = await Location.getCurrentPositionAsync({});
+    const { latitude, longitude } = location.coords;
+    console.log('현재 위치:', latitude, longitude); // <- 위도 경도 로그그
+
+    // ⑤ 카테고리 선택 말풍선 추가
+    updated.push({
+      type: 'bot',
+      text: '정보 제공을 원하시는 카테고리를 선택해 주세요.',
+      isActive: true,
+      custom: 'category',
+    });
+    setMessages([...updated]);
+    return;
+  }
+
+    // 1차 안내 → 도/시 합체 말풍선
+    else if (value === 'destination') {
       setSelectedProvince(null);
       setSelectedCity(null);
+      setRegionStep('province');
       updated.push({
         type: 'bot',
         text: '목적지를 선택해주세요.',
         isActive: true,
-        custom: 'province',
+        custom: 'region',
+        step: 'province',
       });
     }
-    // 3차: 도 버튼 클릭시 → 시 리스트 출력
-    else if (provinces.includes(value)) {
+    // 도 선택 → 시 리스트 노출 (말풍선 재사용)
+    else if (regionStep === 'province' && provinces.includes(value)) {
       setSelectedProvince(value);
-      setSelectedCity(null);
+      setRegionStep('city');
+      updated.push({ type: 'user', text: value });
       updated.push({
         type: 'bot',
         text: '목적지를 선택해주세요.',
         isActive: true,
-        custom: 'city',
+        custom: 'region',
+        step: 'city',
+        province: value,
       });
     }
-    // 4차: 시/군/구 버튼 클릭 또는 "선택안함" 클릭 시 → 카테고리 선택
-    else if (selectedProvince && (
-      REGION_MAP[selectedProvince].some(city => city.name === value) || value === '선택안함')
-    ) {
+    // 시 선택 or 선택없음
+    else if (regionStep === 'city' && selectedProvince && (REGION_MAP[selectedProvince].some(city => city.name === value) || value === '선택안함')) {
       setSelectedCity(value === '선택안함' ? null : value);
+      setRegionStep('done');
+      updated.push({ type: 'user', text: label });
       updated.push({
         type: 'bot',
         text: '정보 제공을 원하시는 카테고리를 선택해 주세요.',
@@ -89,7 +192,7 @@ export default function ChatBotScreen() {
         custom: 'category',
       });
     }
-    // 5차: 카테고리 선택 시 → [도/시]의 [카테고리] 정보 안내
+    // 카테고리 선택
     else if (CATEGORY_LIST.some(cat => cat.value === value)) {
       const catObj = CATEGORY_LIST.find(cat => cat.value === value);
       updated.push({
@@ -103,78 +206,153 @@ export default function ChatBotScreen() {
     setMessages(updated);
   };
 
-  // 3차 말풍선: 시 리스트, "이전으로/선택안함" 버튼
-  const renderCityBubble = (key) => {
-    const cityList = selectedProvince ? REGION_MAP[selectedProvince] : [];
+  // 도/시 합체 말풍선 (disable/흑백/이전처리)
+  const renderRegionBubble = (key, step, province) => {
+    const isActive = messages[key]?.isActive;
+    let cityList = province ? REGION_MAP[province] : [];
     return (
-      <View style={styles.botBubble} key={key}>
-        {/* 안내문구 (맨 위) */}
-        <Text style={styles.botBubbleTitle}>목적지를 선택해주세요.</Text>
-        {/* 상단 버튼 2개: 이전으로/선택안함 */}
-        <View style={styles.cityTopBtnRow}>
-          <TouchableOpacity
-            style={styles.cityTopButton}
-            onPress={() => handleButton('destination', '도 다시 선택')}
-          >
-            <Text style={styles.prevButtonText}>이전으로</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.cityTopButton}
-            onPress={() => handleButton('선택안함', '선택안함')}
-          >
-            <Text style={styles.prevButtonText}>선택안함</Text>
-          </TouchableOpacity>
+      <View key={key} style={{ marginBottom: 0, opacity: isActive ? 1 : 0.5 }}>
+        <View style={styles.chatBotIconRow}>
+          <ChatBotIcon width={28} height={28} />
         </View>
-        {/* 시 리스트: wrap flex, 한 줄 3개 */}
-        <View style={styles.cityButtonWrap}>
-          {cityList.map((city, idx) => (
-            <TouchableOpacity
-              key={city.name}
-              style={[
-                styles.cityButton,
-                (idx + 1) % 3 === 0 && { marginRight: 0 },
-              ]}
-              onPress={() => handleButton(city.name, city.name)}
-            >
-              <Text style={styles.cityButtonText}>{city.name}</Text>
-            </TouchableOpacity>
-          ))}
+        <View style={[styles.botBubble, !isActive && styles.disabledBubble]}>
+          <Text style={styles.botBubbleTitle}>목적지를 선택해주세요.</Text>
+          {/* 도 선택 단계 */}
+          {step === 'province' && (
+            <>
+              <TouchableOpacity
+                style={[styles.prevButtonFull, !isActive && styles.disabledButton]}
+                onPress={() => handleButton('prev', '이전으로')}
+                disabled={!isActive}
+              >
+                <Text style={[styles.prevButtonText, !isActive && styles.disabledButtonText]}>이전으로</Text>
+              </TouchableOpacity>
+              <View style={styles.provinceButtonWrap}>
+                {provinces.map((prov, idx) => (
+                  <TouchableOpacity
+                    key={prov}
+                    style={[styles.provinceButton, !isActive && styles.disabledButton, (idx + 1) % 3 === 0 && { marginRight: 0 }]}
+                    onPress={() => handleButton(prov, prov)}
+                    disabled={!isActive}
+                  >
+                    <Text style={[styles.provinceButtonText, !isActive && styles.disabledButtonText]}>{prov}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </>
+          )}
+          {/* 시 선택 단계 */}
+          {step === 'city' && (
+            <>
+              <View style={styles.cityTopBtnRow}>
+                <TouchableOpacity
+                  style={[styles.cityTopButton, !isActive && styles.disabledButton]}
+                  onPress={() => handleButton('prev', '이전하기')}
+                  disabled={!isActive}
+                >
+                  <Text style={[styles.prevButtonText, !isActive && styles.disabledButtonText]}>이전으로</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.cityTopButton, !isActive && styles.disabledButton]}
+                  onPress={() => handleButton('선택안함', '선택없음')}
+                  disabled={!isActive}
+                >
+                  <Text style={[styles.prevButtonText, !isActive && styles.disabledButtonText]}>선택없음</Text>
+                </TouchableOpacity>
+              </View>
+              <View style={styles.cityButtonWrap}>
+                {cityList.map((city, idx) => (
+                  <TouchableOpacity
+                    key={city.name}
+                    style={[styles.cityButton, !isActive && styles.disabledButton, (idx + 1) % 3 === 0 && { marginRight: 0 }]}
+                    onPress={() => handleButton(city.name, city.name)}
+                    disabled={!isActive}
+                  >
+                    <Text style={[styles.cityButtonText, !isActive && styles.disabledButtonText]}>{city.name}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </>
+          )}
         </View>
       </View>
     );
   };
 
-  // 4차 카테고리 선택 말풍선 (좁은 프레임)
-  const renderCategoryBubble = (key) => (
-    <View style={styles.categoryBubble} key={key}>
-      {/* 안내문구 */}
-      <Text style={styles.categoryTitle}>정보 제공을 원하시는 카테고리를 선택해 주세요.</Text>
-      {/* 카테고리 버튼 리스트 (5개 세로) */}
-      <View style={styles.categoryBtnWrap}>
-        {CATEGORY_LIST.map((cat, idx) => (
-          <TouchableOpacity
-            key={cat.value}
-            style={styles.categoryButton}
-            onPress={() => handleButton(cat.value, cat.label)}
-          >
-            <Text style={styles.categoryButtonText}>{cat.label}</Text>
-          </TouchableOpacity>
-        ))}
+    // 1. 인터렉션 버튼 및 wrapper 컴포넌트트
+  const BotMessageBlock = ({ children, showButtons = false }) => (
+    <View style={{ marginBottom: 24 }}>
+      <View style={styles.chatBotIconRow}>
+        <ChatBotIcon width={28} height={28} />
+        {/* 또는 <ChatBotIcon size={28} /> */}
       </View>
+      {children}
+      {showButtons && (
+        <View style={styles.interactionBtnRow}>
+          <TouchableOpacity style={styles.interactionBtn} onPress={handleToFirst}>
+            <Text style={styles.interactionBtnText}>처음으로</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.interactionBtn} onPress={handleToCategory}>
+            <Text style={styles.interactionBtnText}>카테고리 변경</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.interactionBtn} onPress={handleListReload}>
+            <Text style={styles.interactionBtnText}>리스트 재조회</Text>
+          </TouchableOpacity>
+        </View>
+      )}
     </View>
   );
 
-  // 5차 정보 안내(결과) 말풍선 (좁은 프레임)
-  const renderResultBubble = (key, catLabel) => (
-    <View style={styles.resultBubble} key={key}>
-      <Text style={styles.resultText}>
-        {selectedProvince}
-        {selectedCity ? ` ${selectedCity}` : ''}의{' '}
-        <Text style={{ color: '#4F46E5', fontWeight: 'bold' }}>{catLabel}</Text> 정보입니다.
-      </Text>
-      {/* 실제 정보/카드/재조회/카테고리 재선택/처음으로 버튼 등은 추후 확장 */}
-    </View>
+
+  // 카테고리 말풍선 
+  const renderCategoryBubble = (key) => (
+    <BotMessageBlock showButtons={true} key={key}>
+      <View style={[styles.categoryBubble, !messages[key]?.isActive && styles.disabledBubble,
+                                              { opacity: messages[key]?.isActive ? 1 : 0.5 }]}>
+        <Text style={styles.categoryTitle}>정보 제공을 원하시는 카테고리를 선택해 주세요.</Text>
+        <View style={styles.categoryBtnWrap}>
+          {CATEGORY_LIST.map((cat, idx) => (
+            <TouchableOpacity
+              key={cat.value}
+              style={[styles.categoryButton, !messages[key]?.isActive && styles.disabledButton]}
+              onPress={() => handleButton(cat.value, cat.label)}
+              disabled={!messages[key]?.isActive}
+            >
+              <Text style={[styles.categoryButtonText, !messages[key]?.isActive && styles.disabledButtonText]}>{cat.label}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </View>
+    </BotMessageBlock>
   );
+
+  // 3. 결과 말풍선 (5차)
+  const renderResultBubble = (key, catLabel) => {
+    let CardListComp = null;
+    if (catLabel === '관광지') CardListComp = <ResultSightBubble key={key} />;
+    else if (catLabel === '맛집/카페') CardListComp = <ResultFoodBubble key={key} />;
+    else if (catLabel === '숙소') CardListComp = <ResultHotelBubble key={key} />;
+    else if (catLabel === '축제/이벤트') CardListComp = <ResultEventBubble key={key} />;
+    else if (catLabel === '날씨') CardListComp = <ResultWeatherBubble key={key} />;
+
+
+    return (
+      <BotMessageBlock showButtons={true} key={key}>
+        {/* 5차 안내 말풍선(타이틀, 카테고리 안내) */}
+        <View style={[styles.resultBubble, !messages[key]?.isActive && styles.disabledBubble]}>
+          <Text style={styles.resultText}>
+            {selectedProvince}
+            {selectedCity ? ` ${selectedCity}` : ''}의{' '}
+            <Text style={{ color: '#4F46E5', fontWeight: 'bold' }}>{catLabel}</Text> 정보입니다.
+          </Text>
+        </View>
+        {/* 카드리스트(Bubble) */}
+        {CardListComp}
+        {/* BotMessageBlock 하단의 인터랙션 버튼이 자동으로 붙음 */}
+      </BotMessageBlock>
+    );
+  };
+
 
   return (
     <View style={styles.container}>
@@ -189,90 +367,53 @@ export default function ChatBotScreen() {
         <View style={styles.sideButton} />
       </View>
       <View style={styles.headerLine} />
-
-      {/* 대화영역 */}
-      <ScrollView style={styles.chatArea}
-       contentContainerStyle={{ paddingBottom: 32 }}>
+      <ScrollView style={styles.chatArea} ref={scrollRef} contentContainerStyle={{ paddingBottom: 120 }}
+      >
         {messages.map((msg, i) => {
-          // 5차 정보 안내(결과)
-          if (msg.type === 'bot' && msg.custom === 'result') {
-            return renderResultBubble(i, msg.catLabel);
+          // 도/시 합체 말풍선 (단계에 따라 렌더)
+          if (msg.type === 'bot' && msg.custom === 'region') {
+            return renderRegionBubble(i, msg.step, msg.province);
           }
-          // 4차 카테고리 선택
+          // 카테고리/결과 안내 등
           if (msg.type === 'bot' && msg.custom === 'category') {
             return renderCategoryBubble(i);
           }
-          // 3차 말풍선(시 선택)
-          if (msg.type === 'bot' && msg.custom === 'city') {
-            return renderCityBubble(i);
+          if (msg.type === 'bot' && msg.custom === 'result') {
+            return renderResultBubble(i, msg.catLabel);
           }
-          // 2차 말풍선(도 선택)
-          if (msg.type === 'bot' && msg.custom === 'province') {
+          // 1차 안내/버튼 (기본 챗봇 말풍선)
+          if (msg.type === 'bot') {
             return (
-              <View style={styles.botBubble} key={i}>
-                {/* 안내문구 (맨 위) */}
-                <Text style={styles.botBubbleTitle}>목적지를 선택해주세요.</Text>
-                {/* 이전으로 버튼 (안내문구 아래) */}
-                <TouchableOpacity style={styles.prevButtonFull} onPress={() => setMessages(initialMessages)}>
-                  <Text style={styles.prevButtonText}>이전으로</Text>
-                </TouchableOpacity>
-                {/* 도 리스트: wrap flex, 한 줄 3개 */}
-                <View style={styles.provinceButtonWrap}>
-                  {provinces.map((prov, idx) => (
-                    <TouchableOpacity
-                      key={prov}
-                      style={[
-                        styles.provinceButton,
-                        (idx + 1) % 3 === 0 && { marginRight: 0 },
-                      ]}
-                      onPress={() => handleButton(prov, prov)}
-                    >
-                      <Text style={styles.provinceButtonText}>{prov}</Text>
-                    </TouchableOpacity>
-                  ))}
+              <View key={i} style={{ marginBottom: 0, opacity: msg.isActive ? 1 : 0.5 }}>
+                <View style={styles.chatBotIconRow}>
+                  <ChatBotIcon width={28} height={28} />
+                </View>
+                <View style={[styles.botBubble, !msg.isActive && styles.disabledBubble]}>
+                  <Text style={{ fontSize: 14, lineHeight: 22 }}>
+                    {msg.text.split(/(목적지 관련 정보제공|현재 위치 기반 정보제공)/g).map((part, idx) =>
+                      part === '목적지 관련 정보제공' || part === '현재 위치 기반 정보제공'
+                        ? <Text key={idx} style={{ color: '#928CFF', fontWeight: 'bold' }}>{part}</Text>
+                        : <Text key={idx}>{part}</Text>
+                    )}
+                  </Text>
+                  {msg.buttons && (
+                    <View style={{ marginTop: 10 }}>
+                      {msg.buttons.map((btn, j) => (
+                        <TouchableOpacity
+                          key={j}
+                          style={[styles.mainButton, !msg.isActive && styles.disabledButton]}
+                          onPress={() => handleButton(btn.value, btn.label)}
+                          disabled={!msg.isActive}
+                        >
+                          <Text style={[styles.mainButtonText, !msg.isActive && styles.disabledButtonText]}>{btn.label}</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  )}
                 </View>
               </View>
             );
           }
-          // 기본 챗봇 말풍선(버튼 포함)
-          if (msg.type === 'bot') {
-            return (
-                <View key={i} style={{ marginBottom: 0 }}>
-                {/* 챗봇 아이콘 (말풍선 바깥 좌상단) */}
-                <View style={styles.chatBotIconRow}>
-                    <MaterialCommunityIcons name="robot-outline" size={28} color="#928CFF" />
-                </View>
-                {/* 챗봇 말풍선 */}
-                <View style={styles.botBubble}>
-                    <Text style={{ fontSize: 14, lineHeight: 22 }}>
-                    {/* 강조 색상 */}
-                    {msg.text.split(/(목적지 관련 정보제공|현재 위치 기반 정보제공)/g).map((part, idx) =>
-                        part === '목적지 관련 정보제공' || part === '현재 위치 기반 정보제공' ? (
-                        <Text key={idx} style={{ color: '#928CFF', fontWeight: 'bold' }}>{part}</Text>
-                        ) : (
-                        <Text key={idx}>{part}</Text>
-                        )
-                    )}
-                    </Text>
-                    {/* 버튼 출력 */}
-                    {msg.buttons && msg.isActive && (
-                    <View style={{ marginTop: 10 }}>
-                        {msg.buttons.map((btn, j) => (
-                        <TouchableOpacity
-                            key={j}
-                            style={styles.mainButton}
-                            onPress={() => handleButton(btn.value, btn.label)}
-                        >
-                            <Text style={styles.mainButtonText}>{btn.label}</Text>
-                        </TouchableOpacity>
-                        ))}
-                    </View>
-                    )}
-                </View>
-                </View>
-            );
-            }
-
           // 내 답변(회색 말풍선)
           if (msg.type === 'user') {
             return (
@@ -293,252 +434,5 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F7F7FC',
   },
-  header: {
-    height: 80,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingTop: 30,
-    paddingHorizontal: 16,
-    backgroundColor: '#FAFAFA',
-    position: 'relative',
-  },
-  centerWrapper: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerTitle: {
-    fontSize: 16,
-    fontFamily: 'Roboto',
-    fontWeight: '400',
-    color: '#000000',
-    maxWidth: 120,
-    textAlign: 'center',
-  },
-  sideButton: {
-    width: 32,
-    zIndex: 1,
-  },
-  headerLine: {
-    height: 1,
-    backgroundColor: '#999999',
-    marginHorizontal: 16,
-  },
-  chatArea: {
-    flex: 1,
-    padding: 14,
-  },
-  chatBotIconRow: {
-  width: 28,
-  height: 28,
-  marginLeft: 8,      // Figma 예시처럼 왼쪽 여백
-  marginBottom: -12,  // 말풍선 상단에 겹치게
-  zIndex: 10,
-  },
-
-  botBubble: {
-    width: width * (321 / 390),
-    minWidth: 200,
-    maxWidth: 340,
-    minHeight: 160,
-    borderTopRightRadius: 20,
-    borderBottomRightRadius: 20,
-    borderBottomLeftRadius: 20,
-    borderWidth: 3,
-    borderColor: '#928CFF',
-    backgroundColor: '#fff',
-    marginLeft: width * (16/390),
-    marginTop: 12,
-    padding: 18,
-    alignSelf: 'flex-start',
-  },
-  // 4차 카테고리 선택 프레임(더 좁음)
-  categoryBubble: {
-    width: width * (269 / 390),
-    minWidth: 180,
-    maxWidth: 320,
-    minHeight: 160,
-    borderTopRightRadius: 20,
-    borderBottomRightRadius: 20,
-    borderBottomLeftRadius: 20,
-    borderWidth: 3,
-    borderColor: '#928CFF',
-    backgroundColor: '#fff',
-    marginLeft: width * (19 / 390),
-    marginTop: 12,
-    padding: 18,
-    alignSelf: 'flex-start',
-  },
-  botBubbleTitle: {
-    fontFamily: 'Roboto',
-    fontWeight: '400',
-    fontSize: 14,
-    lineHeight: 25,
-    color: '#000',
-    textAlign: 'left',
-    width: width * (273/390),
-    marginBottom: 8,
-  },
-  provinceButtonWrap: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'flex-start',
-  },
-  provinceButton: {
-    width: width * (85/390),
-    height: 28,
-    borderRadius: 5,
-    backgroundColor: '#9893EB',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: width * (9/390),
-    marginBottom: 10,
-  },
-  provinceButtonText: {
-    fontFamily: 'Roboto',
-    fontWeight: '400',
-    fontSize: 14,
-    color: '#fff',
-    textAlign: 'center',
-  },
-  prevButtonFull: {
-    width: '100%',
-    height: 28,
-    borderRadius: 5,
-    backgroundColor: '#4F46E5',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  prevButtonText: {
-    fontFamily: 'Roboto',
-    fontWeight: '400',
-    fontSize: 14,
-    color: '#fff',
-    textAlign: 'center',
-  },
-  mainButton: {
-    width: '100%',
-    height: 28,
-    borderRadius: 6,
-    backgroundColor: '#4F46E5',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  mainButtonText: {
-    fontFamily: 'Roboto',
-    fontWeight: '400',
-    fontSize: 14,
-    color: '#fff',
-    textAlign: 'center',
-  },
-  userBubble: {
-    backgroundColor: '#7E7E7E',
-    borderTopLeftRadius: 14,
-    borderBottomRightRadius: 14,
-    borderBottomLeftRadius: 14,
-    paddingVertical: 10,
-    paddingHorizontal: 18,
-    marginVertical: 6,
-    alignSelf: 'flex-end',
-    maxWidth: '80%',
-    marginTop: 20,
-  },
-  userText: {
-    color: '#fff',
-    fontSize: 14,
-    textAlign: 'center',
-  },
-  // 3차 시 선택 전용 스타일
-  cityTopBtnRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 10,
-  },
-  cityTopButton: {
-    width: width * (133/390),
-    height: 28,
-    borderRadius: 5,
-    backgroundColor: '#4F46E5',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  cityButtonWrap: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'flex-start',
-  },
-  cityButton: {
-    width: width * (85/390),
-    height: 28,
-    borderRadius: 5,
-    backgroundColor: '#948FE0',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: width * (9/390),
-    marginBottom: 10,
-  },
-  cityButtonText: {
-    fontFamily: 'Roboto',
-    fontWeight: '400',
-    fontSize: 14,
-    color: '#fff',
-    textAlign: 'center',
-  },
-  // 4차 카테고리 선택 전용 스타일
-  categoryTitle: {
-    fontFamily: 'Roboto',
-    fontWeight: '400',
-    fontSize: 14,
-    lineHeight: 25,
-    color: '#000',
-    textAlign: 'left',
-    marginBottom: 12,
-    width: width * (221/390),
-    alignSelf: 'center',
-  },
-  categoryBtnWrap: {
-    marginTop: 12,
-  },
-  categoryButton: {
-    width: width * (221/390),
-    height: 28,
-    borderRadius: 6,
-    backgroundColor: '#4F46E5',
-    justifyContent: 'center',
-    alignItems: 'center',
-    alignSelf: 'center',
-    marginBottom: 12,
-  },
-  categoryButtonText: {
-    fontFamily: 'Roboto',
-    fontWeight: '400',
-    fontSize: 14,
-    color: '#fff',
-    textAlign: 'center',
-  },
-  // 5차 정보 안내 말풍선 (좁은 프레임)
-  resultBubble: {
-    width: width * (269 / 390),
-    minWidth: 180,
-    maxWidth: 320,
-    minHeight: 90,
-    borderRadius: 20,
-    borderWidth: 3,
-    borderColor: '#928CFF',
-    backgroundColor: '#fff',
-    marginLeft: width * (19 / 390),
-    marginTop: 12,
-    padding: 18,
-    alignSelf: 'flex-start',
-  },
-  resultText: {
-    fontFamily: 'Roboto',
-    fontWeight: '400',
-    fontSize: 14,
-    color: '#000',
-    textAlign: 'center',
-  },
+ // stylesheet 생략
 });

@@ -3,6 +3,9 @@
 
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
+import { Dimensions } from 'react-native';
+const { width } = Dimensions.get('window');
+const scale = (size) => width * (size / 390); // 아이폰13 기준
 
 const UserBubble = ({ text }) => (
   <View style={styles.userBubble}>
@@ -13,18 +16,17 @@ const UserBubble = ({ text }) => (
 const styles = StyleSheet.create({
   userBubble: {
     backgroundColor: '#7E7E7E',
-    borderTopLeftRadius: 14,
-    borderBottomRightRadius: 14,
-    borderBottomLeftRadius: 14,
-    paddingVertical: 10,
-    paddingHorizontal: 18,
-    marginVertical: 6,
-    alignSelf: 'flex-end',
+    borderTopLeftRadius: scale(14),         
+    borderBottomRightRadius: scale(14),
+    borderBottomLeftRadius: scale(14),
+    paddingVertical: scale(10),            
+    paddingHorizontal: scale(18),         
+    marginVertical: scale(6),             
     maxWidth: '80%',
   },
   userText: {
     color: '#fff',
-    fontSize: 14,
+    fontSize: scale(14),                  
     textAlign: 'center',
   },
 });

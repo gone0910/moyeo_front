@@ -3,6 +3,9 @@
 
 import React from 'react';
 import { TouchableOpacity, Text, StyleSheet } from 'react-native';
+import { Dimensions } from 'react-native';
+const { width } = Dimensions.get('window');
+const scale = (size) => width * (size / 390); // 아이폰13 기준
 
 const BotButton = ({ title, onPress, isActive = true }) => (
   <TouchableOpacity
@@ -17,12 +20,12 @@ const BotButton = ({ title, onPress, isActive = true }) => (
 
 const styles = StyleSheet.create({
   button: {
-    height: 28,
-    borderRadius: 6,
+    height: scale(28),                 
+    borderRadius: scale(6),             
     backgroundColor: '#4F46E5',
     justifyContent: 'center',
     alignItems: 'center',
-    marginVertical: 4,
+    marginVertical: scale(4),          
     width: '100%',
   },
   buttonDisabled: {
@@ -30,7 +33,7 @@ const styles = StyleSheet.create({
   },
   buttonText: {
     color: '#fff',
-    fontSize: 14,
+    fontSize: scale(14),               
   },
   textDisabled: {
     color: '#B0B0B0',
