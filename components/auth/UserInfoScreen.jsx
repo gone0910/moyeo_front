@@ -21,6 +21,7 @@ import { UserContext } from '../../contexts/UserContext';
 import ProfileImagePicker from '../common/ProfileImagePicker';
 import Dropdown from '../common/Dropdown'; // DropdownPicker 기반 Dropdown
 import { registerUserWithFetch, getUserInfoWithFetch } from '../../api/auth_fetch'; // 회원가입은 fetch 사용
+import { MaterialIcons } from '@expo/vector-icons'; 
 
 // ==== 반응형 유틸 함수 ====
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -48,6 +49,18 @@ export default function UserInfoScreen() {
 
   const parsedAge = parseInt(age);
   const isValid = nickname.length > 0 && gender && !isNaN(parsedAge) && parsedAge >= 10 && parsedAge <= 99;
+  
+  // 프로필 이미지 삭제 버튼
+  const handleRemoveImage = () => {
+    Alert.alert(
+      '사진 삭제',
+      '프로필 사진을 삭제하시겠습니까?',
+      [
+        { text: '취소', style: 'cancel' },
+        { text: '삭제', style: 'destructive', onPress: () => setImage(null) },
+      ]
+    );
+  };
 
   useEffect(() => {
     const handleInitialLink = async () => {
@@ -106,10 +119,15 @@ export default function UserInfoScreen() {
       Alert.alert('완료', '회원가입이 완료되었습니다.');
       navigation.replace('BottomTab');
     } catch (e) {
-      console.error('❌ 회원가입 실패:', e);
-      Alert.alert('오류', '회원가입에 실패했습니다.');
-      navigation.reset({ index: 0, routes: [{ name: 'Login' }] });
-    }
+    let errorMessage = '회원가입에 실패했습니다.';
+    try {
+      const data = JSON.parse(e.message);
+      if (data?.message === 'Nickname already exists') {
+        errorMessage = '중복된 닉네임입니다.';
+      }
+    } catch {}
+    Alert.alert('오류', errorMessage);
+  }
   };
 
   return (
@@ -124,8 +142,21 @@ export default function UserInfoScreen() {
         </View>
         <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled" nestedScrollEnabled={true}>
           <ProfileImagePicker defaultImage={image} onChange={setImage} />
+
+          {/* 이미지 삭제 버튼, 임시 */}
+          {image && (
+            <TouchableOpacity
+              onPress={handleRemoveImage}
+              style={styles.deleteButton}
+              accessibilityLabel="프로필 사진 삭제"
+            >
+              <MaterialIcons name="delete" size={28} color="#EF4444" />
+            </TouchableOpacity>
+          )}
+
           <View style={styles.formGrouped}>
-            <Text style={styles.label}>닉네임 </Text>
+            <Text style={styles.label}>닉네임<Text style={styles.asterisk}> *</Text></Text>
+
             <TextInput
               style={styles.input}
               placeholder="닉네임을 입력해 주세요"
@@ -136,7 +167,7 @@ export default function UserInfoScreen() {
               }}
             />
           </View>
-          <Text style={styles.labelss}>성별 </Text>
+          <Text style={styles.labels}>성별<Text style={styles.asterisk}> *</Text></Text>
           <View style={styles.genderContainer}>
             <TouchableOpacity
               style={[styles.genderButton, gender === '남성' && styles.genderSelected]}
@@ -152,7 +183,7 @@ export default function UserInfoScreen() {
             </TouchableOpacity>
           </View>
           <View style={styles.formGroup}>
-            <Text style={styles.labels}>나이 </Text>
+            <Text style={styles.label}>나이<Text style={styles.asterisk}> *</Text></Text>
             <TextInput
               style={styles.input}
               placeholder="나이를 입력해 주세요"
@@ -286,6 +317,11 @@ const styles = StyleSheet.create({
     lineHeight: normalize(20, 'height'),
     fontWeight: '500',
   },
+  asterisk: {
+  color: '#EF4444',   // 빨간색
+  fontWeight: 'bold',
+  fontSize: 18,
+  },
   input: {
     paddingHorizontal: normalize(12),
     paddingVertical: normalize(10, 'height'),
@@ -360,5 +396,11 @@ const styles = StyleSheet.create({
     right: 0,
     paddingHorizontal: normalize(18),
     backgroundColor: 'transparent',
+  },
+  deleteButton: {
+    alignSelf: 'center',  // 가운데 정렬
+    marginTop: 8,
+    padding: 6,
+    borderRadius: 24,
   },
 });
