@@ -667,11 +667,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#F9F9FF',
   },
   header: {
-    height: scale(80),              
+    height: scale(97),              
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingTop: scale(30),          
+    paddingTop: scale(45),          
     paddingHorizontal: scale(16),   
     backgroundColor: '#F9F9FF',  // 피드백 figma 컬러
     position: 'relative',
