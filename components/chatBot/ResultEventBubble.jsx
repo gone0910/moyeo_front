@@ -47,7 +47,15 @@ function EventCardContent({ name, highlight, period, fee, location }) {
       </View>
       <View style={styles.infoRow}>
         <Text style={styles.infoLabel}>행사 기간 :</Text>
-        <Text style={styles.infoValue}>{period}</Text>
+        <Text style={styles.infoValue}>
+          {
+            typeof period === 'string'
+              ? period.split(/ *[\/,] */).join('\n') // , 포함 줄바꿈.
+              : Array.isArray(period) // 줄바꿈시에 앞에 공백 1칸 방지
+                ? period.join('\n')
+                : period
+          }
+          </Text>
       </View>
       <View style={styles.infoRow}>
         <Text style={styles.infoLabel}>참가비 :</Text>
@@ -107,7 +115,7 @@ const styles = StyleSheet.create({
   infoLabel: {
     fontFamily: 'Roboto',
     fontWeight: '400',
-    fontSize: scale(13),
+    fontSize: scale(14),
     lineHeight: scale(18),
     color: '#333333',
     minWidth: scale(70),
@@ -117,7 +125,7 @@ const styles = StyleSheet.create({
   infoValueMulti: { // 한줄 설명명
     fontFamily: 'Roboto',
     fontWeight: '400',
-    fontSize: scale(12),
+    fontSize: scale(13),
     lineHeight: scale(18),
     color: '#616161',
     marginLeft: scale(2),
@@ -131,7 +139,7 @@ const styles = StyleSheet.create({
   infoValue: {
     fontFamily: 'Roboto',
     fontWeight: '400',
-    fontSize: scale(13),
+    fontSize: scale(14),
     lineHeight: scale(18),
     color: '#616161',
     marginLeft: scale(2),

@@ -170,7 +170,8 @@ export default function ResultWeatherBubble({ data }) {
         const dayType = getDayTypeFromTimestamp(item.timestamp);
         return (
           <ChatBotCard height={Math.max(width * (290 / 390), scale(210))}
-          noPadding
+          noPadding 
+          noShadow
           >
             <ImageBackground
               source={getWeatherImage(item.weatherType, dayType)}
