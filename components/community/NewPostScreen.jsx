@@ -1,14 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, TextInput, Image, FlatList,
-  Dimensions, Platform, ScrollView, PixelRatio, Keyboard, TouchableWithoutFeedback
+  Dimensions, Platform, ScrollView, PixelRatio, Keyboard, TouchableWithoutFeedback,SafeAreaView
 } from 'react-native';
 import { Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { KeyboardAvoidingView } from 'react-native';
 import ToggleSelector from '../common/ToggleSelector';
 import { useNavigation } from '@react-navigation/native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import { createCommunityPost } from '../../api/community_create_request';
 
@@ -412,6 +411,7 @@ export default function NewPostScreen() {
             value={title}
             onChangeText={setTitle}
             placeholderTextColor="#B3B3B3"
+            maxLength={2000} //  제한 풀기
           />
           <TouchableOpacity
   activeOpacity={1}
@@ -516,7 +516,7 @@ const styles = StyleSheet.create({
     height: 44,
     borderRadius: 10,
     paddingHorizontal: 14,
-    fontSize: width * 0.045,
+    fontSize: width * 0.04,
     color: '#333',
     marginBottom: 10,
     marginTop: 8,
@@ -534,7 +534,7 @@ const styles = StyleSheet.create({
   },
   contentInput: {
     minHeight: height * 0.13,
-    fontSize: width * 0.045,
+    fontSize: width * 0.040,
     color: '#333',
     textAlignVertical: 'top',
     padding: 0,

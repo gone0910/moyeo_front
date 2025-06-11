@@ -2,7 +2,8 @@
 // 게시글 상세 전체(메인) 화면, 컴포넌트 조합
 import React, { useEffect, useState, useRef } from 'react';
 import { SafeAreaView, ScrollView, View, Text, StyleSheet, Dimensions, Image,
-   ActivityIndicator, useNavigation, BackHandler, Alert, RefreshControl, KeyboardAvoidingView, Platform } from 'react-native';
+   ActivityIndicator, useNavigation, BackHandler, Alert, RefreshControl, KeyboardAvoidingView, Platform ,FlatList
+  } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import PostHeader from './common/PostHeader';
 import PostImageCarousel from './common/PostImageCarousel';
@@ -94,6 +95,7 @@ export default function PostDetailScreen({ route, navigation }) {
 
   const hasImage = post?.postImages && post.postImages.length > 0; // 사진없으면 min값 확대 있으면 축소
   const contentMinHeight = hasImage ? vScale(100) : vScale(280);
+  
 
       // 받아온 타임스탬프에 +9시간 더하기 (utc에서 변환)
         function toKoreanDate(dateString) {
@@ -255,71 +257,45 @@ export default function PostDetailScreen({ route, navigation }) {
     );
   };
 
-return (
-  <KeyboardAvoidingView
-      style={{ flex: 1 }}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 60 : 0}
-    >
-  <SafeAreaView style={{ flex: 1, backgroundColor: '#FAFAFA' }}>
-    <PostHeader
-      title={post.title}
-      showMore={isMyPost}
-      onDelete={handleDelete}
-      onBack={() => navigation.navigate('CommunityMain')}
-      onEdit={() => {
-        navigation.navigate('EditPost', {
-          postId: post.postId,
-          post: post,
-        });
-      }}
-    />
-    <ScrollView
-      style={{ flex: 1 }}
-      contentContainerStyle={{ paddingBottom: 20 }}
-      refreshControl={
-        <RefreshControl
-          refreshing={refreshing}
-          onRefresh={onRefresh}
-          colors={['#4F46E5']}
-          tintColor="#4F46E5"
-        />
-      }
-    >
-      {/* 본문 영역 */}
-      <View style={styles.mainCardContainer}>
-        <View style={styles.titleProfileContainer}>
-          <Text style={styles.title}>{post.title}</Text>
-          <View style={styles.profileBlock}>
-            <View style={styles.profileTopRow}>
-              <Image source={{ uri: post.userProfileImage }} style={styles.profileImg} />
-              <Text style={styles.nickname}>{post.nickname}</Text>
-            </View>
-            <View style={styles.profileBottomRow}>
-              <Text style={styles.date}>
-                {post.createdDate ? formatKoreanDateTime(post.createdDate) : ''}
-              </Text>
-              <Text style={styles.destination}>
-                {post.province && post.province !== 'NONE'
-                  ? ENUM_TO_PROVINCE_KOR[post.province] +
-                      (
-                        post.city && post.city !== 'NONE'
-                          ? ' ' + (ENUM_TO_CITY_KOR[post.city] || post.city).replace(/시$/, '')
-                          : ''
-                      )
-                  : ''
-                }
-              </Text>
-            </View>
+
+  // 댓글 렌더 함수 (CommentSection에 개별 댓글 렌더 분리했으면 그거 써도 OK)
+  const renderCommentItem = ({ item }) => (
+      <CommentSection.CommentItem {...item} />
+    );
+
+    // 게시글 본문 렌더 (헤더)
+    const renderHeader = () => (
+    <View style={styles.mainCardContainer}>
+      <View style={styles.titleProfileContainer}>
+        <Text style={styles.title}>{post.title}</Text>
+        <View style={styles.profileBlock}>
+          <View style={styles.profileTopRow}>
+            <Image source={{ uri: post.userProfileImage }} style={styles.profileImg} />
+            <Text style={styles.nickname}>{post.nickname}</Text>
+          </View>
+          <View style={styles.profileBottomRow}>
+            <Text style={styles.date}>
+              {post.createdDate ? formatKoreanDateTime(post.createdDate) : ''}
+            </Text>
+            <Text style={styles.destination}>
+              {post.province && post.province !== 'NONE'
+                ? ENUM_TO_PROVINCE_KOR[post.province] +
+                    (
+                      post.city && post.city !== 'NONE'
+                        ? ' ' + (ENUM_TO_CITY_KOR[post.city] || post.city).replace(/시$/, '')
+                        : ''
+                    )
+                : ''
+              }
+            </Text>
           </View>
         </View>
       </View>
 
-      {/* 공백 */}
       <View style={{ height: vScale(10) }} />
-
       {/* 이미지 슬라이더 */}
       <PostImageCarousel images={post.postImages} />
+
       {/* 본문 텍스트 */}
       <Text
         style={[
@@ -331,20 +307,58 @@ return (
       </Text>
       {/* 구분선 */}
       <View style={styles.divider} />
+    </View>
+  );
 
-      {/* 댓글 섹션 */}
-      {post && post.postId && (
-        <CommentSection
-          postId={post.postId}
-          myNickname={myNickname}
-          comments={comments} // ← 직접 관리하는 상태 전달
-          setComments={setComments}
+
+  // 입력창 + 댓글 작성 영역 (Footer)
+  const renderFooter = () => (
+  <CommentSection
+    postId={post.postId}
+    myNickname={myNickname}
+    // comments={comments}
+    // setComments={setComments}
+  />
+);
+
+  if (!post) return <Text>게시글을 불러올 수 없습니다.</Text>;
+ 
+    
+    return (
+    //<KeyboardAvoidingView
+    //  style={{ flex: 1 }}
+    //  behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    //  keyboardVerticalOffset={Platform.OS === 'ios' ? 60 : 0}
+    //>
+      <SafeAreaView style={{ flex: 1, backgroundColor: '#FAFAFA' }}>
+        <PostHeader
+          title={post.title}
+          showMore={isMyPost}
+          onDelete={handleDelete}
+          onBack={() => navigation.navigate('CommunityMain')}
+          onEdit={() => navigation.navigate('EditPost', { postId: post.postId, post })}
         />
-      )}
-    </ScrollView>
-  </SafeAreaView>
-  </KeyboardAvoidingView>
-);}
+        <FlatList
+          data={[]}                 // ① 빈 배열!
+          renderItem={null}         // ② 없음!
+          keyExtractor={() => null} // ③ 키 없음!
+          ListHeaderComponent={renderHeader}
+          ListFooterComponent={renderFooter}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              colors={['#4F46E5']}
+              tintColor="#4F46E5"
+            />
+          }
+          contentContainerStyle={{ paddingBottom: 30 }}
+          keyboardShouldPersistTaps="handled"
+        />
+      </SafeAreaView>
+    //</KeyboardAvoidingView>
+  );
+}
 
 const styles = StyleSheet.create({
   scrollContainer: { flex: 1 },
@@ -432,7 +446,7 @@ const styles = StyleSheet.create({
     borderRadius: scale(8),
   },
   divider: {
-    width: scale(358),
+    width: scale(340),
     borderBottomWidth: 1,
     borderBottomColor: '#B3B3B3',
     marginTop: vScale(18),
