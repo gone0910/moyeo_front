@@ -114,6 +114,7 @@ export default function PlannerResponseHome() {
   }, []);
 
   useEffect(() => {
+    console.log('🔥 PlannerResponseHome mounted!', route.params);
     const fetchDetail = async () => {
       if (route.params?.scheduleId) {
         try {
@@ -450,7 +451,7 @@ export default function PlannerResponseHome() {
                           }}
                           onPress={() => handleDeletePlace(place.id)}
                         >
-                          <Ionicons name="remove" size={normalize(14)} color="#fff" />
+                          <Ionicons name="remove" size={normalize(16)} color="#fff" />
                         </TouchableOpacity>
                         {/* placeCard */}
                         <TouchableOpacity
@@ -848,7 +849,8 @@ bottomButtonContainer: {
   flexDirection: 'row',
   backgroundColor: '#fafafa',
   paddingVertical: normalize(18),
-  paddingHorizontal: normalize(16),
+  paddingHorizontal: normalize(20),
+  top:normalize(10),
   borderRadius: normalize(12),
   paddingBottom: normalize(20), // 👈 이거 추가
 },
