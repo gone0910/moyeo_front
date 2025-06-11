@@ -518,7 +518,7 @@ export default function PlannerResponseHome() {
                       <Text
                         style={{
                           color: '#fff',
-                          fontSize: normalize(16),
+                          fontSize: normalize(15),
                           textAlign: 'center',
                           lineHeight: normalize(20),
                         }}
@@ -810,11 +810,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'flex-end',
   },
-  tripTitle: { fontSize: normalize(22), color: '#1E1E1E' },
-  totalBudgetLabel: { fontSize: normalize(16), color: '#1E1E1E', top: -2 },
-  budget: { color: '#4F46E5', fontSize: normalize(16), marginTop: normalize(4) },
+  tripTitle: { fontSize: normalize(20), color: '#1E1E1E' },
+  totalBudgetLabel: { fontSize: normalize(14), color: '#1E1E1E', top: -2 },
+  budget: { color: '#4F46E5', fontSize: normalize(14), marginTop: normalize(4) },
   budgetUnit: { color: '#4F46E5', fontSize: normalize(14) },
-  dateText: { fontSize: normalize(16), color: '#7E7E7E', marginTop: normalize(4), marginBottom: 0 },
+  dateText: { fontSize: normalize(14), color: '#7E7E7E', marginTop: normalize(4), marginBottom: 0 },
   tabScrollWrapper: {
     backgroundColor: '#FAFAFA',
     borderBottomWidth: 1,
@@ -930,16 +930,16 @@ bottomButtonContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
   },
-  placeName: { fontSize: normalize(18), marginBottom: normalize(4), color: '#373737' },
+  placeName: { fontSize: normalize(16), marginBottom: normalize(4), color: '#373737' },
   placeCost: {
-    fontSize: normalize(16),
+    fontSize: normalize(15),
     fontWeight: '600',
     fontStyle: 'Inter',
     color: '#8B76E8',
     bottom: -normalize(15),
   },
-  placeType: { fontSize: normalize(14), color: '#9CA3AF', marginBottom: normalize(4) },
-  keywords: { fontSize: normalize(13), color: '#333333', marginBottom: normalize(6) },
+  placeType: { fontSize: normalize(13), color: '#9CA3AF', marginBottom: normalize(4) , top:normalize(2)},
+  keywords: { fontSize: normalize(12), color: '#333333', marginBottom: normalize(6) },
   transportRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',

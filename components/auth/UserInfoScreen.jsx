@@ -51,16 +51,21 @@ export default function UserInfoScreen() {
   const isValid = nickname.length > 0 && gender && !isNaN(parsedAge) && parsedAge >= 10 && parsedAge <= 99;
   
   // 프로필 이미지 삭제 버튼
-  const handleRemoveImage = () => {
-    Alert.alert(
-      '사진 삭제',
-      '프로필 사진을 삭제하시겠습니까?',
-      [
-        { text: '취소', style: 'cancel' },
-        { text: '삭제', style: 'destructive', onPress: () => setImage(null) },
-      ]
-    );
-  };
+  const handleDeleteProfileImage = () => {
+  Alert.alert(
+    '이미지 삭제',
+    '이미지를 삭제하시겠습니까?',
+    [
+      { text: '취소', style: 'cancel' },
+      {
+        text: '삭제',
+        onPress: () => setImage(null),
+        style: 'destructive',
+      },
+    ],
+    { cancelable: true }
+  );
+};
 
   useEffect(() => {
     const handleInitialLink = async () => {
@@ -144,15 +149,15 @@ export default function UserInfoScreen() {
           <ProfileImagePicker defaultImage={image} onChange={setImage} />
 
           {/* 이미지 삭제 버튼, 임시 */}
-          {image && (
-            <TouchableOpacity
-              onPress={handleRemoveImage}
-              style={styles.deleteButton}
-              accessibilityLabel="프로필 사진 삭제"
-            >
-              <MaterialIcons name="delete" size={28} color="#EF4444" />
-            </TouchableOpacity>
-          )}
+          {image && typeof image === 'object' && image.uri && (
+  <TouchableOpacity
+    onPress={handleDeleteProfileImage}
+    style={styles.deleteButton}
+    accessibilityLabel="프로필 사진 삭제"
+  >
+    <MaterialIcons name="cancel" size={normalize(36)} color="#FF5555" />
+  </TouchableOpacity>
+)}
 
           <View style={styles.formGrouped}>
             <Text style={styles.label}>닉네임<Text style={styles.asterisk}> *</Text></Text>
@@ -316,6 +321,7 @@ const styles = StyleSheet.create({
     marginBottom: normalize(7, 'height'),
     lineHeight: normalize(20, 'height'),
     fontWeight: '500',
+    right: normalize(150),
   },
   asterisk: {
   color: '#EF4444',   // 빨간색
@@ -398,9 +404,13 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
   },
   deleteButton: {
-    alignSelf: 'center',  // 가운데 정렬
-    marginTop: 8,
-    padding: 6,
-    borderRadius: 24,
+    position: 'absolute',
+    top: normalize(20, 'height'),
+    right: normalize(110),
+    backgroundColor:"#fff",
+    borderRadius: normalize(20),
+    elevation: 3,
+    zIndex: 5,
+
   },
 });

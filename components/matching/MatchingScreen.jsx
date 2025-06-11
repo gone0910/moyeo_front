@@ -150,7 +150,7 @@ titletext2: {
   },
   containerBarButton: {
   backgroundColor: '#4F46E5',
-  paddingVertical: normalize(20, 'height'),
+  paddingVertical: normalize(18, 'height'),
   paddingHorizontal: normalize(22),
   borderRadius: normalize(10),
   alignItems: 'center',
@@ -160,6 +160,6 @@ titletext2: {
 },
   containerBarButtonText: {
     color: '#FFFFFF',
-    fontSize: normalize(20),
+    fontSize: normalize(18),
   },
 });
