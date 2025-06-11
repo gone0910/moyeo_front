@@ -525,12 +525,12 @@ const styles = StyleSheet.create({
     marginRight: normalize(7),
   },
   username: {
-    fontSize: normalize(15),
+    fontSize: normalize(14),
     color: '#50626a',
     fontWeight: '500',
   },
   title: {
-    fontSize: normalize(16),
+    fontSize: normalize(14),
     color: '#232a33',
     marginBottom: normalize(10),  // 기존 6 -> 10으로 살짝 늘림
   marginTop: normalize(15), 
@@ -542,12 +542,12 @@ const styles = StyleSheet.create({
   },
   views: {
     marginLeft: normalize(5),
-    fontSize: normalize(13),
+    fontSize: normalize(12),
     color: '#aaa',
     marginRight: normalize(13),
   },
   time: {
-    fontSize: normalize(13),
+    fontSize: normalize(12),
     color: '#aaa',
   },
   thumbnail: {
