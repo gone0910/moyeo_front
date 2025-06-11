@@ -515,6 +515,7 @@ export default function EditPostScreen({ route, navigation }) {
             value={title}
             onChangeText={setTitle}
             placeholderTextColor="#B3B3B3"
+            maxLength={2000}
           />
           <TouchableOpacity
   activeOpacity={1}
@@ -532,9 +533,9 @@ export default function EditPostScreen({ route, navigation }) {
   />
   {content.trim().length === 0 && (
     <View style={styles.guideBox} pointerEvents="none">
-      <Text style={styles.guideText}>{'\u2022'} 여행 동행자 모집</Text>
-      <Text style={styles.guideText}>{'\u2022'} 즐거웠던 여행 기억</Text>
-      <Text style={styles.guideText}>{'\u2022'} 다른 여행자들에게 알려주고싶은 장소</Text>
+      <Text style={styles.guideText}>{'\u2022'} 여행 동행자 모집{'\n'}</Text>
+      <Text style={styles.guideText}>{'\u2022'} 즐거웠던 여행 기억{'\n'}</Text>
+      <Text style={styles.guideText}>{'\u2022'} 다른 여행자들에게 알려주고싶은 장소{'\n'}</Text>
     </View>
   )}
 </TouchableOpacity>
@@ -616,7 +617,7 @@ const styles = StyleSheet.create({
     height: 44,
     borderRadius: 10,
     paddingHorizontal: 14,
-    fontSize: width * 0.05,
+    fontSize: width * 0.04,
     color: '#333',
     marginBottom: 10,
     marginTop: 8,
@@ -634,7 +635,7 @@ const styles = StyleSheet.create({
   },
   contentInput: {
     minHeight: height * 0.13,
-    fontSize: width * 0.05,
+    fontSize: width * 0.040,
     color: '#333',
     textAlignVertical: 'top',
     padding: 0,

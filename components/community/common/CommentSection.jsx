@@ -367,62 +367,90 @@ export default function CommentSection({ postId, myNickname = '', comments: prop
       />
 
       {/* 하단 입력창만 KeyboardAvoidingView로 분리 */}
-    <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 80 : 0} // 값 조정 가능
-    >
-      <View style={styles.inputRow}>
-        <TextInput
-          ref={inputRef}
-          placeholder="댓글을 작성해 주세요."
-          value={input}
-          onChangeText={setInput}
-          maxLength={200}
-          editable={editId === null}
-          style={[
-            styles.input,
-            { 
-              height: Math.max(minHeight, Math.min(inputHeight, maxHeight)),
-              fontSize: scale(14),
-              backgroundColor: editId === null ? '#FFF' : '#fff',
-              color: editId === null ? '#000' : '#B0B0B0',
-            }
-          ]}
-          placeholderTextColor="#7E7E7E"
-          multiline
-          onContentSizeChange={e => setInputHeight(e.nativeEvent.contentSize.height)}
-          textAlignVertical="center"
-          returnKeyType="default"
-          onFocus={() => {
-            if (comments.length > 0 && flatListRef.current?.scrollToIndex) {
-              setTimeout(() => {
-                flatListRef.current.scrollToIndex({
-                  index: comments.length - 1,
-                  animated: true,
-                  viewPosition: 0.6
-                });
-              }, 200);
-            }
-          }}
-        />
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 80 : 0} // iOS는 필요에 따라 조정 (60~120)
+      >
+        <View style={styles.inputRow}>
+          <TextInput
+            ref={inputRef}
+            placeholder="댓글을 작성해 주세요."
+            value={input}
+            onChangeText={setInput}
+            maxLength={200}
+            editable={editId === null}
+            style={[
+              styles.input,
+              { 
+                height: Math.max(minHeight, Math.min(inputHeight, maxHeight)),
+                fontSize: scale(14),
+                backgroundColor: editId === null ? '#FFF' : '#fff',
+                color: editId === null ? '#000' : '#B0B0B0',
+              }
+            ]}
+            placeholderTextColor="#7E7E7E"
+            multiline
+            onContentSizeChange={e => setInputHeight(e.nativeEvent.contentSize.height)}
+            textAlignVertical="center"
+            returnKeyType="default"
+            onFocus={() => {
+              if (comments.length > 0 && flatListRef.current?.scrollToIndex) {
+                setTimeout(() => {
+                  flatListRef.current.scrollToIndex({
+                    index: comments.length - 1,
+                    animated: true,
+                    viewPosition: 0.6
+                  });
+                }, 200);
+              }
+            }}
+          />
           <TouchableOpacity
-          style={[
-            styles.submitBtn,
-            { 
-              backgroundColor: input.trim() && editId === null ? '#FFFFFF' : '#FAFAFA',
-              opacity: editId === null ? 1 : 0.5,
-            }
-          ]}
-          onPress={handleSubmit}
-          disabled={!input.trim() || editId !== null}
-        >
-          <Text style={styles.submitText}>등록</Text>
-        </TouchableOpacity>
-      </View>
-    </KeyboardAvoidingView>
+            style={[
+              styles.submitBtn,
+              { 
+                backgroundColor: input.trim() && editId === null ? '#FFFFFF' : '#FAFAFA',
+                opacity: editId === null ? 1 : 0.5,
+              }
+            ]}
+            onPress={handleSubmit}
+            disabled={!input.trim() || editId !== null}
+          >
+            <Text style={styles.submitText}>등록</Text>
+          </TouchableOpacity>
+        </View>
+      </KeyboardAvoidingView>
+
   </View>
   );
 }
+
+// 이 코드를 CommentSection.jsx 맨 아래(마지막 줄 근처)에 붙여넣으세요
+
+export function CommentItem(props) {
+  // props에는 댓글 한 개의 모든 정보(id, nickname, content, profileUrl, createdDate, isMine 등)가 담겨있음
+  return (
+    <View style={styles.commentRow}>
+      {/* 프로필 + 닉네임 + 시간 */}
+      <View style={styles.topRow}>
+        <Image source={{ uri: props.profileUrl }} style={styles.profileImg} />
+        <Text style={styles.nickname}>{props.nickname}</Text>
+        <View style={styles.flexSpacer} />
+        <View style={styles.timeAndMenuCol}>
+          <Text style={styles.time}>{props.createdDate}</Text>
+          {/* 필요한 경우 수정/삭제 버튼은 직접 추가 가능 */}
+        </View>
+      </View>
+      {/* 댓글 본문 */}
+      <View style={styles.commentContentWrap}>
+        <Text style={styles.commentContent}>{props.content}</Text>
+      </View>
+    </View>
+  );
+}
+
+// 반드시 이 코드를 추가해서 내보내세요!
+CommentSection.CommentItem = CommentItem;
 
 const styles = StyleSheet.create({
   container: {

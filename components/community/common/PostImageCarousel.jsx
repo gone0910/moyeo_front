@@ -97,11 +97,14 @@ export default function PostImageCarousel({ images = testImages }) {
               <Image
                 source={typeof item === 'string' ? { uri: item } : item}
                 style={{
-                  width: imgWidth,
-                  height: imgHeight,
+                  width: SCREEN_WIDTH * 0.95,        // 한쪽은 명확히!
+                  height: FIXED_HEIGHT,              // 반대쪽도 고정, but 비율깨짐X
+                  maxWidth: SCREEN_WIDTH * 0.95,     // 보조(큰 사진 방지)
+                  maxHeight: FIXED_HEIGHT,           // 보조(세로로 너무 큰 사진 방지)
                   borderRadius: scale(4),
+                  alignSelf: 'center',
                 }}
-                resizeMode="contain"
+                resizeMode="contain" // ★ 이거 반드시
               />
             </View>
           );
