@@ -348,7 +348,7 @@ export default function PlannerInfoScreen() {
       <Animated.ScrollView
         ref={scrollViewRef}
         style={styles.scrollArea}
-        contentContainerStyle={[styles.wrapper, { paddingTop: normalize(150, 'height') }]}
+        contentContainerStyle={[styles.wrapper, { paddingTop: normalize(130, 'height') }]}
         horizontal
         pagingEnabled
         showsHorizontalScrollIndicator={false}
@@ -362,7 +362,7 @@ export default function PlannerInfoScreen() {
         {/* Slide 1: 일정 선택 */}
         <View style={{ width: SCREEN_WIDTH }}>
           <View style={styles.calendarBox}>
-            <Text style={styles.calendarLabel}>일정 선택</Text>
+            <Text style={styles.calendarLabel}>일정 선택<Text style={styles.asterisk}> *</Text></Text>
             <Calendar
               hideDayNames={false}
               markingType={'period'}
@@ -562,7 +562,7 @@ export default function PlannerInfoScreen() {
 
         {/* Slide 3: MBTI */}
         <View style={{ width: SCREEN_WIDTH }}>
-          <View style={{ paddingHorizontal: normalize(20), marginTop: normalize(20) }}>
+          <View style={{ paddingHorizontal: normalize(20), marginTop: normalize(10) , top: normalize(-30)}}>
             <Text
               style={{
                 fontSize: normalize(24),
@@ -605,7 +605,7 @@ export default function PlannerInfoScreen() {
                   <Text
                     style={{
                       color: selectedMbti === mbti ? '#FFFFFF' : '#373737',
-                      fontWeight: '500',
+                      fontWeight: '400',
                       fontSize: normalize(16),
                     }}
                   >
@@ -618,14 +618,14 @@ export default function PlannerInfoScreen() {
   <TouchableOpacity
     onPress={toggleMbti}
     style={{
-      width: '23%',
-      padding: normalize(10),
-      marginBottom: normalize(10),
-      marginTop: normalize(40),
-      borderRadius: normalize(8),
-      borderWidth: 1,
-      borderColor: '#726BEA',
-      alignItems: 'center',
+      width: '30%',
+                      paddingVertical: normalize(13),
+                      marginBottom: normalize(10),
+                      top:normalize(38),
+                      borderRadius: normalize(8),
+                      borderWidth: 1,
+                      borderColor: '#726BEA',
+                      alignItems: 'center',
       backgroundColor: selectedMbti === 'NONE' ? '#B3A4F7' : '#FFFFFF',
       // 위 MBTI 박스와 똑같이 맞추기!
     }}
@@ -633,7 +633,7 @@ export default function PlannerInfoScreen() {
     <Text
       style={{
         color: selectedMbti === 'NONE' ? '#FFFFFF' : '#000',
-        fontWeight: '500',
+        fontWeight: '400',
         fontSize: normalize(16),
       }}
     >
@@ -646,10 +646,10 @@ export default function PlannerInfoScreen() {
 
         {/* Slide 4: 여행 스타일 */}
         <View style={{ width: SCREEN_WIDTH }}>
-          <View style={{ paddingHorizontal: normalize(20), marginTop: normalize(20) }}>
+          <View style={{ paddingHorizontal: normalize(20), marginTop: normalize(10) , top: normalize(-30)}}>
             <Text style={{
               fontSize: normalize(24), marginBottom: normalize(5), fontWeight: '400', color:'#1E1E1E',
-              textAlign: 'center', top: normalize(-50)
+              textAlign: 'center', top: normalize(-72)
             }}>
               여행 스타일을 선택해 주세요
             </Text>
@@ -718,11 +718,29 @@ export default function PlannerInfoScreen() {
 
       {/* ✅ 하단 버튼 조건 분기(기존 그대로) */}
       {currentSlide === 3 ? (
-        <View style={styles.customPlanButtonContainer}>
-          <TouchableOpacity style={styles.customPlanButton} onPress={handleCustomPlan}>
-            <Text style={styles.customPlanButtonText}>나만의 여행 플랜 제작</Text>
-          </TouchableOpacity>
-        </View>
+  <View style={styles.customPlanButtonContainer}>
+    <TouchableOpacity
+      style={[
+        styles.customPlanButton,
+        {
+          backgroundColor: isDateSelected ? '#4F46E5' : '#A8A8A8',
+        },
+      ]}
+      onPress={handleCustomPlan}
+      disabled={!isDateSelected}
+    >
+      <Text
+        style={[
+          styles.customPlanButtonText,
+          {
+            color: isDateSelected ? '#FFFFFF' : '#FFFFFF',
+          },
+        ]}
+      >
+        나만의 여행 플랜 제작
+      </Text>
+    </TouchableOpacity>
+  </View>
       ) : (
         <>
           <View style={styles.fixedButtonContainer1}>
@@ -806,7 +824,7 @@ const styles = StyleSheet.create({
     paddingTop: normalize(20, 'height'),
   },
   wrapper: {
-    paddingBottom: normalize(140, 'height'),
+    paddingBottom: normalize(100, 'height'),
     backgroundColor: '#fafafa',
   },
   topHeader: {
@@ -838,6 +856,11 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     height: 1,
     backgroundColor: '#999',
+  },
+  asterisk: {
+  color: '#EF4444',   // 빨간색
+  fontWeight: 'bold',
+  fontSize: 20,
   },
   divider: {
     width: '90%',
