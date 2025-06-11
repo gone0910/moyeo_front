@@ -175,7 +175,7 @@ const [randomTip, setRandomTip] = useState('');
                       borderRightWidth: 0,
                     },
                   ]}
-                  activeOpacity={0.8}
+                  activeOpacity={0.3}
                   disabled={isEditing} // 편집 모드에서는 이동 안 되게
                   onPress={() => {
                     navigation.navigate('Home', {
