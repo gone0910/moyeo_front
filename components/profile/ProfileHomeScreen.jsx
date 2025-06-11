@@ -185,7 +185,7 @@ const styles = StyleSheet.create({
   imageContainer: {
     alignItems: 'center',
     marginBottom: normalize(18, 'height'),
-    marginTop: normalize(70, 'height'),
+    marginTop: normalize(40, 'height'),
   },
   profileImage: {
     width: normalize(200),
@@ -233,7 +233,7 @@ const styles = StyleSheet.create({
     color: '#1E1E1E',
     textAlign: 'left',
     minWidth: normalize(60),
-    marginTop: normalize(0),
+    top: normalize(0),
     marginLeft: normalize(30),
   },
   boldValue: {
@@ -243,7 +243,7 @@ const styles = StyleSheet.create({
     color: '#1E1E1E',
     textAlign: 'left',
     minWidth: normalize(60),
-    marginTop: normalize(-2),
+    top: normalize(-3),
     marginLeft: normalize(30),
     
   },

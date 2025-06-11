@@ -175,7 +175,7 @@ const [randomTip, setRandomTip] = useState('');
                       borderRightWidth: 0,
                     },
                   ]}
-                  activeOpacity={0.8}
+                  activeOpacity={0.3}
                   disabled={isEditing} // 편집 모드에서는 이동 안 되게
                   onPress={() => {
                     navigation.navigate('Home', {
@@ -308,7 +308,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   tipText: {
-    fontSize: normalize(16),
+    fontSize: normalize(15),
     color: '#616161',
     lineHeight: normalize(20),
     fontFamily: 'KaushanScript',
@@ -325,7 +325,7 @@ const styles = StyleSheet.create({
     marginBottom: normalize(16),
   },
   sectionTitle: {
-    fontSize: normalize(24),
+    fontSize: normalize(22),
     fontWeight: '400',
     color: '#1E1E1E',
   },
@@ -347,7 +347,7 @@ const styles = StyleSheet.create({
   tripBox: {
     flex: 1,
     backgroundColor: '#fff',
-    paddingVertical: normalize(28),
+    paddingVertical: normalize(30),
     paddingHorizontal: normalize(20),
     borderRadius: normalize(20),
     marginBottom: normalize(0),
@@ -412,7 +412,7 @@ const styles = StyleSheet.create({
   plusCircle: {
     width: normalize(36),
     height: normalize(36),
-    borderRadius: normalize(20),
+    borderRadius: normalize(14),
     backgroundColor: '#4F46E5',
     alignItems: 'center',
     justifyContent: 'center',

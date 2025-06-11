@@ -53,8 +53,8 @@ const ageInputRef = useRef(null);
   // 프로필 이미지 삭제 버튼
   const handleRemoveImage = () => {
     Alert.alert(
-      '사진 삭제',
-      '프로필 사진을 삭제하시겠습니까?',
+      '이미지 삭제',
+      '이미지를 삭제하시겠습니까?',
       [
         { text: '취소', style: 'cancel' },
         { text: '삭제', style: 'destructive', onPress: () => setImage(null) },
@@ -301,7 +301,7 @@ const styles = StyleSheet.create({
   headerLine: {
     width: '90%',
     marginBottom: normalize(18, 'height'),
-    marginTop: normalize(10, 'height'),
+    marginTop: normalize(12, 'height'),
     height: normalize(1, 'height'),
     backgroundColor: '#B5B5B5',
     borderRadius: normalize(2),
@@ -346,19 +346,27 @@ const styles = StyleSheet.create({
     minHeight: normalize(54, 'height'),
   },
   label: {
-    fontSize: normalize(18),
+    fontSize: normalize(16),
     color: '#373737',
     marginBottom: normalize(7, 'height'),
     lineHeight: normalize(20, 'height'),
     fontWeight: '500',
   },
   labelss: {
-    fontSize: normalize(18),
+    fontSize: normalize(16),
     color: '#373737',
     marginBottom: normalize(7, 'height'),
     lineHeight: normalize(20, 'height'),
     fontWeight: '500',
     right: normalize(157),
+  },
+  labels: {
+    fontSize: normalize(16),
+    color: '#373737',
+    marginBottom: normalize(7, 'height'),
+    lineHeight: normalize(20, 'height'),
+    fontWeight: '500',
+    right: normalize(150),
   },
   asterisk: {
   color: '#EF4444',   // 빨간색

@@ -172,7 +172,7 @@ export default function MatchingInfoScreen() {
         </View>
 
         <View style={styles.calendarBox}>
-          <Text style={styles.calendarLabel}>일정 선택</Text>
+          <Text style={styles.calendarLabel}>일정 선택<Text style={styles.asterisk}> *</Text></Text>
           <Calendar
     style={{ backgroundColor: '#FAFAFA' }}  // ✅ 추가
     theme={{
@@ -431,5 +431,10 @@ const styles = StyleSheet.create({
   },
   disabledButton: {
     backgroundColor: '#CCCCCC',
+  },
+  asterisk: {
+  color: '#EF4444',   // 빨간색
+  fontWeight: 'bold',
+  fontSize: 20,
   },
 });

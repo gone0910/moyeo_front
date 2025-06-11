@@ -42,7 +42,7 @@ export default function TravelCard({ title, dDay, period, route, onPress }) {
   const shownRoute = route.slice(0, 4).join('   ▶   ');
 
   return (
-    <TouchableOpacity onPress={onPress} activeOpacity={0.85}>
+    <TouchableOpacity onPress={onPress} activeOpacity={0.3}>
       <View style={styles.card}>
         <View style={styles.header}>
           <Text style={styles.title}>{title}</Text>
@@ -86,13 +86,13 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: normalize(0, 'height'),
+    marginTop: normalize(-2, 'height'),
   },
   title: {
-    fontFamily: 'Inter_400Regular',
     fontSize: normalize(16),
-    color: '#000000',
-    letterSpacing: 0,
+    fontWeight: '400',
+    color: '#373737',
+    marginBottom: normalize(-5),
   },
   dday: {
     fontFamily: 'Inter_700Bold',
@@ -105,7 +105,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter_400Regular',
     fontSize: normalize(14),
     color: '#7E7E7E',
-    marginTop: normalize(0, 'height'),
+    top: normalize(0, 'height'),
     letterSpacing: 0,
   },
   routeWrapper: {

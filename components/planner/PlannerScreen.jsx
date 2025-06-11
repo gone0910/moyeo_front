@@ -139,22 +139,22 @@ const styles = StyleSheet.create({
   },
   bottomSection: {
     position: 'absolute',
-    bottom: normalize(35, 'height'), // 하단탭과 겹치지 않게 조정
+    bottom: normalize(35, 'height'), 
     left: normalize(16),
     right: normalize(16),
     alignItems: 'center',
   },
   button: {
-    width: normalize(358),
-    height: normalize(58, 'height'),
     backgroundColor: '#4F46E5',
-    borderRadius: normalize(10),
-    justifyContent: 'center',
-    alignItems: 'center',
-    top: normalize(10, 'height'),
-  },
+  paddingVertical: normalize(18, 'height'),
+  paddingHorizontal: normalize(20),
+  borderRadius: normalize(10),
+  alignItems: 'center',
+  width: '100%',
+ top: normalize(2, 'height'),
+  marginLeft: 0,
+},
   buttonText: {
     color: '#fff',
-    // fontSize는 인라인에서 반응형 적용
   },
 });

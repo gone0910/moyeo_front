@@ -202,6 +202,8 @@ const CommunityScreen = () => {
   const [searchTitle, setSearchTitle] = useState('');
   const [page, setPage] = useState(0);
   const [hasNextPage, setHasNextPage] = useState(false);
+  const [isPressed, setIsPressed] = useState(false);
+
 
   useEffect(() => {
   setSelectedCity('선택안함');
@@ -411,8 +413,9 @@ const CommunityScreen = () => {
           <View>
             <TouchableOpacity
   style={styles.postCard}
-  activeOpacity={0.85}
+  activeOpacity={0.3}
   onPress={() => {
+    
     const postId = item.postId ?? item.id;
     if (!postId) {
       Alert.alert('게시글 ID를 찾을 수 없습니다.');
@@ -440,7 +443,6 @@ const CommunityScreen = () => {
     />
   ) : null}
 </TouchableOpacity>
-            <View style={styles.divider} />
           </View>
         )}
         refreshing={loading}
@@ -523,12 +525,12 @@ const styles = StyleSheet.create({
     marginRight: normalize(7),
   },
   username: {
-    fontSize: normalize(15),
+    fontSize: normalize(14),
     color: '#50626a',
     fontWeight: '500',
   },
   title: {
-    fontSize: normalize(16),
+    fontSize: normalize(14),
     color: '#232a33',
     marginBottom: normalize(10),  // 기존 6 -> 10으로 살짝 늘림
   marginTop: normalize(15), 
@@ -540,12 +542,12 @@ const styles = StyleSheet.create({
   },
   views: {
     marginLeft: normalize(5),
-    fontSize: normalize(13),
+    fontSize: normalize(12),
     color: '#aaa',
     marginRight: normalize(13),
   },
   time: {
-    fontSize: normalize(13),
+    fontSize: normalize(12),
     color: '#aaa',
   },
   thumbnail: {
