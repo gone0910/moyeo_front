@@ -105,68 +105,82 @@ export default function PlaceDetailScreen() {
 };
 
   const mapHtml = `
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <meta charset="utf-8" />
-      <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes" />
-      <style>
-        html, body, #map {
-          margin: 0;
-          padding: 0;
-          width: 100vw;
-          height: 100vh;
-          border-radius: 0px;
-          overflow: hidden;
-        }
-      </style>
-      <script>
-        function initKakaoMap() {
-          if (typeof kakao === 'undefined') {
-            alert('❌ Kakao SDK 로드 실패');
-            return;
-          }
-          var map = new kakao.maps.Map(document.getElementById('map'), {
-            center: new kakao.maps.LatLng(${defaultLat}, ${defaultLng}),
-            level: 1
-          });
-          var marker = new kakao.maps.Marker({
-            position: new kakao.maps.LatLng(${defaultLat}, ${defaultLng})
-          });
-          marker.setMap(map);
-        }
-      </script>
-      <script src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=${KAKAO_JS_KEY}&autoload=false" onload="kakao.maps.load(initKakaoMap)"></script>
-    </head>
-    <body>
-      <div id="map"></div>
-    </body>
-    </html>
-  `;
+  <!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes" />
+  <style>
+    html, body, #map {
+      margin: 0;
+      padding: 0;
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+    }
+  </style>
+  <script>
+    function initKakaoMap() {
+      if (typeof kakao === 'undefined') {
+        alert('❌ Kakao SDK 로드 실패');
+        return;
+      }
+
+      var map = new kakao.maps.Map(document.getElementById('map'), {
+        center: new kakao.maps.LatLng(${defaultLat}, ${defaultLng}),
+        level: 3
+      });
+
+      var marker = new kakao.maps.Marker({
+        position: new kakao.maps.LatLng(${defaultLat}, ${defaultLng})
+      });
+
+      marker.setMap(map);
+
+      // ✅ 마커 클릭 시에만 'open_kakao_map' 메시지 전달
+      kakao.maps.event.addListener(marker, 'click', function() {
+        window.ReactNativeWebView.postMessage('open_kakao_map');
+      });
+
+      // ✅ 지도 클릭 이벤트 추가 - 지도 클릭 시 카카오맵 이동 방지
+      kakao.maps.event.addListener(map, 'click', function() {
+        console.log('지도 클릭됨: 이동 방지');
+      });
+    }
+  </script>
+  <script src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=${KAKAO_JS_KEY}&autoload=false" onload="kakao.maps.load(initKakaoMap)"></script>
+</head>
+<body>
+  <div id="map"></div>
+</body>
+</html>
+`;
+
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#F4F6FB' }}>
       <View style={styles.screen}>
         {/* 지도 */}
-        <TouchableOpacity
-          activeOpacity={0.92}
-          onPress={openKakaoPlaceDetail}
-          style={[styles.mapBox, { height: MAP_HEIGHT }]}
-        >
+        <View style={[styles.mapBox, { height: MAP_HEIGHT }]}>
           <WebView
-            originWhitelist={['*']}
-            source={{ html: mapHtml }}
-            style={styles.map}
-            javaScriptEnabled
-            domStorageEnabled
-            mixedContentMode="always"
-            allowFileAccess
-            allowUniversalAccessFromFileURLs
-            useWebKit
-            scrollEnabled={false}
-            scalesPageToFit
-            pointerEvents="none" // WebView는 조작 안 되고 클릭만 동작
-          />
+  originWhitelist={['*']}
+  source={{ html: mapHtml }}
+  style={styles.map}
+  javaScriptEnabled
+  domStorageEnabled
+  mixedContentMode="always"
+  allowFileAccess
+  allowUniversalAccessFromFileURLs
+  useWebKit
+  scrollEnabled={true}
+  scalesPageToFit={true}
+  onMessage={(event) => {
+    if (event.nativeEvent.data === 'open_kakao_map') {
+      openKakaoPlaceDetail();  // ✅ 마커 클릭 시에만 카카오맵으로 이동
+    }
+  }}
+/>
+</View>
           {/* 뒤로가기 버튼 (지도 위에 고정) */}
           <TouchableOpacity
             onPress={() => navigation.goBack()}
@@ -175,9 +189,10 @@ export default function PlaceDetailScreen() {
           >
             <Ionicons name="chevron-back" size={normalize(24)} color="#fff" />
           </TouchableOpacity>
-        </TouchableOpacity>
+
         {/* 카드 */}
-        <View style={[styles.infoCard, { height: CARD_HEIGHT }]}>
+        
+        <View style={[styles.infoCard, { height: CARD_HEIGHT , marginBottom: normalize(30)}]}>
           {/* 상단: 장소명/카테고리/가격 */}
           <View style={styles.row}>
             <View style={{ flexDirection: 'row', alignItems: 'center', flexShrink: 1 }}>
@@ -234,7 +249,7 @@ const styles = StyleSheet.create({
   },
   backButton: {
     position: 'absolute',
-    top: normalize(60, 'height'),
+    top: normalize(0, 'height'),
     left: normalize(16),
     zIndex: 10,
     width: normalize(38),
