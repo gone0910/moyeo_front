@@ -31,13 +31,6 @@ function normalize(size, based = 'width') {
 
 /**
  * 다가오는 여행 카드 리스트를 출력하는 컴포넌트입니다.
- * - 여행 플랜이 있는 경우 TravelCard들을 렌더링합니다.
- * - 여행 플랜이 없는 경우 안내 메시지를 출력합니다.
- * - "여행 플랜 만들러 가기" 버튼도 포함됩니다.
- *
- * @param {Array} travelList - 여행 플랜 배열
- * @param {Function} onPressCreate - 플랜 생성 버튼 클릭 시 실행될 함수
- * @param {Function} onPressCard - 플랜 카드 클릭 시 실행될 함수
  */
 export default function TravelSection({ travelList = [], onPressCreate, onPressCard }) {
   const safeList = Array.isArray(travelList) ? travelList : [];
@@ -53,19 +46,22 @@ export default function TravelSection({ travelList = [], onPressCreate, onPressC
         </View>
       ) : (
         safeList.map(plan => (
-  <TravelCard
-    key={plan.id}
-    title={plan.title}
-    period={
-      plan.startDate && plan.endDate
-        ? `${plan.startDate.replace(/-/g, '.')} ~ ${plan.endDate.replace(/-/g, '.')}`
-        : plan.period || ''
-    }
-    dDay={plan.dDay || plan.dday || ''}
-    route={Array.isArray(plan.route) ? plan.route : []}
-    onPress={() => onPressCard?.(plan.id)} // ✅ 여기서 직접 전달
-  />
-))
+          <TravelCard
+            key={plan.id}
+            title={plan.title}
+            period={
+              plan.startDate && plan.endDate
+                ? `${plan.startDate.replace(/-/g, '.')} ~ ${plan.endDate.replace(/-/g, '.')}`
+                : plan.period || ''
+            }
+            dDay={plan.dDay || plan.dday || ''}
+            route={Array.isArray(plan.route) ? plan.route : []}
+            onPress={() => {
+              console.log('✅ TravelCard 클릭됨! plan.id:', plan.id);  // ← 정상 위치로 이동
+              onPressCard?.(plan.id);
+            }}
+          />
+        ))
       )}
       <TouchableOpacity style={styles.createBtn} onPress={onPressCreate}>
         <View style={styles.plusCircle}>
@@ -94,26 +90,26 @@ const styles = StyleSheet.create({
     marginTop: normalize(0, 'height'),
   },
   noPlanBox: {
-  backgroundColor: '#fff',
-  borderRadius: normalize(20),
-  width: normalize(360), // 👈 너비 직접 지정
-  height: normalize(100, 'height'),
-  paddingHorizontal: normalize(16),
-  marginTop: normalize(8, 'height'),
-  alignSelf: 'center', // 👈 가운데 정렬 (너비 줄이면 필요)
-  alignItems: 'center',
-  justifyContent: 'center',
-  shadowColor: '#000',
-  shadowOffset: { width: 0, height: normalize(4, 'height') },
-  shadowOpacity: 0.15,
-  shadowRadius: normalize(8),
-  elevation: 2,
-},
+    backgroundColor: '#fff',
+    borderRadius: normalize(20),
+    width: normalize(360),
+    height: normalize(100, 'height'),
+    paddingHorizontal: normalize(16),
+    marginTop: normalize(8, 'height'),
+    alignSelf: 'center',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: normalize(4, 'height') },
+    shadowOpacity: 0.15,
+    shadowRadius: normalize(8),
+    elevation: 2,
+  },
   noPlanText: {
     fontFamily: 'Roboto',
     fontSize: normalize(16),
     fontWeight: '400',
-    color: '#00000',
+    color: '#000000',
   },
   noPlanLink: {
     fontFamily: 'Roboto',
@@ -123,15 +119,15 @@ const styles = StyleSheet.create({
     marginTop: normalize(8, 'height'),
   },
   createBtn: {
-    width: '88%',
+    width: '92%',
     height: normalize(48, 'height'),
     borderRadius: normalize(20),
     backgroundColor: '#FFFFFF',
     shadowColor: '#000000',
-    shadowOffset: { width: 0, height: normalize(4, 'height') },
-    shadowOpacity: 0.15,
-    shadowRadius: normalize(1),
-    elevation: 2,
+  shadowOpacity: 0.1, 
+  shadowRadius: normalize(6), 
+  shadowOffset: { width: 0, height: 0 }, 
+  elevation: 12, 
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: normalize(36),
@@ -142,7 +138,7 @@ const styles = StyleSheet.create({
   plusCircle: {
     width: normalize(36),
     height: normalize(36),
-    borderRadius: normalize(16),
+    borderRadius: normalize(14),
     backgroundColor: '#4F46E5',
     alignItems: 'center',
     justifyContent: 'center',

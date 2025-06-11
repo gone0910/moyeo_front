@@ -347,7 +347,7 @@ const styles = StyleSheet.create({
   tripBox: {
     flex: 1,
     backgroundColor: '#fff',
-    paddingVertical: normalize(28),
+    paddingVertical: normalize(30),
     paddingHorizontal: normalize(20),
     borderRadius: normalize(20),
     marginBottom: normalize(0),
@@ -412,7 +412,7 @@ const styles = StyleSheet.create({
   plusCircle: {
     width: normalize(36),
     height: normalize(36),
-    borderRadius: normalize(20),
+    borderRadius: normalize(14),
     backgroundColor: '#4F46E5',
     alignItems: 'center',
     justifyContent: 'center',

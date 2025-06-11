@@ -147,7 +147,7 @@ const MatchingList = () => {
       return (
     <View style={styles.container}>
         <HeaderBar />
-    <View style={styles.headerLine} />
+    <View/>
       {/* ✅ 안내 문구 + 리스트 출력 */}
       <View style={{ flex: 1, backgroundColor: '#F9F9F9' }}>
         <ScrollView contentContainerStyle={{ paddingTop: 10, paddingHorizontal: 16, paddingBottom: 100 }}>
@@ -314,8 +314,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#FAFAFA',
-    paddingHorizontal: scale(16),
-    paddingTop: vScale(24),
   },
   matchBox: {
     backgroundColor: '#fff',

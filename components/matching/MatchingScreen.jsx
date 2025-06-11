@@ -40,7 +40,9 @@ export default function MatchingScreen() {
 
       {/* Main Section */}
       <View style={styles.centerWrapper}>
-        <Text style={styles.title}>여행을 함께할 동행자를 찾아보세요</Text>
+        <Text style={styles.title}>
+  여행을 함께할 <Text style={{ color: '#4F46E5' }}>동행자</Text>를 찾아보세요
+</Text>
   <Text style={styles.titletext}>자신과 일정이 같으며 목적지, 여행성향이</Text>
   <Text style={styles.titletext2}>비슷한 여행자를 찾아 보실 수 있어요</Text>
 
@@ -55,7 +57,7 @@ export default function MatchingScreen() {
             // 후에 변경 필요
             onPress={() => navigation.navigate('MatchingInfo')}
           >
-            <Text style={styles.containerBarButtonText}>시작하기</Text>
+            <Text style={styles.containerBarButtonText}>동행자 찾기</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -110,25 +112,25 @@ const styles = StyleSheet.create({
   height: normalize(400, 'height'),
   marginBottom: normalize(-40, 'height'),
   borderRadius: normalize(16),
-  marginTop: normalize(30, 'height'), // 너무 크면 줄이기
+  marginTop: normalize(25, 'height'), // 너무 크면 줄이기
 },
 title: {
   fontSize: normalize(24),
   color: '#000000',
   textAlign: 'center',
   fontFamily: 'Inter_400Regular',
-  marginTop: normalize(30, 'height'), // 🔄 정상 위치에서 시작
+  marginTop: normalize(40, 'height'), // 🔄 정상 위치에서 시작
 },
 titletext: {
-  fontSize: normalize(20),
-  marginTop: normalize(16, 'height'),
+  fontSize: normalize(18),
+  marginTop: normalize(12, 'height'),
   color: '#999999',
   textAlign: 'center',
   fontFamily: 'Inter_400Regular',
 },
 titletext2: {
-  fontSize: normalize(20),
-  marginTop: normalize(10, 'height'), // 🔄 top 제거 후 자연스러운 간격
+  fontSize: normalize(18),
+  top: normalize(2, 'height'), // 🔄 top 제거 후 자연스러운 간격
   color: '#999999',
   textAlign: 'center',
   fontFamily: 'Inter_400Regular',
@@ -138,7 +140,7 @@ titletext2: {
     padding: normalize(16),
     backgroundColor: '#FAFAFA',
     borderRadius: normalize(16),
-    marginTop: normalize(90, 'height'),
+    marginTop: normalize(40, 'height'),
     alignItems: 'center',
   },
   containerBarText: {
@@ -148,12 +150,12 @@ titletext2: {
   },
   containerBarButton: {
   backgroundColor: '#4F46E5',
-  paddingVertical: normalize(18, 'height'),
-  paddingHorizontal: normalize(20),
-  borderRadius: normalize(16),
+  paddingVertical: normalize(20, 'height'),
+  paddingHorizontal: normalize(22),
+  borderRadius: normalize(10),
   alignItems: 'center',
   width: '100%',
-  marginTop: normalize(-50, 'height'),
+ top: normalize(-8, 'height'),
   marginLeft: 0,
 },
   containerBarButtonText: {

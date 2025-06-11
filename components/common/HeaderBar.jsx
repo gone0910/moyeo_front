@@ -51,19 +51,21 @@ const styles = StyleSheet.create({
     fontFamily: 'KaushanScript',
     color: '#4F46E5',
     lineHeight: 80,
+    top:5,
+
   },
   profileImage: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    marginTop: 20,
+    top: 10,
   },
   profilePlaceholder: {
     width: 44,
     height: 44,
     borderRadius: 22,
     backgroundColor: '#D1D5DB',
-    marginTop: 20,
+top: 10,
   },
   headerLine: {
     height: 1,
