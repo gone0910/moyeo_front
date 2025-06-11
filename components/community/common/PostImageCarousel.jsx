@@ -89,7 +89,7 @@ export default function PostImageCarousel({ images = testImages }) {
               style={{
                 width: SCREEN_WIDTH,
                 height: FIXED_HEIGHT,
-                backgroundColor: '#FAFAFA', // '#C4C4C4' 사진첨부 프레임 색상
+                backgroundColor: '#ffffff', // '#C4C4C4' 사진첨부 프레임 색상
                 justifyContent: 'center',
                 alignItems: 'center',
               }}
