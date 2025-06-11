@@ -69,7 +69,10 @@ export default function HomeScreen() {
 
   return (
     <View style={styles.container}>
-      <HeaderBar/>
+
+      {/* 상단바 챗봇 아이콘 추가 */}
+      <HeaderBar showChatBot={true} /> 
+
 
       {/* 사용자 인사말 */}
       <View style={styles.greetingWrapper}>
