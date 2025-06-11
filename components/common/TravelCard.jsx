@@ -42,7 +42,7 @@ export default function TravelCard({ title, dDay, period, route, onPress }) {
   const shownRoute = route.slice(0, 4).join('   ▶   ');
 
   return (
-    <TouchableOpacity onPress={onPress} activeOpacity={0.85}>
+    <TouchableOpacity onPress={onPress} activeOpacity={0.3}>
       <View style={styles.card}>
         <View style={styles.header}>
           <Text style={styles.title}>{title}</Text>
