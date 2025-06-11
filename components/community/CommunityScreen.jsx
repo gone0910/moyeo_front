@@ -202,6 +202,8 @@ const CommunityScreen = () => {
   const [searchTitle, setSearchTitle] = useState('');
   const [page, setPage] = useState(0);
   const [hasNextPage, setHasNextPage] = useState(false);
+  const [isPressed, setIsPressed] = useState(false);
+
 
   useEffect(() => {
   setSelectedCity('선택안함');
@@ -411,8 +413,9 @@ const CommunityScreen = () => {
           <View>
             <TouchableOpacity
   style={styles.postCard}
-  activeOpacity={0.85}
+  activeOpacity={0.3}
   onPress={() => {
+    
     const postId = item.postId ?? item.id;
     if (!postId) {
       Alert.alert('게시글 ID를 찾을 수 없습니다.');
@@ -440,7 +443,6 @@ const CommunityScreen = () => {
     />
   ) : null}
 </TouchableOpacity>
-            <View style={styles.divider} />
           </View>
         )}
         refreshing={loading}
