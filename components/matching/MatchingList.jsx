@@ -485,14 +485,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   NoneListText1: {
-    fontSize: scale(24),
+    fontSize: scale(22),
     color: '#1E1E1E',
     textAlign: 'center',
     marginVertical: vScale(12),
     top: vScale(170),
   },
   NoneListText2: {
-    fontSize: scale(18),
+    fontSize: scale(16),
     color: '#7E7E7E',
     textAlign: 'center',
     marginVertical: vScale(12),
