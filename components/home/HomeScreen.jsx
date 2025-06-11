@@ -129,6 +129,7 @@ export default function HomeScreen() {
             <View style={[styles.iconCircle, { backgroundColor: '#E9CDFF' }]}>
               <MaterialIcons
                 name="route"
+                borderRadius={ normalize(50)}
                 size={normalize(64)}
                 color="#533E92"
               />
@@ -149,6 +150,7 @@ export default function HomeScreen() {
               '#FFF1A8' }]}>
               <MaterialIcons
                 name="person-outline"
+                borderRadius={ normalize(50)}
                 size={normalize(64)}
                 color="#928023"
               />
@@ -180,9 +182,12 @@ export default function HomeScreen() {
           showsVerticalScrollIndicator={false}
         >
           <TravelSection
-            travelList={myTrips}
-            onPressCreate={() => navigation.navigate('Planner')}
-          />
+  travelList={myTrips}
+  onPressCreate={() => navigation.navigate('Planner')}
+  onPressCard={(scheduleId) => {
+  navigation.navigate('PlannerResponse', { scheduleId, from: 'Home' });
+}}
+/>
         </ScrollView>
       ) : (
         <View style={styles.travelScrollArea}>
@@ -238,7 +243,7 @@ const styles = StyleSheet.create({
   },
   greetingText: {
     fontFamily: 'Inter_400Regular',
-    fontSize: normalize(25),
+    fontSize: normalize(23),
     color: '#141414',
     letterSpacing: normalize(0),
   },
@@ -272,7 +277,7 @@ const styles = StyleSheet.create({
   iconCircle: {
     width: normalize(72),
     height: normalize(72),
-    borderRadius: normalize(12),
+    borderRadius: normalize(20),
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: normalize(8, 'height'),
@@ -299,7 +304,8 @@ const styles = StyleSheet.create({
   },
   travelTitle: {
     fontFamily: 'Inter_400Regular',
-    fontSize: normalize(25),
+    fontSize: normalize(23),
+    marginLeft: normalize(19),
     color: '#000000',
     letterSpacing: normalize(0),
   },
