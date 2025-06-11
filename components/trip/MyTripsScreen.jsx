@@ -308,7 +308,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   tipText: {
-    fontSize: normalize(16),
+    fontSize: normalize(15),
     color: '#616161',
     lineHeight: normalize(20),
     fontFamily: 'KaushanScript',
@@ -325,7 +325,7 @@ const styles = StyleSheet.create({
     marginBottom: normalize(16),
   },
   sectionTitle: {
-    fontSize: normalize(24),
+    fontSize: normalize(22),
     fontWeight: '400',
     color: '#1E1E1E',
   },
