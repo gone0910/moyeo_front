@@ -1,6 +1,6 @@
 // components//chat//ChatListScreen.jsx 채팅 리스트 화면
 import React, { useState, useEffect } from 'react';
-import { View, FlatList, StyleSheet, Text, TouchableOpacity, Alert, Dimensions } from 'react-native';
+import { View, FlatList, StyleSheet, Text, TouchableOpacity, Alert, Dimensions, RefreshControl } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -35,6 +35,7 @@ const dummyChatRoomsData = [
 export default function ChatListScreen() {
   const [chatRooms, setChatRooms] = useState([]);
   const [isEditing, setIsEditing] = useState(false);
+  const [refreshing, setRefreshing] = useState(false); // 새로고침 추가
   const navigation = useNavigation();
 
   // ✅ 채팅방 리스트 불러오기
@@ -124,6 +125,16 @@ const loadChatRooms = async () => {
     );
   };
 
+  // 새로고침 핸들러 
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await loadChatRooms();
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
   return (
     <View style={{ flex: 1, backgroundColor: '#FAFAFA' }}>
       <HeaderBar /> {/* 공통 상단 헤더 */}
@@ -158,10 +169,29 @@ const loadChatRooms = async () => {
             paddingTop: vScale(8),
             flexGrow: 1,
           }}
+
+          refreshControl={ // 새로고침 추가.
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={handleRefresh}
+              tintColor="#4F46E5"
+              colors={['#4F46E5']}
+            />
+          }
+
           ListEmptyComponent={
             <View style={styles.emptyWrapper}>
               <Text style={styles.emptyTitle}>아직 채팅을 시작한 사람이 없어요</Text>
-              <Text style={styles.emptyDesc}>같이 떠날 동행자를 찾으러 가볼까요?</Text>
+              {/* 버튼으로 변경, 누르면 매칭화면으로 이동 */}
+              <TouchableOpacity
+                style={styles.matchingBtn}
+                onPress={() => navigation.navigate('Home', {
+                  screen: 'Matching'
+                })} // "Matching"은 HomeNavigator의 Stack.Screen name
+                activeOpacity={0.7}
+              >
+                <Text style={styles.matchingBtnText}>같이 떠날 동행자를 찾으러 가볼까요?</Text>
+              </TouchableOpacity>
             </View>
           }
         />
@@ -199,7 +229,7 @@ const styles = StyleSheet.create({
   emptyWrapper: {
     width: scale(338),
     alignSelf: 'center',
-    marginTop: vScale(224),
+    marginTop: vScale(144),
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -215,18 +245,17 @@ const styles = StyleSheet.create({
     backgroundColor: '#FAFAFA',
     borderRadius: scale(16),
     overflow: 'hidden',
-    marginBottom: vScale(12),
     includeFontPadding: false,
     textAlignVertical: 'center',
     justifyContent: 'center',
   },
   emptyDesc: {
     width: scale(338),
-    height: vScale(35),
+    height: vScale(25),
     fontFamily: 'Roboto',
     fontWeight: '400',
     fontSize: scale(16),
-    lineHeight: vScale(45),
+    lineHeight: vScale(25),
     color: '#4F46E5',
     textAlign: 'center',
     backgroundColor: '#FAFAFA',
@@ -235,5 +264,20 @@ const styles = StyleSheet.create({
     includeFontPadding: false,
     textAlignVertical: 'center',
     justifyContent: 'center',
+  },
+  matchingBtn: {
+    marginTop: 10,
+    backgroundColor: '#FAFAFA',
+    borderRadius: scale(14),
+    paddingVertical: vScale(8),
+    paddingHorizontal: scale(18),
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  matchingBtnText: {
+    color: '#4F46E5',
+    fontSize: scale(17),
+    fontWeight: '400',
+    letterSpacing: 0.5,
   },
 });

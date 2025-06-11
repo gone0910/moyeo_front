@@ -125,14 +125,6 @@ const MatchingList = () => {
           <Text style={styles.NoneListText2}>
             동행자 정보를 수정하시는 걸 추천드려요
           </Text>
-          <View style={styles.buttonContainer}>
-            <TouchableOpacity
-              style={styles.MachingListButton}
-              onPress={() => navigation.navigate('MatchingInfoScreen')}
-            >
-              <Ionicons name="rocket-outline" size={24} color="white" />
-            </TouchableOpacity>
-          </View>
         </ScrollView>
       </View>
     );
@@ -154,7 +146,7 @@ const MatchingList = () => {
           {/* 🔹 안내 메시지 박스 */}
           <View style={{ backgroundColor: '#CECCF5', padding: 16, borderRadius: 12, marginBottom: 26 }}>
             <Text style={{ color: '#616161', fontSize: 16, textAlign: 'center',top:-3 }}>나와 여행 스타일이 유사한 사용자들이에요</Text>
-            <Text style={{ color: '#616161', fontSize: 16, textAlign: 'center', top: 3 }}>함께 여행갈 사람을 찾아볼까요?</Text>
+            <Text style={{ color: '#616161', fontSize: 16, textAlign: 'center', top: 3 }}>함께 여행할 사람을 찾아볼까요?</Text>
           </View>
 
           {/* 🔹 NoneList로 이동 (테스트용 버튼) */}
@@ -166,7 +158,7 @@ const MatchingList = () => {
             <TouchableOpacity key={index} onPress={() => handleCardPress(item.nickname || item.name)}>
               <View style={styles.matchBox}>
                 <Image source={{ uri: item.image || item.imageUrl }} style={styles.matchImage} />
-                <View style={{ flex: 1 }}>
+                <View style={styles.matchInfoColumn}>
                   <Text style={styles.matchName}>{item.name || item.nickname}</Text>
                   <Text style={styles.matchDate}>
                     {item.date? item.date.replace(/-/g, '/'): `${formatDate(item.startDate)} ~ ${formatDate(item.endDate)}`}
@@ -205,7 +197,7 @@ const MatchingList = () => {
                   {/* 🔹 모달 상단 유저 이미지/닉네임 */}
                   <View style={styles.modalHeader}>
                     <Image source={{ uri: selectedMatch.image || selectedMatch.imageUrl }} style={styles.modalProfileImageUpdated} />
-                    <View style={{ marginLeft: 16 }}>
+                    <View>
                       <Text style={styles.modalUserName}>{selectedMatch.name || selectedMatch.nickname}</Text>
                       <Text style={styles.modalDate}>
                         {selectedMatch.date
@@ -226,7 +218,9 @@ const MatchingList = () => {
                     <Text style={styles.infoLabel}>여행 성향</Text>
                     <View style={styles.tagGroup}>
                       {(selectedMatch.travelStyle || selectedMatch.travelStyles)?.map((style, idx) => (
-                        <Text key={idx} style={styles.infoTag2}>#{STYLE_ENUM_TO_KOR[style] || style}</Text>
+                        style === 'NONE'
+                          ? <Text key={idx} style={styles.infoTag2}>{STYLE_ENUM_TO_KOR[style] || '선택없음'}</Text>
+                          : <Text key={idx} style={styles.infoTag2}>#{STYLE_ENUM_TO_KOR[style] || style}</Text>
                       ))}
                     </View>
                   </View>
@@ -321,15 +315,19 @@ const styles = StyleSheet.create({
     padding: scale(12),
     marginBottom: vScale(12),
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     minWidth: scale(358),
+  },
+  matchInfoColumn: {
+    flex: 1,
+    justifyContent: 'flex-start', // ★ 상단부터 배치
   },
   modalBoxUpdated: {
     width: '90%',
     maxWidth: scale(400),
     backgroundColor: '#FFF',
     borderRadius: scale(20),
-    padding: scale(26),
+    padding: scale(16),
     alignItems: 'center',
     shadowColor: '#888',
     shadowOffset: { width: 0, height: vScale(10) },
@@ -339,17 +337,19 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   modalProfileImageUpdated: {
-    width: scale(70),
-    height: scale(70),
+    width: scale(86),
+    height: scale(86),
     borderRadius: scale(14),
     backgroundColor: '#ECECEC',
     borderWidth: 2,
     borderColor: '#E0E7FF',
-  },
-  matchImage: { width: scale(86), height: scale(86), borderRadius: scale(14), marginRight: scale(12) },
-  matchName: { fontSize: scale(18), color: '#1E1E1E', marginTop: vScale(4) },
-  matchDate: { fontSize: scale(16), color: '#7E7E7E', marginTop: vScale(4) },
-  tagsContainer: { flexDirection: 'row', flexWrap: 'wrap', marginTop: vScale(4) },
+    marginLeft: scale(12),
+
+  }, // 매칭 값
+  matchImage: { width: scale(71), height: scale(71), borderRadius: scale(21), marginRight: scale(12) },
+  matchName: { fontSize: scale(16), color: '#1E1E1E' },
+  matchDate: { fontSize: scale(14), color: '#7E7E7E', marginTop: vScale(8) },
+  tagsContainer: { flexDirection: 'row', flexWrap: 'wrap', marginTop: vScale(8) },
   tag: { backgroundColor: '#EFEAE5', paddingVertical: vScale(3), paddingHorizontal: scale(6), borderRadius: scale(4), marginRight: scale(6) },
   tagText: { fontSize: scale(12), color: '#7E7E7E' },
 
@@ -369,32 +369,36 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: vScale(18),
     width: '100%',
-    justifyContent: 'center',
+    justifyContent: 'row',  // 사진 좌측정렬
   },
   modalUserName: {
-    fontSize: scale(22),
+    fontSize: scale(20),
     fontWeight: 'bold',
     color: '#4F46E5',
     marginLeft: scale(20),
   },
   modalDate: {
-    fontSize: scale(15),
+    fontSize: scale(13),
     color: '#888',
     marginTop: vScale(6),
     marginLeft: scale(20),
   },
-    infoRow: {
+  infoRow: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     width: '100%',
-    marginBottom: vScale(16),
+    height: scale(35),
+    marginLeft: scale(24),
+    marginTop: scale(8), // 위 요소와의 간격
   },
   infoLabel: {
+    width: scale(77), // ex. 성별: 40, 여행성향: 77
+    fontFamily: 'Roboto',
+    fontWeight: '400',
     fontSize: scale(16),
     color: '#1E1E1E',
-    fontWeight: '500',
-    width: scale(70),  
-    marginTop: vScale(8),
+    textAlignVertical: 'center',
+    backgroundColor: '#FFFFFF',
   },
   tagGroup: {
     flexDirection: 'row',
@@ -403,54 +407,58 @@ const styles = StyleSheet.create({
     flex: 1,
     // marginLeft: scale(8), // ← 반드시 삭제 또는 주석!
   },
-    infoTag1: {
-    backgroundColor: '#ADB3DD',
-    paddingHorizontal: scale(14),
-    paddingVertical: vScale(7),
+  infoTag1: {
+    MaxWidth: scale(69),
+    height: scale(30),
+    marginLeft: scale(10),
     borderRadius: scale(8),
-    fontSize: scale(14),
+    backgroundColor: '#ADB3DD',
     color: '#fff',
-    minWidth: scale(60),
+    fontSize: scale(14),
     textAlign: 'center',
-    marginBottom: vScale(4),
-    marginLeft: scale(16),
+    textAlignVertical: 'center',
+    lineHeight: scale(30),
+    paddingHorizontal: scale(8),
   },
   infoTag2: {
-    backgroundColor: '#B3A4F7',
-    paddingHorizontal: scale(14),
-    paddingVertical: vScale(7),
+    MaxWidth: scale(98),
+    height: scale(30),
+    marginLeft: scale(10),
     borderRadius: scale(8),
-    fontSize: scale(14),
+    backgroundColor: '#B3A4F7',
     color: '#fff',
-    minWidth: scale(60),
+    fontSize: scale(14),
     textAlign: 'center',
-    marginBottom: vScale(4),
-    marginLeft: scale(16),
+    textAlignVertical: 'center',
+    lineHeight: scale(30),
+    paddingHorizontal: scale(11),
   },
   infoTag3: {
-    backgroundColor: '#B3A4F7',
-    paddingHorizontal: scale(14),
-    paddingVertical: vScale(7),
+    MaxWidth: scale(98),
+    height: scale(30),
+    marginLeft: scale(10),
     borderRadius: scale(8),
-    fontSize: scale(14),
+    backgroundColor: '#B3A4F7',
     color: '#fff',
-    minWidth: scale(60),
+    fontSize: scale(14),
     textAlign: 'center',
-    marginBottom: vScale(4),
-    marginLeft: scale(16),
+    textAlignVertical: 'center',
+    lineHeight: scale(30),
+    paddingHorizontal: scale(11),
   },
   infoTag4: {
-    backgroundColor: '#F4F4FF',
-    paddingHorizontal: scale(14),
-    paddingVertical: vScale(7),
-    borderRadius: scale(8),
-    fontSize: scale(14),
-    color: '#7E7E7E',
-    minWidth: scale(60),
-    textAlign: 'center',
-    marginBottom: vScale(4),
-    marginLeft: scale(16),    borderWidth: 1,
-    borderColor: '#D6C9DF',
+  width: scale(83),
+  height: scale(30),
+  marginLeft: scale(10),
+  borderRadius: scale(8),
+  backgroundColor: '#FAF4FF',
+  color: '#7E7E7E',
+  fontSize: scale(14),
+  borderWidth: 1,
+  borderColor: '#D6C9DF',
+  textAlign: 'center',
+  textAlignVertical: 'center',
+  lineHeight: scale(30),
   },
   chatButton: {
     backgroundColor: '#4F46E5',
@@ -469,22 +477,6 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: scale(17),
     fontWeight: '700',
-  },
-  buttonContainer: {
-    position: 'absolute',
-    right: scale(20),
-    bottom: vScale(20),
-    flexDirection: 'row',
-    gap: scale(12),
-  },
-  NoneListButton: {
-    width: scale(48),
-    height: scale(48),
-    borderRadius: scale(24),
-    top: 0,
-    backgroundColor: '#6D28D9',
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   contentContainer: {
     padding: scale(25),
