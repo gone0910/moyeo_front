@@ -93,7 +93,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     paddingTop: scaleHeight(10),
-    paddingHorizontal: 0,
+    paddingHorizontal: scaleWidth(0),
     justifyContent: 'space-between',
     position: 'relative',
   },
@@ -102,6 +102,7 @@ const styles = StyleSheet.create({
     height: scaleHeight(50),
     alignItems: 'center',
     justifyContent: 'center',
+    marginRight: scaleWidth(0),
   },
   titleWrapper: {
     flex: 1,

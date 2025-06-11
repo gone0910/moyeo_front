@@ -1,17 +1,21 @@
 // components/commnuity/PostDetailScreen.jsx 게시글 상세보기기
 // 게시글 상세 전체(메인) 화면, 컴포넌트 조합
-import React, { useEffect, useState } from 'react';
-import { SafeAreaView, FlatList, View, Text, StyleSheet, Dimensions, Image,
-   ActivityIndicator, useNavigation, BackHandler,  Alert } from 'react-native';
+import React, { useEffect, useState, useRef } from 'react';
+import { SafeAreaView, ScrollView, View, Text, StyleSheet, Dimensions, Image,
+   ActivityIndicator, useNavigation, BackHandler, Alert, RefreshControl, KeyboardAvoidingView, Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import PostHeader from './common/PostHeader';
 import PostImageCarousel from './common/PostImageCarousel';
 import CommentSection from './common/CommentSection';
-import { getPostDetail, deletePost } from '../../api/community';
+import { getPostDetail, deletePost, getCommentList } from '../../api/community';
 import {decode as atob} from 'base-64';
 import { ENUM_TO_PROVINCE_KOR, ENUM_TO_CITY_KOR } from '../common/regionMap';
 import { useFocusEffect } from '@react-navigation/native';
-import { RefreshControl } from 'react-native'; // 새로고침(스크롤 위로 당기면)
+import { LogBox } from 'react-native';
+
+LogBox.ignoreLogs([
+  'VirtualizedLists should never be nested', // 해당 경고 포함하는 메시지 모두 무시
+]); // 본문은 scrollview, 댓글은 flatlist라 충돌우려
 
 // api 받아온 타임스탬프 정형화
 const formatKoreanDateTime = (isoString) => {
@@ -86,18 +90,64 @@ export default function PostDetailScreen({ route, navigation }) {
   const [loading, setLoading] = useState(!isMock);
   const [myNickname, setMyNickname] = useState('');
   const [refreshing, setRefreshing] = useState(false);
+  const commentSectionRef = useRef();
+  const [comments, setComments] = useState([]);
+
+  const hasImage = post?.postImages && post.postImages.length > 0; // 사진없으면 min값 확대 있으면 축소
+  const contentMinHeight = hasImage ? vScale(100) : vScale(280);
+
+      // 받아온 타임스탬프에 +9시간 더하기 (utc에서 변환)
+        function toKoreanDate(dateString) {
+        if (!dateString) return null;
+        const date = new Date(dateString);
+        // UTC → KST (+9시간)
+        return new Date(date.getTime() + 9 * 60 * 60 * 1000);
+      }
+
+
+      // 한국시간 변환
+          function getRelativeTime(isoString) {
+      if (!isoString) return '';
+      const now = new Date();
+      // ✅ KST로 보정한 값으로 차이 계산
+      const past = toKoreanDate(isoString);
+      const diff = (now.getTime() - past.getTime()) / 1000;
+
+      if (diff < 60) return '방금 전';
+      if (diff < 3600) return `${Math.floor(diff / 60)}분 전`;
+      if (diff < 86400) return `${Math.floor(diff / 3600)}시간 전`;
+      if (diff < 2592000) return `${Math.floor(diff / 86400)}일 전`;
+      if (diff < 31536000) return `${Math.floor(diff / 2592000)}달 전`;
+      return `${Math.floor(diff / 31536000)}년 전`;
+    }
   
-  // 게시글 새로고침
+  // 게시글 + 댓글 새로고침
   const onRefresh = async () => {
     setRefreshing(true);
     try {
+      // 본문 새로고침
       if (!isMock && token && postId) {
         const data = await getPostDetail(postId, token);
         setPost(data);
       }
-      // mock 처리 필요하면 추가
+      // 댓글 새로고침 (직접 API 호출)
+      if (!isMock && token && postId) {
+        const commentData = await getCommentList(postId, token);
+    // myNickname은 이미 상태에 있음
+    setComments(
+      commentData.map(item => ({
+        id: item.commentId,
+        nickname: item.nickname,
+        content: item.comment,
+        profileUrl: item.userProfile,
+        createdDate: getRelativeTime(item.updatedAt), // (함수 선언 필요)
+        isMine: item.nickname === myNickname,
+      })));
+            console.log('[새로고침] 댓글 리스트 갱신', commentData);
+      }
     } catch (error) {
-      Alert.alert('게시글 새로고침 실패!');
+      Alert.alert('새로고침 실패!');
+      console.error(error);
     }
     setRefreshing(false);
   };
@@ -206,109 +256,112 @@ export default function PostDetailScreen({ route, navigation }) {
     );
   };
 
-  return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#FFFFFF' }}>
-      <PostHeader
-        title={post.title}
-        showMore={isMyPost}
-        onDelete={handleDelete}
-        onBack={() => navigation.navigate('CommunityMain')} 
-        onEdit={() => {
-        // 전체 post 객체 or postId를 넘겨서 이동
+return (
+  <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 60 : 0}
+    >
+  <SafeAreaView style={{ flex: 1, backgroundColor: '#FAFAFA' }}>
+    <PostHeader
+      title={post.title}
+      showMore={isMyPost}
+      onDelete={handleDelete}
+      onBack={() => navigation.navigate('CommunityMain')}
+      onEdit={() => {
         navigation.navigate('EditPost', {
           postId: post.postId,
-          post: post // 선택적 (Edit에서 모든 값 자동 세팅 원할 때)
+          post: post,
         });
       }}
-      />  
-      <FlatList
-        data={[]} // 댓글 직접 출력하지 않음
-        renderItem={null} // 또는 () => null
-        ListHeaderComponent={
-          <>
-            {/* 제목 */}
-            <View style={styles.titleProfileContainer}>
-            <Text style={styles.title}>{post.title}</Text>
-              <View style={styles.profileBlock}>
-                <View style={styles.profileTopRow}>
-                  <Image source={{ uri: post.userProfileImage }} style={styles.profileImg} />
-                  <Text style={styles.nickname}>{post.nickname}</Text>
-                </View>
-                <View style={styles.profileBottomRow}>
-                  <Text style={styles.date}>
-                    {post.createdDate ? formatKoreanDateTime(post.createdDate) : ''}
-                  </Text>
-                  <Text style={styles.destination}>
-                    {/* 
-                      - province(도) 값이 있으면 출력
-                      - city(시)가 NONE이거나 undefined/공백이면, 아무것도 붙이지 않음!
-                    */}
-                    {post.province && post.province !== 'NONE'
-                      ? ENUM_TO_PROVINCE_KOR[post.province] +
-                          (
-                            post.city && post.city !== 'NONE'
-                              ? ' ' + (ENUM_TO_CITY_KOR[post.city] || post.city).replace(/시$/, '')
-                              : ''
-                          )
-                      : ''
-                    }
-                  </Text>
-                </View>
-              </View>
+    />
+    <ScrollView
+      style={{ flex: 1 }}
+      contentContainerStyle={{ paddingBottom: 20 }}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={onRefresh}
+          colors={['#4F46E5']}
+          tintColor="#4F46E5"
+        />
+      }
+    >
+      {/* 본문 영역 */}
+      <View style={styles.mainCardContainer}>
+        <View style={styles.titleProfileContainer}>
+          <Text style={styles.title}>{post.title}</Text>
+          <View style={styles.profileBlock}>
+            <View style={styles.profileTopRow}>
+              <Image source={{ uri: post.userProfileImage }} style={styles.profileImg} />
+              <Text style={styles.nickname}>{post.nickname}</Text>
             </View>
-            
-            {/* 구분선 */}
-            {/* <View style={styles.divider} /> */}
-            
-            {/* ✅ 여기서 공백 추가! */}
-            <View style={{ height: vScale(34) }} />
+            <View style={styles.profileBottomRow}>
+              <Text style={styles.date}>
+                {post.createdDate ? formatKoreanDateTime(post.createdDate) : ''}
+              </Text>
+              <Text style={styles.destination}>
+                {post.province && post.province !== 'NONE'
+                  ? ENUM_TO_PROVINCE_KOR[post.province] +
+                      (
+                        post.city && post.city !== 'NONE'
+                          ? ' ' + (ENUM_TO_CITY_KOR[post.city] || post.city).replace(/시$/, '')
+                          : ''
+                      )
+                  : ''
+                }
+              </Text>
+            </View>
+          </View>
+        </View>
+      </View>
 
+      {/* 공백 */}
+      <View style={{ height: vScale(10) }} />
 
-            {/* 이미지 슬라이더 */}
-            <PostImageCarousel images={post.postImages} />
-            {/* 본문 텍스트 */}
-            <Text style={styles.content}>{post.content}</Text>
-            {/* 구분선 */}
-            <View style={styles.divider} />
-          </>
-        }
-        ListFooterComponent={
-          <>
-          {console.log('[상세화면] CommentSection에 전달하는 post.postId:', post?.postId)}
-          {post && post.postId && (
-          <CommentSection
-            postId={post.postId}
-            isMock={isMock}
-            myNickname={myNickname} // ✅ 내 닉네임 전달
-          />
-        )}
-              </>
-            }
-            // scrollEnabled={true} // 기본값
-            contentContainerStyle={{ paddingBottom: 20 }}
+      {/* 이미지 슬라이더 */}
+      <PostImageCarousel images={post.postImages} />
+      {/* 본문 텍스트 */}
+      <Text
+        style={[
+          styles.content,
+          { minHeight: contentMinHeight }, // 크기 조절
+        ]}
+      >
+        {post.content}
+      </Text>
+      {/* 구분선 */}
+      <View style={styles.divider} />
 
-          refreshControl={ // 새로고침 작동
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={onRefresh}
-              colors={['#4F46E5']}
-              tintColor="#4F46E5"
-            />
-          }
-      />
-    </SafeAreaView>
-  );
-}
+      {/* 댓글 섹션 */}
+      {post && post.postId && (
+        <CommentSection
+          postId={post.postId}
+          myNickname={myNickname}
+          comments={comments} // ← 직접 관리하는 상태 전달
+          setComments={setComments}
+        />
+      )}
+    </ScrollView>
+  </SafeAreaView>
+  </KeyboardAvoidingView>
+);}
 
 const styles = StyleSheet.create({
   scrollContainer: { flex: 1 },
-
-  titleProfileContainer: {
-    flexDirection: 'column',   // 제목이 길면 프로필 섹션을 자동으로 아래로 밀어냄
-    paddingHorizontal: scale(19),
+  
+  mainCardContainer: {   // 제목 ~본문까지 전체 묶는 컨테이너
+    backgroundColor: '#FFFFFF',
+    borderRadius: scale(14), // 원하는 만큼
+    marginHorizontal: scale(14),
     marginTop: vScale(13),
   },
-    title: {
+  titleProfileContainer: {
+    flexDirection: 'column',   // 제목이 길면 프로필 섹션을 자동으로 아래로 밀어냄
+    marginTop: vScale(13),
+    paddingHorizontal: scale(10),
+  },
+  title: {
     fontFamily: 'Roboto',
     fontWeight: '400',
     fontSize: scale(22),
@@ -328,13 +381,22 @@ const styles = StyleSheet.create({
   profileBottomRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    marginTop: scale(6),
+    marginBottom: scale(6),
   },
   profileImg: {
     width: scale(36),
     height: scale(36),
     borderRadius: scale(14),
     backgroundColor: '#eee',
-    marginRight: scale(8),
+    // marginRight: scale(8),
+  },
+  profileImg: {
+  width: scale(36),
+  height: scale(36),
+  borderRadius: scale(14),
+  backgroundColor: '#eee',
+  // marginRight: scale(8),  // 제거
   },
   nickname: {
     fontFamily: 'Roboto',
@@ -343,21 +405,22 @@ const styles = StyleSheet.create({
     lineHeight: scale(25),
     color: '#333333',
     borderRadius: scale(8),
+    marginLeft: scale(6),   // 제거
   },
   date: {
     fontSize: scale(14),
     color: '#606060',
     borderRadius: scale(6),
-    marginRight: scale(6),
+    // marginRight: scale(6),  // 제거
   },
   destination: {
     fontSize: scale(14),
     color: '#606060',
     borderRadius: scale(6),
-    paddingLeft: scale(6),
+    marginLeft: scale(6),  // 제거
   },
+
   content: {
-    width: scale(312),
     fontFamily: 'Roboto',
     fontWeight: '400',
     fontSize: scale(16),
@@ -365,10 +428,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     color: '#373737',
     marginTop: vScale(16),
-    marginLeft: scale(13),
+    marginHorizontal: scale(13),
     padding: scale(12),
     borderRadius: scale(8),
-    minHeight: vScale(160), // ⭐ 최소 120px 높이 (아이폰13 기준)
   },
   divider: {
     width: scale(358),
