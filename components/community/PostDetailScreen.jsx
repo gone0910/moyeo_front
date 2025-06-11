@@ -69,6 +69,7 @@ const mockPost = {
   createdDate: "2025.06.03 14:05",
   destination: "춘천",
   postImages: [
+    
   ],
   content: `노란 간판부터 일본식 감성 제대로.
 혼밥하기 좋은 바 좌석도 있어서

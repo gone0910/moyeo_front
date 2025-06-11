@@ -11,6 +11,7 @@ const FIXED_HEIGHT = SCREEN_WIDTH * 0.8;
 
 // [Mock] 테스트용 로컬 이미지 경로 (assets/images/ 폴더 기준)
 const testImages = [
+  
 ];
 
 export default function PostImageCarousel({ images = testImages }) {
