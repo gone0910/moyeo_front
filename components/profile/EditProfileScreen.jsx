@@ -301,7 +301,7 @@ const styles = StyleSheet.create({
   headerLine: {
     width: '90%',
     marginBottom: normalize(18, 'height'),
-    marginTop: normalize(10, 'height'),
+    marginTop: normalize(12, 'height'),
     height: normalize(1, 'height'),
     backgroundColor: '#B5B5B5',
     borderRadius: normalize(2),
@@ -359,6 +359,14 @@ const styles = StyleSheet.create({
     lineHeight: normalize(20, 'height'),
     fontWeight: '500',
     right: normalize(157),
+  },
+  labels: {
+    fontSize: normalize(18),
+    color: '#373737',
+    marginBottom: normalize(7, 'height'),
+    lineHeight: normalize(20, 'height'),
+    fontWeight: '500',
+    right: normalize(150),
   },
   asterisk: {
   color: '#EF4444',   // 빨간색
