@@ -562,7 +562,7 @@ export default function PlannerInfoScreen() {
 
         {/* Slide 3: MBTI */}
         <View style={{ width: SCREEN_WIDTH }}>
-          <View style={{ paddingHorizontal: normalize(20), marginTop: normalize(10) , top: normalize(-30)}}>
+          <View style={{ paddingHorizontal: normalize(20), marginTop: normalize(10) , top: normalize(-20)}}>
             <Text
               style={{
                 fontSize: normalize(24),
@@ -646,16 +646,16 @@ export default function PlannerInfoScreen() {
 
         {/* Slide 4: 여행 스타일 */}
         <View style={{ width: SCREEN_WIDTH }}>
-          <View style={{ paddingHorizontal: normalize(20), marginTop: normalize(10) , top: normalize(-30)}}>
+          <View style={{ paddingHorizontal: normalize(20), marginTop: normalize(10) , top: normalize(-20)}}>
             <Text style={{
               fontSize: normalize(24), marginBottom: normalize(5), fontWeight: '400', color:'#1E1E1E',
-              textAlign: 'center', top: normalize(-72)
+              textAlign: 'center', top: normalize(-66)
             }}>
               여행 스타일을 선택해 주세요
             </Text>
             <View style={{
               flexDirection: 'row', flexWrap: 'wrap',
-              justifyContent: 'space-between', paddingTop: normalize(70), marginBottom: normalize(-10)
+              justifyContent: 'space-between', paddingTop: normalize(70), marginBottom: normalize(-10), top: normalize(-15)
             }}>
               {["액티비티", "문화/관광", "힐링", "맛집", "도심", "자연"].map((style, index) => {
                 const isSelected = selectedTravelStyles.includes(style);
