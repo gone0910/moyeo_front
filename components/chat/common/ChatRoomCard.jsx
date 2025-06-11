@@ -83,7 +83,7 @@ const styles = StyleSheet.create({
   },
   name: {
     fontFamily: 'Roboto_400Regular',
-    fontSize: scale(20),
+    fontSize: scale(18),
     color: '#333333',
     lineHeight: vScale(24),
   },

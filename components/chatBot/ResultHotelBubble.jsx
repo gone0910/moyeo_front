@@ -38,7 +38,7 @@ function HotelCardContent({ name, address, priceRange, phone, checkIn, checkOut 
       <Text style={styles.title}>{name}</Text>
 
       <View style={styles.addressRow}>
-        <MaterialIcons name="location-on" size={8} color="#4F46E5" style={{ marginRight: 4 }} />
+        <MaterialIcons name="location-on" size={12} color="#4F46E5" style={{ marginRight: 4 }} />
         <Text style={styles.address}>{address}</Text>
       </View>
 
@@ -113,7 +113,7 @@ const styles = StyleSheet.create({
   infoLabel: {
     fontFamily: 'Roboto',
     fontWeight: '400',
-    fontSize: scale(16),
+    fontSize: scale(14),
     lineHeight: scale(18),
     color: '#333333',
     width: scale(57),
@@ -123,7 +123,7 @@ const styles = StyleSheet.create({
   infoValue: {
     fontFamily: 'Roboto',
     fontWeight: '400',
-    fontSize: scale(16),
+    fontSize: scale(14),
     lineHeight: scale(18),
     color: '#616161',
     marginLeft: scale(2),
@@ -142,7 +142,7 @@ const styles = StyleSheet.create({
   address: {
     fontFamily: 'Roboto',
     fontWeight: '400',
-    fontSize: scale(14),
+    fontSize: scale(12),
     lineHeight: scale(16),
     color: '#868686',
     marginLeft: scale(2),

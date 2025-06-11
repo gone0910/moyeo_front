@@ -13,7 +13,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { createCommunityPost } from '../../api/community_create_request';
 
 const { width, height } = Dimensions.get('window');
-const MAX_IMAGES = 3;
+const MAX_IMAGES = 5;
 
 export default function NewPostScreen() {
   const [selectedRegion, setSelectedRegion] = useState('선택안함');

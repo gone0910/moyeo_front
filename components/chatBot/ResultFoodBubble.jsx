@@ -34,7 +34,7 @@ function FoodCardContent({ name, menu, hours, priceRange, location }) {
     <View style={styles.innerContainer}>
       <Text style={styles.title}>{name}</Text>
       <View style={styles.addressRow}>
-        <MaterialIcons name="location-on" size={8} color="#4F46E5" style={{ marginRight: 4 }} />
+        <MaterialIcons name="location-on" size={12} color="#4F46E5" style={{ marginRight: 4 }} />
         <Text style={styles.address}>{location}</Text>
       </View>
       <View style={styles.infoRow}>

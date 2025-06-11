@@ -215,7 +215,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontFamily: 'Roboto_400Regular',
-    fontSize: scale(24),
+    fontSize: scale(22),
     lineHeight: vScale(32),
     color: '#1E1E1E',
   },
@@ -238,7 +238,7 @@ const styles = StyleSheet.create({
     height: vScale(54),
     fontFamily: 'Roboto',
     fontWeight: '400',
-    fontSize: scale(22),
+    fontSize: scale(21),
     lineHeight: vScale(44),
     color: '#1E1E1E',
     textAlign: 'center',
@@ -276,8 +276,9 @@ const styles = StyleSheet.create({
   },
   matchingBtnText: {
     color: '#4F46E5',
-    fontSize: scale(17),
+    fontSize: scale(16),
     fontWeight: '400',
     letterSpacing: 0.5,
+    top:scale(-12),
   },
 });
