@@ -9,7 +9,22 @@ const BASE_HEIGHT = 844;
 const scale = (size) => (SCREEN_WIDTH / BASE_WIDTH) * size;
 const vScale = (size) => (SCREEN_HEIGHT / BASE_HEIGHT) * size;
 
-export default function ChatBotCard({ children, style, height, noPadding }) {
+export default function ChatBotCard({ children, style, height, noPadding, noShadow  }) {
+  if (noShadow) {
+    // 그림자 없이 바로 카드 컨테이너만
+    return (
+      <View
+        style={[
+          styles.cardContainer,
+          style,
+          height ? { height } : {},
+          noPadding && { paddingVertical: 0, paddingHorizontal: 0 },
+        ]}
+      >
+        {children}
+      </View>
+    );
+  }
   return (
     <View
       style={[
@@ -52,7 +67,7 @@ const styles = StyleSheet.create({
   },
 
   cardContainer: {
-    width: scale(253),
+    width: scale(270),//253
     borderRadius: scale(9),
     backgroundColor: '#fff',
     marginLeft: scale(20),

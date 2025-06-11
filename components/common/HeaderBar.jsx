@@ -4,8 +4,9 @@ import React, { useContext } from 'react';
 import { View, Text, Image, StyleSheet, TouchableOpacity } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { UserContext } from '../../contexts/UserContext';
+import ChatBotIcon from '../icons/ChatBotIcon';
 
-export default function CommonHeader({ showDivider = true }) {
+export default function CommonHeader({ showDivider = true, showChatBot = false }) {
   const { user } = useContext(UserContext);
   const navigation = useNavigation();
 
@@ -22,18 +23,40 @@ export default function CommonHeader({ showDivider = true }) {
 >
   <Text style={styles.logoText}>moyeo </Text>
 </TouchableOpacity>
-        <TouchableOpacity onPress={() => navigation.navigate('ProfileHome')}>
-          {user?.profileImageUrl ? (
-            <Image source={{ uri: user.profileImageUrl }} style={styles.profileImage} />
-          ) : (
-            <View style={styles.profilePlaceholder} />
-          )}
-        </TouchableOpacity>
+
+
+        {/* ✅ HomeScreen에서만 챗봇+프로필 row, 기본은 프로필만 */}
+        {showChatBot ? (
+          <View style={{ flexDirection: 'row', alignItems: 'center',  }}>
+            <TouchableOpacity
+              onPress={() => navigation.navigate('ChatBot')}
+              style={{ right: 20, top: 10 }} // 여백 조정
+            >
+              <ChatBotIcon width={32} height={32} />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => navigation.navigate('ProfileHome')}>
+              {user?.profileImageUrl ? (
+                <Image source={{ uri: user.profileImageUrl }} style={styles.profileImage} />
+              ) : (
+                <View style={styles.profilePlaceholder} />
+              )}
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <TouchableOpacity onPress={() => navigation.navigate('ProfileHome')}>
+            {user?.profileImageUrl ? (
+              <Image source={{ uri: user.profileImageUrl }} style={styles.profileImage} />
+            ) : (
+              <View style={styles.profilePlaceholder} />
+            )}
+          </TouchableOpacity>
+        )}
       </View>
       {showDivider && <View style={styles.headerLine} />}
     </View>
   );
 }
+
 
 const styles = StyleSheet.create({
   headerContainer: {
