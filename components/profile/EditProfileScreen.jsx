@@ -122,7 +122,10 @@ const ageInputRef = useRef(null);
       // ✅ 실제 사용자: 이미지 파일과 함께 수정 요청 전송
       await editUserProfileWithFetch(userData, imageForUpload, token);
       const updated = await getUserInfoWithFetch(token);
-      setUser(updated);
+      setUser({
+        ...updated,
+        token, // 반드시 추가!
+      });
       await AsyncStorage.setItem('user', JSON.stringify(updated));
       Alert.alert('성공', '프로필이 수정되었습니다.');
       navigation.goBack();
