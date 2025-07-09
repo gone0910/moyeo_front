@@ -226,7 +226,10 @@ export const editUserProfileWithFetch = async (userData, image, token) => {
       console.error('❌ 프로필 수정 실패:', response.status, text);
       throw new Error(text); // 에러 메시지 body
     }
-
+console.log('🟦 [프로필 편집 요청] JWT 토큰:', token);
+console.log('🟦 [프로필 편집 요청] fetch headers:', {
+  Authorization: `Bearer ${token}`,
+});
     console.log('✅ 프로필 수정 성공:', data);
     return data;
   } catch (error) {

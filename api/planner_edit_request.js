@@ -34,7 +34,7 @@ export async function editSchedule(names) {
     return response.data;
 
   } catch (error) {
-    console.error('❌ 일정 편집 실패:', error.response?.data || error.message);
+    //console.error('❌ 일정 편집 실패:', error.response?.data || error.message);
     throw error;
   }
 }
