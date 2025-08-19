@@ -32,7 +32,7 @@ const dummyMatches = [
     image: 'https://via.placeholder.com/60x60.png?text=1',
     gender: '남성',
     travelStyle: ['액티비티', '문화/관광', '맛집'],
-    destination: '충북/청주시',
+    destination: ['충북/청주시'],
     mbti: '선택안함',
   },
 ];
@@ -336,10 +336,10 @@ const styles = StyleSheet.create({
     elevation: 9,
     position: 'relative',
   },
-  modalProfileImageUpdated: {
+  modalProfileImageUpdated: {  // 프로필 이미지
     width: scale(86),
     height: scale(86),
-    borderRadius: scale(14),
+    borderRadius: scale(18),  // 기존 14
     backgroundColor: '#ECECEC',
     borderWidth: 2,
     borderColor: '#E0E7FF',
@@ -350,7 +350,7 @@ const styles = StyleSheet.create({
   matchName: { fontSize: scale(16), color: '#1E1E1E' },
   matchDate: { fontSize: scale(14), color: '#7E7E7E', marginTop: vScale(8) },
   tagsContainer: { flexDirection: 'row', flexWrap: 'wrap', marginTop: vScale(8) },
-  tag: { backgroundColor: '#EFEAE5', paddingVertical: vScale(3), paddingHorizontal: scale(6), borderRadius: scale(4), marginRight: scale(6) },
+  tag: { backgroundColor: '#EFEAE5', paddingVertical: vScale(3), paddingHorizontal: scale(6), borderRadius: scale(4), marginRight: scale(6), marginBottom: scale(4), },
   tagText: { fontSize: scale(12), color: '#7E7E7E' },
 
   modalCenter: {
@@ -368,44 +368,46 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: vScale(18),
+    marginTop: vScale(10),
     width: '100%',
     justifyContent: 'row',  // 사진 좌측정렬
   },
   modalUserName: {
     fontSize: scale(20),
-    fontWeight: 'bold',
+    //fontWeight: 'bold',
     color: '#4F46E5',
     marginLeft: scale(20),
   },
   modalDate: {
-    fontSize: scale(13),
+    fontSize: scale(16),
     color: '#888',
     marginTop: vScale(6),
     marginLeft: scale(20),
   },
   infoRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     width: '100%',
-    height: scale(35),
     marginLeft: scale(24),
-    marginTop: scale(8), // 위 요소와의 간격
+    marginTop: scale(10),
+    marginBottom: scale(4),
+    paddingRight: scale(12),
   },
   infoLabel: {
-    width: scale(77), // ex. 성별: 40, 여행성향: 77
-    fontFamily: 'Roboto',
+    width: scale(77),
+    fontSize: scale(15),
     fontWeight: '400',
-    fontSize: scale(16),
     color: '#1E1E1E',
-    textAlignVertical: 'center',
-    backgroundColor: '#FFFFFF',
+    textAlignVertical: 'top',
+    lineHeight: scale(22),
+    marginTop: scale(4),
   },
   tagGroup: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: scale(6),
     flex: 1,
-    // marginLeft: scale(8), // ← 반드시 삭제 또는 주석!
+    alignItems: 'flex-start', // 추가: 줄 시작에 맞춤
+    rowGap: scale(6),
   },
   infoTag1: {
     MaxWidth: scale(69),
@@ -414,14 +416,14 @@ const styles = StyleSheet.create({
     borderRadius: scale(8),
     backgroundColor: '#ADB3DD',
     color: '#fff',
-    fontSize: scale(14),
+    fontSize: scale(14), // 기존 태그 내 폰트박스 크기 14
     textAlign: 'center',
     textAlignVertical: 'center',
-    lineHeight: scale(30),
-    paddingHorizontal: scale(8),
+    lineHeight: scale(28),  // height와 lineHeight를 같게 해야 중앙정렬, ios 꼼수로 2 삭감
+    paddingHorizontal: scale(16),
   },
   infoTag2: {
-    MaxWidth: scale(98),
+    MaxWidth: scale(68),
     height: scale(30),
     marginLeft: scale(10),
     borderRadius: scale(8),
@@ -430,7 +432,7 @@ const styles = StyleSheet.create({
     fontSize: scale(14),
     textAlign: 'center',
     textAlignVertical: 'center',
-    lineHeight: scale(30),
+    lineHeight: scale(28),
     paddingHorizontal: scale(11),
   },
   infoTag3: {
@@ -443,22 +445,22 @@ const styles = StyleSheet.create({
     fontSize: scale(14),
     textAlign: 'center',
     textAlignVertical: 'center',
-    lineHeight: scale(30),
+    lineHeight: scale(28),
     paddingHorizontal: scale(11),
   },
   infoTag4: {
-  width: scale(83),
-  height: scale(30),
-  marginLeft: scale(10),
-  borderRadius: scale(8),
-  backgroundColor: '#FAF4FF',
-  color: '#7E7E7E',
-  fontSize: scale(14),
-  borderWidth: 1,
-  borderColor: '#D6C9DF',
-  textAlign: 'center',
-  textAlignVertical: 'center',
-  lineHeight: scale(30),
+    width: scale(83),
+    height: scale(30),
+    marginLeft: scale(10),
+    borderRadius: scale(8),
+    backgroundColor: '#FAF4FF',
+    color: '#7E7E7E',
+    fontSize: scale(14),
+    borderWidth: 1,
+    borderColor: '#D6C9DF',
+    textAlign: 'center',
+    textAlignVertical: 'center',
+    lineHeight: scale(28),
   },
   chatButton: {
     backgroundColor: '#4F46E5',
