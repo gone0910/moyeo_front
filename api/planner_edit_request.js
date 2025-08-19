@@ -1,5 +1,6 @@
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { BASE_URL } from './config/api_Config'; // apiConfig.js에서 baseUrl 주소 변경
 
 /**
  * 📝 일정 편집(수정) 요청 함수
@@ -24,7 +25,7 @@ export async function editSchedule(names) {
 
     // 실제 API 엔드포인트로 POST 요청 (baseURL 필요 시 수정)
     const response = await axios.post(
-      'http://ec2-3-35-253-224.ap-northeast-2.compute.amazonaws.com:8080/schedule/edit', // 실제 서버 주소
+      `${BASE_URL}/schedule/edit`, // 실제 서버 주소
       requestBody,
       { headers }
     );

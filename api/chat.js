@@ -2,9 +2,10 @@
 // ✅ 채팅 관련 REST API 함수 모음 (이미지 전송 없음 → axios 사용 적합)
 
 import axios from 'axios';
+import { BASE_URL } from './config/api_Config'; // apiConfig.js에서 baseUrl 주소 변경
 
 // ✅ 실제 API 주소로 교체 필요
-const BASE_URL = 'http://ec2-3-35-253-224.ap-northeast-2.compute.amazonaws.com:8080';
+// const BASE_URL = 'http://ec2-3-35-253-224.ap-northeast-2.compute.amazonaws.com:8080';
 
 // ✅ axios 인스턴스 생성: baseURL과 JSON Content-Type 설정
 const axiosInstance = axios.create({

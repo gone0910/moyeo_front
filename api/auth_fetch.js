@@ -7,9 +7,10 @@
 import * as Linking from 'expo-linking';
 import * as FileSystem from 'expo-file-system';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { BASE_URL } from './config/api_Config'; // apiConfig.js에서 baseUrl 주소 변경
 
 // ✅ 백엔드 서버 주소 설정 auth.js도 똑같이 바꿔줘야함함
-const BASE_URL = 'http://ec2-3-35-253-224.ap-northeast-2.compute.amazonaws.com:8080';
+//const BASE_URL = 'http://ec2-3-35-253-224.ap-northeast-2.compute.amazonaws.com:8080';
 
 /**
  * 1. OAuth2.0 로그인 요청

@@ -19,6 +19,8 @@ Object.assign(global, {
 import { Client } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
 
+import { BASE_URL } from './config/api_Config'; // apiConfig.js에서 baseUrl 주소 변경
+
 // ✅ 전역 STOMP 클라이언트
 let stompClient = null;
 
@@ -42,7 +44,7 @@ export const connectStompClient = (roomId, onMessage, token, onConnected, onRead
     // ✅ RN에서 직접 SockJS 인스턴스를 반환
     webSocketFactory: () => {
       console.log('🌐 SockJS 인스턴스 생성');
-      return new SockJS('http://ec2-3-35-253-224.ap-northeast-2.compute.amazonaws.com:8080/connect');
+      return new SockJS(`${BASE_URL}/connect`);
     },
 
     connectHeaders: {
