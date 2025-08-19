@@ -1,5 +1,6 @@
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { BASE_URL } from './config/api_Config'; // apiConfig.js에서 baseUrl 주소 변경
 
 /**
  * 플랜(여행 일정) 리스트 조회 API
@@ -16,12 +17,8 @@ export const fetchPlanList = async () => {
 
     // API 호출
     const response = await axios.get(
-      'http://ec2-3-35-253-224.ap-northeast-2.compute.amazonaws.com:8080/schedule/list',
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      }
+      `${BASE_URL}/schedule/list`,
+      { headers: { Authorization: `Bearer ${token}` } }
     );
 
     // 성공 시 결과 반환

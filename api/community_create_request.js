@@ -1,7 +1,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { BASE_URL } from './config/api_Config'; // apiConfig.js에서 baseUrl 주소 변경
 
 export async function createCommunityPost({ title, content, city, province, imageUris }) {
-  const url = 'http://ec2-3-35-253-224.ap-northeast-2.compute.amazonaws.com:8080/community/post/create';
+  const url = `${BASE_URL}/community/post/create`;
   const jwtToken = await AsyncStorage.getItem('jwt');
   if (!jwtToken) throw new Error('로그인이 필요합니다. (토큰 없음)');
 
