@@ -16,6 +16,8 @@ import ResultEventBubble from './ResultEventBubble';
 import ResultWeatherBubble from './ResultWeatherBubble';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { queryByDestination, queryByGPS, recreateByDestination, recreateByGPS } from '../../api/chatBot';
+import LottieLoader from '../common/LottieLoader';
+
 
 
 const { width } = Dimensions.get('window');
@@ -622,6 +624,11 @@ setMessages(newMessages);
                   <ChatBotIcon width={28} height={28} />
                 </View>
                 <View style={[styles.botBubble, !msg.isActive && styles.disabledBubble,isLoading && styles.loadingBubble]}>
+                  {isLoading && (
+                    <View style={{ marginBottom: 8 }}>
+                      <LottieLoader />
+                    </View>
+                  )} {/* ✅ Lottie 삽입 */}
                   <Text style={{ fontSize: 14, lineHeight: 22 }}>
                     {msg.text.split(/(목적지 선택|현재 위치 기반)/g).map((part, idx) =>
                       part === '목적지 선택' || part === '현재 위치 기반'
