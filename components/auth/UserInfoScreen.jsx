@@ -19,9 +19,14 @@ import * as Linking from 'expo-linking'; // ✅ 딥링크 파싱용 추가
 
 import { UserContext } from '../../contexts/UserContext';
 import ProfileImagePicker from '../common/ProfileImagePicker';
-import Dropdown from '../common/Dropdown'; // DropdownPicker 기반 Dropdown
+
 import { registerUserWithFetch, getUserInfoWithFetch } from '../../api/auth_fetch'; // 회원가입은 fetch 사용
 import { MaterialIcons } from '@expo/vector-icons'; 
+
+const Dropdown = Platform.OS === 'ios'
+  ? require('../common/Dropdown').default    // iOS: 기존 Dropdown
+  : require('../auth/common/DropdownAndroid').default;  // 그 외: 안드로이드 드롭다운
+  //: require('../auth/common/DropdownAndroid').default;  // 그 외: 안드로이드 드롭다운
 
 // ==== 반응형 유틸 함수 ====
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
