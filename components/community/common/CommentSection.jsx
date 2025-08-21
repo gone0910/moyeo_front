@@ -440,14 +440,14 @@ const styles = StyleSheet.create({
     marginTop: scale(10),
   },
   time: {
-    width: scale(50),
+    width: scale(60),
     height: vScale(23),
     fontFamily: 'Roboto',
     fontWeight: '400',
     fontSize: scale(14),
     lineHeight: vScale(25),
     color: '#7E7E7E',
-    textAlign: 'right',
+    textAlign: 'left',
   },
   commentContent: {
     fontSize: scale(14),

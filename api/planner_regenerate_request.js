@@ -1,5 +1,6 @@
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { BASE_URL } from './config/api_Config'; // apiConfig.js에서 baseUrl 주소 변경
 
 export const regenerateSchedule = async ({
   startDate,
@@ -31,7 +32,7 @@ export const regenerateSchedule = async ({
     };
 
     const response = await axios.post(
-      'http://ec2-3-35-253-224.ap-northeast-2.compute.amazonaws.com:8080/schedule/recreate', // 엔드포인트 수정!
+      `${BASE_URL}/schedule/recreate`, // 엔드포인트 수정!
       requestBody,
       {
         headers: {

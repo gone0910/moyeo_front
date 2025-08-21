@@ -1,5 +1,6 @@
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { BASE_URL } from './config/api_Config'; // apiConfig.js에서 baseUrl 주소 변경
 
 /**
  * 🗑️ 일정 삭제 요청 함수
@@ -11,7 +12,7 @@ export async function deleteSchedule(scheduleId) {
     const token = await AsyncStorage.getItem('jwt');
     if (!token) throw new Error('JWT 토큰이 없습니다');
     const response = await axios.delete(
-      `http://ec2-3-35-253-224.ap-northeast-2.compute.amazonaws.com:8080/schedule/delete/${scheduleId}`,
+      `${BASE_URL}/schedule/delete/${scheduleId}`,
       {
         headers: {
           Authorization: `Bearer ${token}`,

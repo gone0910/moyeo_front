@@ -8,9 +8,10 @@ import axios from 'axios';
 import * as Linking from 'expo-linking';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { isMockMode } from '../utils/MockMode'; // 테스트용 로그인, api 영향을 받지않는.
+import { BASE_URL } from './config/api_Config'; // apiConfig.js에서 baseUrl 주소 변경
 
 // ✅ 백엔드 주소 설정 (배포 서버 또는 EC2 주소로 반드시 수정)
-const BASE_URL = 'http://ec2-3-35-253-224.ap-northeast-2.compute.amazonaws.com:8080';
+//const BASE_URL = 'http://ec2-3-35-253-224.ap-northeast-2.compute.amazonaws.com:8080';
 
 // ---------------------------------------------------
 // 1. [OAuth 로그인 시작]
