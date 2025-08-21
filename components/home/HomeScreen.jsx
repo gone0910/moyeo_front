@@ -52,7 +52,50 @@ export default function HomeScreen() {
     if (!user) navigation.replace('Login');
   }, [user]);
 
+ //묵데이터
+
+  useFocusEffect(
+  React.useCallback(() => {
+    let isMounted = true;
+
+    const loadLocalFirst = async () => {
+      // 1️⃣ 먼저 로컬에서 즉시 보여주기
+      const localTripsRaw = await AsyncStorage.getItem('MY_TRIPS');
+      const localTrips = localTripsRaw ? JSON.parse(localTripsRaw) : [];
+      if (isMounted) {
+        setMyTrips(localTrips); // ✅ 즉시 렌더링
+      }
+
+      // 2️⃣ 병렬로 서버 호출해서 병합
+      try {
+        const serverTrips = await fetchPlanList();
+        const mergedTrips = [
+          ...localTrips,
+          ...serverTrips.filter(serverTrip =>
+            !localTrips.some(localTrip => localTrip.id === serverTrip.id)
+          ),
+        ];
+        if (isMounted) {
+          setMyTrips(mergedTrips);
+          await AsyncStorage.setItem('MY_TRIPS', JSON.stringify(mergedTrips));
+        }
+      } catch (err) {
+        console.warn('⚠️ Home trips fetch error:', err);
+      }
+    };
+
+    loadLocalFirst();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [])
+); 
+
+//여기까지
   // 여행 플랜 불러오기 (마운트 시 한 번)
+  // api 사용
+  /*
   useFocusEffect(
     React.useCallback(() => {
       const fetchTrips = async () => {
@@ -66,7 +109,7 @@ export default function HomeScreen() {
       fetchTrips();
     }, [])
   );
-
+*/
   return (
     <View style={styles.container}>
 
@@ -142,26 +185,39 @@ export default function HomeScreen() {
 
       {/* 여행 카드 리스트 */}
       {myTrips.length > 1 ? (
-        <ScrollView
-          style={styles.travelScrollArea}
-          contentContainerStyle={{ paddingBottom: normalize(120, 'height') }}
-          showsVerticalScrollIndicator={false}
-        >
-          <TravelSection
-  travelList={myTrips}
-  onPressCreate={() => navigation.navigate('Planner')}
-  onPressCard={(scheduleId) => {
-  navigation.navigate('PlannerResponse', { scheduleId, from: 'Home' });
-}}
-/>
+  <ScrollView
+    style={styles.travelScrollArea}
+    contentContainerStyle={{ paddingBottom: normalize(120, 'height') }}
+    showsVerticalScrollIndicator={false}
+  >
+    <TravelSection
+      travelList={myTrips}
+      onPressCreate={() => navigation.navigate('PlannerInfo')}
+      onPressCard={(planId) => {
+        console.log('✅ 카드 눌림, 이동할 id:', planId);
+        navigation.navigate('PlannerResponse', {
+          scheduleId: planId,
+          mode: 'read',
+          from: 'Home',
+        });
+      }}
+    />
         </ScrollView>
       ) : (
         <View style={styles.travelScrollArea}>
-          <TravelSection
-  travelList={Array.isArray(myTrips) ? myTrips : []}
-  onPressCreate={() => navigation.navigate('Planner')}
-/>
-        </View>
+  <TravelSection
+    travelList={myTrips}
+    onPressCreate={() => navigation.navigate('PlannerInfo')}
+    onPressCard={(planId) => {
+      console.log('✅ 카드 눌림, 이동할 id:', planId);
+      navigation.navigate('PlannerResponse', {
+        scheduleId: planId,
+        mode: 'read',
+        from: 'Home',
+      });
+    }}
+  />
+</View>
       )}
     </View>
   );
