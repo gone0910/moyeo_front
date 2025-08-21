@@ -70,8 +70,8 @@ const styles = StyleSheet.create({
     width: scale(270),//253
     borderRadius: scale(9),
     backgroundColor: '#fff',
-    marginLeft: scale(20),
-    marginRight: scale(8),
+    marginLeft: scale(2), //20
+    marginRight: scale(1),
     marginTop: vScale(15),
     marginBottom: vScale(15),
     minHeight: vScale(186),
