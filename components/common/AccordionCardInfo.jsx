@@ -1,4 +1,4 @@
-import React, { useState, forwardRef } from 'react';
+import React, { forwardRef } from 'react';
 import {
   View,
   Text,
@@ -24,45 +24,35 @@ function normalize(size, based = 'width') {
     : Math.round(PixelRatio.roundToNearestPixel(newSize)) - 1;
 }
 
-// ✅ forwardRef 사용 및 View에 직접 ref 연결
-const AccordionCard = forwardRef(({ title, children, onToggle, contentStyle }, ref) => {
-  const [expanded, setExpanded] = useState(false);
-
-  const handlePress = () => {
-    const newExpanded = !expanded;
-    setExpanded(newExpanded);
-    if (newExpanded && typeof onToggle === 'function') {
-      onToggle();
-    }
-  };
-
+// ✅ 외부 상태 제어용 AccordionCard 컴포넌트
+const AccordionCard = forwardRef(({ title, children, onToggle, contentStyle, isOpen }, ref) => {
   return (
     <View
       ref={ref}
-      collapsable={false} // ✅ Android에서 measureLayout 오류 방지
+      collapsable={false}
       style={[
         styles.card,
-        expanded ? styles.cardExpanded : { height: normalize(62, 'height') },
+        isOpen ? styles.cardExpanded : { height: normalize(62, 'height') },
       ]}
     >
       <TouchableOpacity
         style={styles.header}
-        onPress={handlePress}
+        onPress={onToggle}
         activeOpacity={0.8}
       >
         <Text style={styles.title}>{title}</Text>
         <AntDesign
-          name={expanded ? 'up' : 'down'}
+          name={isOpen ? 'up' : 'down'}
           size={normalize(16)}
           color="#7E7E7E"
         />
       </TouchableOpacity>
 
-      {expanded && (
-  <View style={[styles.content, contentStyle]}>
-    {children}
-  </View>
-)}
+      {isOpen && (
+        <View style={[styles.content, contentStyle]}>
+          {children}
+        </View>
+      )}
     </View>
   );
 });
