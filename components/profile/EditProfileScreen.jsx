@@ -17,12 +17,17 @@ import {
 import { MaterialIcons } from '@expo/vector-icons'; // 뒤로가기 + 로그아웃 아이콘
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
-
 import { UserContext } from '../../contexts/UserContext';
 import ProfileImagePicker from '../common/ProfileImagePicker';
-import Dropdown from '../common/Dropdown'; // DropDownPicker 기반
-
 import { editUserProfileWithFetch, getUserInfoWithFetch, urlToBase64ProfileImage } from '../../api/auth_fetch'; // ✅ fetch 기반 API 사용
+
+
+// iOS는 기존 Dropdown, 그 외 OS는 DropdownAndroid 사용
+const Dropdown = Platform.OS === 'ios'
+  ? require('../common/Dropdown').default
+  //: require('../common/Dropdown').default;
+  : require('../auth/common/DropdownAndroid').default;
+
 
 // ==== 반응형 유틸 함수 ====
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -70,7 +75,7 @@ const ageInputRef = useRef(null);
         setNickname(user?.nickname || '');
         setGender(user?.gender === 'MALE' ? '남성' : user?.gender === 'FEMALE' ? '여성' : '');
         setAge(user?.age?.toString() || '');
-        setMbti(user?.mbti || '');
+        setMbti((user?.mbti || '').toUpperCase());
         setImage(user?.profileImageUrl || null);
       } else {
         try {
@@ -78,7 +83,7 @@ const ageInputRef = useRef(null);
           setNickname(freshUser.nickname || '');
           setGender(freshUser.gender === 'MALE' ? '남성' : freshUser.gender === 'FEMALE' ? '여성' : '');
           setAge(freshUser.age?.toString() || '');
-          setMbti(freshUser.mbti || '');
+          setMbti((freshUser.mbti || '').toUpperCase());
           setImage(freshUser.profileImageUrl || null);
         } catch (e) {
           console.error('❌ 사용자 정보 조회 실패:', e);

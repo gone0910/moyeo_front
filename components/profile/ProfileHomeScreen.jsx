@@ -90,30 +90,19 @@ export default function ProfileHomeScreen({ route }) {
 
           {/* 정보 표시 */}
           <View style={styles.infoContainer}>
-            <View style={styles.infoRowWrapper}>
-              <View style={styles.infoColumn}>
-                <Text style={styles.label}>닉네임</Text>
-                <Text style={styles.label}>성별</Text>
-                <Text style={styles.label}>나이</Text>
-                <Text style={styles.label}>MBTI</Text>
-              </View>
-              <View style={styles.infoColumn}>
-                <Text style={styles.value}>{user?.nickname || '-'}</Text>
-                <Text style={styles.value}>
-                  {user?.gender === 'MALE'
-                    ? '남성'
-                    : user?.gender === 'FEMALE'
-                    ? '여성'
-                    : '-'}
-                </Text>
-                <Text style={[styles.value, styles.boldValue]}>
-                  {user?.age ? String(user.age) : '-'}
-                </Text>
-                <Text style={[styles.value, styles.boldValue]}>
-                  {user?.mbti || '-'}
-                </Text>
-              </View>
-            </View>
+            <View style={styles.infoBox}>
+  {[
+    { label: '닉네임', value: user?.nickname || '-' },
+    { label: '성별', value: user?.gender === 'MALE' ? '남성' : user?.gender === 'FEMALE' ? '여성' : '-' },
+    { label: '나이', value: user?.age ? String(user.age) : '-' },
+    { label: 'MBTI', value: user?.mbti || '-' },
+  ].map((item, idx) => (
+    <View key={idx} style={styles.infoRow}>
+      <Text style={styles.label}>{item.label}</Text>
+      <Text style={styles.value}>{item.value}</Text>
+    </View>
+  ))}
+</View>
           </View>
         </View>
 
@@ -266,5 +255,37 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#FFFFFF',
     letterSpacing: 0.2,
+  },
+  infoBox: {
+    width: '100%',
+    paddingHorizontal: normalize(20),
+    marginTop: normalize(50, 'height'),
+    // rowGap은 RN 최신 버전에서만 동작 → 하위 호환 위해 생략하거나 marginBottom 사용
+  },
+
+  infoRow: {
+    flexDirection: 'row',           // 가로 정렬
+    justifyContent: 'center',       // 전체 줄 가운데 배치
+    alignItems: 'center',           // 라벨과 값의 세로 기준선 정렬 ← 중요!
+    marginBottom: normalize(20),    // 줄 간 간격
+  },
+
+  label: {
+    fontSize: normalize(18),
+    fontWeight: '700',
+    color: '#1E1E1E',
+    textAlign: 'center',
+    lineHeight: normalize(24),
+    minWidth: normalize(80),
+    marginRight: normalize(16),     // 라벨과 값 사이 간격
+  },
+
+  value: {
+    fontSize: normalize(18),
+    fontWeight: '400',
+    color: '#1E1E1E',
+    textAlign: 'center',
+    lineHeight: normalize(24),
+    minWidth: normalize(80),
   },
 });
