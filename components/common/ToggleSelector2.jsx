@@ -17,6 +17,7 @@ function normalize(size, based = 'width') {
   }
 }
 
+
 export default function ToggleSelector2({ items, selectedItem, onSelect, size = 'large' }) {
   return (
     <View style={styles.container}>

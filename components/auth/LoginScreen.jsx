@@ -41,6 +41,19 @@ export default function LoginScreen() {
     return <SplashScreen />;
   }
 
+  // 🔁 mock 로그인 체크용 useEffect
+useEffect(() => {
+  const checkMockLogin = async () => {
+    const isMock = await AsyncStorage.getItem('mock');
+    const token = await AsyncStorage.getItem('jwt');
+    if (isMock === 'true' && token) {
+      console.log('🧪 [Mock 로그인 감지됨] → UserInfo 이동');
+      navigation.replace('UserInfo'); // 또는 'BottomTab'
+    }
+  };
+  checkMockLogin();
+}, []);
+
   // ✅ 딥링크로 앱이 돌아왔을 때 토큰과 모드를 추출하여 처리
   useEffect(() => {
     const handleDeepLink = async ({ url }) => {
@@ -157,6 +170,16 @@ export default function LoginScreen() {
         </TouchableOpacity>
 
         {/* mock 로그인 */}
+        <TouchableOpacity
+  style={[styles.loginButton, styles.mockButton]}
+  onPress={async () => {
+    await AsyncStorage.setItem('mock', 'true');
+    await AsyncStorage.setItem('jwt', 'mock-token');
+    navigation.replace('UserInfo'); // 또는 'BottomTab'
+  }}
+>
+  <Text style={styles.mockButtonText}>임시 로그인 (Mock)</Text>
+</TouchableOpacity>
       </View>
     </View>
   );
