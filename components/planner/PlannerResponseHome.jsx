@@ -1,15 +1,10 @@
-import React, { useEffect, useState, useRef, useLayoutEffect } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   View,
   Text,
   ScrollView,
-  StyleSheet,
   TouchableOpacity,
   TextInput,
-  Dimensions,
-  SafeAreaView
-} from 'react-native';
-
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -24,14 +19,14 @@ import { deleteSchedule } from '../../api/planner_delete_request';
 import { getScheduleDetail } from '../../api/MyPlanner_detail';
 import { useRoute } from '@react-navigation/native';
 import uuid from 'react-native-uuid';
-import { Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import SplashScreen from '../../components/common/SplashScreen';
 import { Modal } from 'react-native';
+import { useLayoutEffect } from 'react';
+import { Alert, InteractionManager, KeyboardAvoidingView, Platform } from 'react-native';
 
-// === 반응형 유틸 함수 ===
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
-const BASE_WIDTH = 390; // iPhone 13 기준
+const BASE_WIDTH = 390;
 const BASE_HEIGHT = 844;
 function normalize(size, based = 'width') {
   const scale = based === 'height' ? SCREEN_HEIGHT / BASE_HEIGHT : SCREEN_WIDTH / BASE_WIDTH;
@@ -54,6 +49,37 @@ const saveTripToList = async (tripData) => {
   }
 };
 
+//묵데이터
+
+const MOCK_SCHEDULE = {
+  title: '🧪 목데이터 플랜',
+  startDate: '2025-07-01',
+  endDate: '2025-07-03',
+  days: [
+    {
+      places: [
+        {
+          id: uuid.v4(),
+          name: '목 장소 1',
+          type: '관광',
+          estimatedCost: 0,
+          gptOriginalName: 'mock-tag',
+          fromPrevious: { car: 0, publicTransport: 0, walk: 0 },
+        },
+        {
+          id: uuid.v4(),
+          name: '목 장소 2',
+          type: '식사',
+          estimatedCost: 10000,
+          gptOriginalName: 'mock-food',
+          fromPrevious: { car: 5, publicTransport: 8, walk: 12 },
+        },
+      ],
+    },
+  ],
+};
+
+//여기까지
 export default function PlannerResponseHome() {
   const navigation = useNavigation();
   const [scheduleData, setScheduleData] = useState(null);
@@ -64,18 +90,40 @@ export default function PlannerResponseHome() {
   const [editedPlaceId, setEditedPlaceId] = useState(null);
   const [isSaved, setIsSaved] = useState(false);
   const route = useRoute();
-  const isReadOnly = route.params?.mode === 'read';
+  const { from = 'Home', mode = 'read' } = route.params || {};
+  const isReadOnly = mode === 'read';
+  const showEditDeleteButtons = from === 'Home' || isReadOnly || isSaved;
   const [isRegenerating, setIsRegenerating] = useState(false);
-  const scrollRef = useRef();
+  const scrollRef = useRef();        
+  const listRef = useRef(null);      
+  const [newlyAddedIndex, setNewlyAddedIndex] = useState(-1); 
   const [originalScheduleData, setOriginalScheduleData] = useState(null);
   const [editDraft, setEditDraft] = useState(null);
-  const from = route.params?.from;
-
+  const inputRefs = useRef({});
+  const placeRefs = useRef({});
+  
   useLayoutEffect(() => {
-    const parent = navigation.getParent();
-    parent?.setOptions({ tabBarStyle: { display: 'none' } });
-    return () => parent?.setOptions({ tabBarStyle: { display: 'flex' } });
+    const parent = navigation.getParent(); // BottomTabNavigator
+    parent?.setOptions({
+      tabBarStyle: { display: 'none' },
+    });
+
+    return () => {
+      parent?.setOptions({
+        tabBarStyle: {
+          display: 'flex',
+          height: 70,
+          paddingBottom: 6,
+          paddingTop: 6,
+          backgroundColor: '#FFFFFF',
+          borderTopWidth: 0,
+          borderTopLeftRadius: 20,
+          borderTopRightRadius: 20,
+        },
+      });
+    };
   }, [navigation]);
+
   
   useEffect(() => {
     if (!isEditing && scrollRef.current) {
@@ -84,12 +132,12 @@ export default function PlannerResponseHome() {
   }, [selectedDayIndex, isEditing]);
 
   useEffect(() => {
-  if (route.params?.mode === 'edit') {
-    setOriginalScheduleData(null); // 기존 원본 필요 없으면 null로
-    setEditDraft(null); // 불필요한 초기화
-    setIsEditing(true); // ✅ 자동 수정 모드 진입
-  }
-}, [route.params?.mode]);
+    if (route.params?.mode === 'edit') {
+      setOriginalScheduleData(null); // 기존 원본 필요 없으면 null로
+      setEditDraft(null); // 불필요한 초기화
+      setIsEditing(true); // ✅ 자동 수정 모드 진입
+    }
+  }, [route.params?.mode]);
 
   const ensurePlaceIds = (data) => ({
     ...data,
@@ -101,9 +149,28 @@ export default function PlannerResponseHome() {
       })),
     })),
   });
+ //묵데이터
 
   useEffect(() => {
-    const loadCachedData = async () => {
+    const loadData = async () => {
+      if (route.params?.mock && route.params?.data) {
+        console.log('🧪 목데이터 사용');
+        setScheduleData(ensurePlaceIds(route.params.data));
+        return;
+      }
+
+      // 아래 API 호출 생략하고 mock 강제 삽입
+      setScheduleData(ensurePlaceIds(MOCK_SCHEDULE));
+    };
+    loadData();
+  }, []); 
+
+//여기까지
+
+// api 사용
+/*
+  useEffect(() => {
+    const loadData = async () => {
       try {
         const cached = await getCacheData(CACHE_KEYS.PLAN_INITIAL);
         if (cached) setScheduleData(ensurePlaceIds(cached));
@@ -111,8 +178,45 @@ export default function PlannerResponseHome() {
         console.error('❌ 캐시 또는 일정 생성 실패:', err);
       }
     };
-    loadCachedData();
-  }, []);
+    loadData();
+  }, []); 
+*/
+//여기까지
+ useEffect(() => {
+   // 편집 중이고, 유효한 index/ID가 있고, 리스트 ref가 있을 때만
+   if (!isEditing || newlyAddedIndex < 0 || !newlyAddedPlaceId || !listRef.current) return;
+
+   // 레이아웃/애니메이션 끝난 뒤 실행 → 화면 튐 방지
+   InteractionManager.runAfterInteractions(() => {
+     // 약간의 딜레이를 두면 index 계산 안정적
+     setTimeout(() => {
+       let scrolled = false;
+       try {
+         // 1) FlatList API 우선 시도
+         listRef.current.scrollToIndex?.({
+           index: newlyAddedIndex,
+           viewPosition: 0.4,  // 화면 중앙 근처
+           animated: true,
+         });
+         scrolled = true;
+       } catch (e) {
+         // 2) 폴백: measure → scrollToOffset
+         const target = placeRefs.current[newlyAddedPlaceId];
+         target?.measure?.((x, y, w, h, pageX, pageY) => {
+           listRef.current.scrollToOffset?.({
+             offset: Math.max((pageY ?? 0) - 120, 0),
+             animated: true,
+           });
+         });
+       }
+
+       // 스크롤 직후 포커스(키보드가 뜨며 레이아웃 재조정되는 시간 고려)
+       setTimeout(() => {
+         inputRefs.current[newlyAddedPlaceId]?.focus?.();
+       }, scrolled ? 150 : 220);
+     }, 60);
+   });
+ }, [isEditing, newlyAddedIndex, newlyAddedPlaceId]);
 
   useEffect(() => {
     console.log('🔥 PlannerResponseHome mounted!', route.params);
@@ -228,6 +332,9 @@ export default function PlannerResponseHome() {
         i === selectedDayIndex ? { ...day, places: updatedPlaces } : day
       );
       setNewlyAddedPlaceId(newPlaceId);
+      setNewlyAddedIndex(insertIndex + 1);    
+      setEditedPlaceId(newPlaceId);           
+      setEditedPlaces(p => ({ ...p, [newPlaceId]: '' })); 
       return { ...prev, days: updatedDays };
     });
   };
@@ -277,7 +384,16 @@ export default function PlannerResponseHome() {
   // 수정 완료: editDraft를 실제 데이터로 반영
   const handleEditDone = async () => {
     setNewlyAddedPlaceId(null);
+    setNewlyAddedIndex(-1);
     setEditedPlaces({});
+    const emptyPlaces = editDraft.days[selectedDayIndex].places.filter(p => !p.name?.trim());
+    if (emptyPlaces.length > 0) {
+      Alert.alert(
+        '빈 장소가 있어요',
+        '장소명을 입력하지 않은 항목이 있어요. 수정 후 저장해주세요'
+      );
+      return;
+    }
     setIsRegenerating(true);
     try {
       await saveCacheData(CACHE_KEYS.PLAN_EDITED, editDraft);
@@ -328,12 +444,12 @@ export default function PlannerResponseHome() {
       <View style={{ flex: 1 }}>
         {/* 헤더 */}
         <View style={{
-  flexDirection: 'row',
-  alignItems: 'center',
-  justifyContent: 'space-between',
-  paddingHorizontal: normalize(16),
-  paddingVertical: normalize(12),
-}}>
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          paddingHorizontal: normalize(16),
+          paddingVertical: normalize(12),
+        }}>
           <TouchableOpacity onPress={handleBack}>
            <Ionicons
              name="chevron-back"
@@ -344,9 +460,8 @@ export default function PlannerResponseHome() {
           </TouchableOpacity>
           <Text style={styles.headerTitle}>여행플랜</Text>
           <View style={{ width: normalize(24) }} />
-          </View>
-          <View style={styles.headerLine}>
         </View>
+        <View style={styles.headerLine} />
         {/* 여행 정보 */}
         <View style={styles.tripInfo}>
           <View style={styles.tripInfoRow}>
@@ -356,13 +471,17 @@ export default function PlannerResponseHome() {
                 {scheduleData.startDate} ~ {scheduleData.endDate}
               </Text>
             </View>
-            <View style={{ alignItems: 'flex-end' }}>
-              <Text style={styles.totalBudgetLabel}>{selectedDay.day} 총 예산</Text>
-              <Text style={styles.budget}>
-                {selectedDay.totalEstimatedCost?.toLocaleString()}
-                <Text style={styles.budgetUnit}>원</Text>
-              </Text>
-            </View>
+            {selectedDay && (
+              <View style={{ alignItems: 'flex-end' }}>
+                <Text style={styles.totalBudgetLabel}>
+                  {selectedDay.day ?? `Day ${selectedDayIndex + 1}`} 총 예산
+                </Text>
+                <Text style={styles.budget}>
+                  {selectedDay.totalEstimatedCost?.toLocaleString()}
+                  <Text style={styles.budgetUnit}>원</Text>
+                </Text>
+              </View>
+            )}
           </View>
         </View>
         {/* 탭 */}
@@ -417,13 +536,18 @@ export default function PlannerResponseHome() {
         {/* 본문 */}
         <View style={{ flex: 1 }}>
           {isEditing ? (
-            <DraggableFlatList
+             <DraggableFlatList
+              ref={listRef}
               data={places}
               keyExtractor={(item, idx) => item.id ? String(item.id) : `temp-${idx}`}
               onDragEnd={handleDragEnd}
               extraData={[places, newlyAddedPlaceId, selectedDayIndex]}
               containerStyle={styles.container}
-              contentContainerStyle={{ paddingBottom: normalize(120, 'height') }}
+              keyboardDismissMode="on-drag"
+              keyboardShouldPersistTaps="handled"
+              contentContainerStyle={{
+                paddingBottom: normalize(160, 'height'), // ⬅️ 120→160
+              }}
               renderItem={({ item: place, drag }) => {
                 const currentIndex = places.findIndex((p) => p.id === place.id);
                 return (
@@ -456,6 +580,11 @@ export default function PlannerResponseHome() {
                         </TouchableOpacity>
                         {/* placeCard */}
                         <TouchableOpacity
+                          ref={(ref) => {
+                            if (ref) {
+                              placeRefs.current[place.id] = ref;
+                            }
+                          }}
                           style={[styles.placeCard3, { marginLeft: normalize(24) }]}
                           disabled={newlyAddedPlaceId === place.id}
                           onPress={() => {
@@ -468,6 +597,7 @@ export default function PlannerResponseHome() {
                         >
                           {(newlyAddedPlaceId === place.id || editedPlaceId === place.id) ? (
                             <TextInput
+                              ref={(ref) => { if (ref) inputRefs.current[place.id] = ref; }}
                               style={styles.placeNameInput}
                               value={editedPlaces[place.id] ?? ''}
                               placeholder="장소명을 입력하세요"
@@ -535,7 +665,9 @@ export default function PlannerResponseHome() {
             <ScrollView
               ref={scrollRef}
               style={styles.container}
-              contentContainerStyle={{ paddingBottom: normalize(120, 'height') }}
+              contentContainerStyle={{
+                paddingBottom: normalize(160, 'height'), // ⬅️ 120→160
+              }}
             >
               {places.map((place, idx) => (
                 <View key={place.id ? String(place.id) : `temp-${idx}`}>
@@ -578,23 +710,23 @@ export default function PlannerResponseHome() {
                         </View>
                         <Text style={styles.placeType}>{place.type}</Text>
                         {place.gptOriginalName && (
-  <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginTop: 2 }}>
-    {place.gptOriginalName.split(' ').map((tag, i) => (
-      <Text
-        key={i}
-        style={{
-          color: '#606060',
-          fontSize: 14,
-          marginRight: 4,
-          fontWeight: '400',
-          lineHeight: 19,
-        }}
-      >
-        #{tag}
-      </Text>
-    ))}
-  </View>
-)}
+                          <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginTop: 2 }}>
+                            {place.gptOriginalName.split(' ').map((tag, i) => (
+                              <Text
+                                key={i}
+                                style={{
+                                  color: '#606060',
+                                  fontSize: 14,
+                                  marginRight: 4,
+                                  fontWeight: '400',
+                                  lineHeight: 19,
+                                }}
+                              >
+                                #{tag}
+                              </Text>
+                            ))}
+                          </View>
+                        )}
                       </TouchableOpacity>
                     </View>
                   </View>
@@ -683,6 +815,16 @@ export default function PlannerResponseHome() {
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.saveButton, { marginLeft: normalize(8) }]}
+                onPress={() => {
+                  navigation.push('PlannerResponse', {
+                    mock: true,
+                    data: MOCK_SCHEDULE,
+                    from: 'mock',
+                  });
+                }}
+              > 
+                {/* 묵데이터 여기까지 */}
+                {/* api 사용
                 onPress={async () => {
                   setIsRegenerating(true);
                   try {
@@ -695,36 +837,16 @@ export default function PlannerResponseHome() {
                     const peopleGroupToSend = scheduleData.peopleGroup || "NONE";
                     const budgetToSend = scheduleData.budget ?? 0;
 
-                    const requestData = {
-                      startDate: scheduleData.startDate,
-                      endDate: scheduleData.endDate,
-                      destination: destinationToSend,
-                      mbti: mbtiToSend,
-                      travelStyle: travelStyleToSend,
-                      peopleGroup: peopleGroupToSend,
-                      budget: budgetToSend,
-                      excludedNames,
-                    };
-                    console.log('📤 일정 재생성 요청:', JSON.stringify(requestData, null, 2));
+                    const requestData = { ... };
                     const result = await regenerateSchedule(requestData);
-                    if (result && result.days) {
-                      setScheduleData(prev => ({
-                        ...prev,
-                        days: result.days,
-                        startDate: result.startDate,
-                        endDate: result.endDate,
-                        title: result.title || prev.title,
-                      }));
-                    } else {
-                      Alert.alert('재생성 실패', '서버에서 정상 데이터가 오지 않았습니다.');
-                    }
+                    // ...
                   } catch (err) {
-                    Alert.alert('오류', '재생성 중 오류가 발생했습니다.');
+                    // ...
                   } finally {
                     setIsRegenerating(false);
                   }
-                }}
-              >
+                }} 
+                api 사용 여기까지 */}
                 <Text style={styles.saveButtonText}>플랜 전체 재조회</Text>
               </TouchableOpacity>
             </View>
@@ -733,73 +855,74 @@ export default function PlannerResponseHome() {
                 style={styles.regenerateButton}
                 onPress={async () => {
                   try {
-                    const saveRequest = {
-                      title: scheduleData.title,
-                      startDate: scheduleData.startDate,
-                      endDate: scheduleData.endDate,
-                      days: scheduleData.days.map(day => ({
-                        places: day.places.map(place => ({
-                          name: place.name,
-                          type: place.type,
-                          address: place.address,
-                          lat: place.lat,
-                          lng: place.lng,
-                          description: place.description,
-                          estimatedCost: place.estimatedCost,
-                          gptOriginalName: place.gptOriginalName,
-                          fromPrevious: place.fromPrevious,
-                          placeOrder: place.placeOrder,
-                        })),
-                      })),
+                    {/* 묵데이터 */}
+                    const mockWithId = {
+                      ...MOCK_SCHEDULE,
+                      id: uuid.v4(), // 반드시 있어야 함
                     };
-                    const response = await saveSchedule(saveRequest);
-                    console.log('[플랜 저장 응답]', response);
-                    const savedScheduleId = response.id || response.scheduleId;
-                    console.log('[실제 저장할 플랜 id]', savedScheduleId);
-                    await saveCacheData(CACHE_KEYS.PLAN_SAVE_READY, scheduleData);
-                    await saveTripToList({
-                      ...saveRequest,
-                      id: savedScheduleId,
-                    });
-                    setScheduleData(prev => ({
-                      ...prev,
-                      id: savedScheduleId,
-                    }));
-                    console.log('[저장 리스트 객체]', { ...saveRequest, id: savedScheduleId });
-                    Alert.alert(
-                      '여행 플랜 저장',
-                      '여행 플랜이 "내여행"으로 저장되었습니다.',
-                      [
-                        {
-                          text: 'OK',
-                          onPress: () => setIsSaved(true),
-                        },
-                      ]
+
+                    const existingRaw = await AsyncStorage.getItem('MY_TRIPS');
+                    const existingTrips = existingRaw ? JSON.parse(existingRaw) : [];
+
+                    const filtered = existingTrips.filter(
+                      trip =>
+                        !(
+                          trip.title === mockWithId.title &&
+                          trip.startDate === mockWithId.startDate
+                        )
                     );
+
+                    const updatedTrips = [...filtered, mockWithId];
+                    await AsyncStorage.setItem('MY_TRIPS', JSON.stringify(updatedTrips));
+
+                    setScheduleData(mockWithId);
+
+                    Alert.alert('저장 완료', '내 여행에 저장되었습니다.', [
+                      {
+                        text: '확인',
+                        onPress: () => {
+                          navigation.push('PlannerResponse', {
+                            scheduleId: mockWithId.id,
+                            mode: 'read',
+                            from: 'Home',
+                          });
+                        },
+                      },
+                    ]);
                   } catch (e) {
-                    alert('저장에 실패했습니다. 다시 시도해 주세요.');
+                    console.warn('저장 실패:', e);
+                    Alert.alert('오류', '저장에 실패했습니다.');
                   }
-                }}
+                }} 
               >
+                {/* 여기까지 */}
+                {/* api 사용
+                onPress={async () => {
+                  const saveRequest = { ... };
+                  const response = await saveSchedule(saveRequest);
+                  // ...
+                }}
+                api 사용 여기까지 */}
                 <Text style={styles.regenerateButtonText}>내 여행으로 저장</Text>
               </TouchableOpacity>
             </View>
           </>
         )}
-        <Modal visible={isRegenerating} transparent animationType="fade">
-          <SplashScreen />
-        </Modal>
+        {/* 묵데이터 */}
+        {/* <Modal visible={isRegenerating} transparent animationType="fade">  */}
+        {/*   <SplashScreen />   */}
+        {/* </Modal>    */}
+        {/* 여기까지 */}
       </View>
     </SafeAreaView>
   );
 }
 
-// ====== StyleSheet(폰트/패딩/마진 normalize 적용) ======
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: '#Fafafa' },
   screen: { flex: 1, backgroundColor: '#FAFAFA' },
   loadingText: { marginTop: normalize(100, 'height'), textAlign: 'center', fontSize: normalize(16) },
- headerLine: {
+  headerLine: {
     height: 1,
     backgroundColor: '#B5B5B5',
     marginTop: normalize(-1),
@@ -846,15 +969,15 @@ const styles = StyleSheet.create({
     borderRadius: normalize(12),
     marginBottom: -normalize(20)
   },
-bottomButtonContainer: {
-  flexDirection: 'row',
-  backgroundColor: '#fafafa',
-  paddingVertical: normalize(18),
-  paddingHorizontal: normalize(20),
-  top:normalize(10),
-  borderRadius: normalize(12),
-  paddingBottom: normalize(20), // 👈 이거 추가
-},
+  bottomButtonContainer: {
+    flexDirection: 'row',
+    backgroundColor: '#fafafa',
+    paddingVertical: normalize(18),
+    paddingHorizontal: normalize(20),
+    top:normalize(10),
+    borderRadius: normalize(12),
+    paddingBottom: normalize(20), // 👈 이거 추가
+  },
   placeRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',

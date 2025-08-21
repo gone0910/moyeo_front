@@ -3,14 +3,13 @@ import {
   View,
   Text,
   Image,
-  StyleSheet,
   TouchableOpacity,
   Animated,
-  Dimensions,
   TextInput,
   Alert,
   Modal,
 } from 'react-native';
+import { StyleSheet, Dimensions } from 'react-native';
 import { Calendar, LocaleConfig } from 'react-native-calendars';
 import { UserContext } from '../../contexts/UserContext';
 import { useNavigation } from '@react-navigation/native';
@@ -23,6 +22,16 @@ import { saveCacheData, CACHE_KEYS } from '../../caching/cacheService';
 import axios from 'axios';
 import SplashScreen from '../../components/common/SplashScreen';
 import HeaderBar from '../../components/common/HeaderBar';
+import uuid from 'react-native-uuid';
+
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+const BASE_WIDTH = 390;
+const BASE_HEIGHT = 844;
+function normalize(size, based = 'width') {
+  const scale = based === 'height' ? SCREEN_HEIGHT / BASE_HEIGHT : SCREEN_WIDTH / BASE_WIDTH;
+  return Math.round(size * scale);
+}
+
 
 LocaleConfig.locales['ko'] = {
   monthNames: [
@@ -41,14 +50,6 @@ LocaleConfig.locales['ko'] = {
 };
 LocaleConfig.defaultLocale = 'ko';
 
-// === 반응형 유틸 함수 ===
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
-const BASE_WIDTH = 390; // iPhone 13 기준
-const BASE_HEIGHT = 844;
-function normalize(size, based = 'width') {
-  const scale = based === 'height' ? SCREEN_HEIGHT / BASE_HEIGHT : SCREEN_WIDTH / BASE_WIDTH;
-  return Math.round(size * scale);
-}
 
 export default function PlannerInfoScreen() {
   const { user } = useContext(UserContext);
@@ -89,9 +90,56 @@ export default function PlannerInfoScreen() {
   const toggleMbti = () => {
     setSelectedMbti((prev) => (prev === 'NONE' ? null : 'NONE'));
   };
+
   const handleCustomPlan = () => {
-    handleCreateSchedule();
+    //묵데이터 
+    
+  const mockData = {
+    title: '모의 여행 플랜',
+    startDate,
+    endDate,
+    destination: 'SEOUL',
+    mbti: selectedMbti || 'NONE',
+    travelStyle: selectedTravelStyles[0] || 'NONE',
+    peopleGroup: selectedItems.group || 'NONE',
+    budget,
+    days: [
+      {
+        day: 'Day 1',
+        totalEstimatedCost: 20000,
+        places: [
+          {
+            id: uuid.v4(),
+            name: '광화문',
+            type: '관광',
+            estimatedCost: 0,
+            gptOriginalName: '경복궁',
+            fromPrevious: { car: 0, publicTransport: 0, walk: 0 },
+            address: '서울 종로구',
+            lat: 37.5759,
+            lng: 126.9769,
+            description: '서울의 대표적인 관광지',
+            placeOrder: 0,
+          },
+        ],
+      },
+    ],
   };
+  console.log('✅ mockData:', mockData); // 확인용
+  setLoading(false); // 혹시 열려있는 Splash 대비
+  navigation.navigate('PlannerResponse', {
+    from: 'mock',
+    mock: true,
+    data: mockData,
+  });
+  
+ //여기까지
+  navigation.navigate('PlannerResponse', {
+    from: 'mock',
+    mock: true,
+    data: mockData,
+  });
+};
   const toggleSelectNone = () => {
     if (selectedTravelStyles.includes('선택없음')) {
       setSelectedTravelStyles([]);
@@ -239,7 +287,7 @@ export default function PlannerInfoScreen() {
       }
       console.log('📤 requestData:', JSON.stringify(requestData, null, 2));
       const response = await axios.post(
-        'http://ec2-3-35-253-224.ap-northeast-2.compute.amazonaws.com:8080/schedule/create',
+        'http://ec2-54-180-235-235.ap-northeast-2.compute.amazonaws.com:8080/schedule/create',
         requestData,
         {
           headers: {
@@ -798,15 +846,14 @@ export default function PlannerInfoScreen() {
           <TouchableOpacity key={index} onPress={() => goToSlide(index)} style={[styles.slideDot, currentSlide === index ? styles.activeDot : styles.inactiveDot]} />
         ))}
       </View>
-      <Modal visible={loading} transparent animationType="fade">
-        <SplashScreen />
-      </Modal>
+      //묵데이터
+        {/* <Modal visible={loading} transparent animationType="fade">   */}
+         {/* <SplashScreen />   */}
+        {/* </Modal>   */}
+       //여기까지
     </View>
   );
 }
-
-// styles 객체는 기존 코드에서 그대로 사용!
-
 
 const styles = StyleSheet.create({
   container: {
@@ -1082,4 +1129,3 @@ const styles = StyleSheet.create({
     lineHeight: normalize(22, 'height'),
   },
 });
-
