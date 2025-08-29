@@ -2,9 +2,12 @@ import React, { useEffect, useState, useRef } from 'react';
 import {
   View,
   Text,
+  StyleSheet,
   ScrollView,
   TouchableOpacity,
   TextInput,
+} from 'react-native';
+import { Dimensions } from 'react-native'
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -132,12 +135,12 @@ export default function PlannerResponseHome() {
   }, [selectedDayIndex, isEditing]);
 
   useEffect(() => {
-    if (route.params?.mode === 'edit') {
-      setOriginalScheduleData(null); // 기존 원본 필요 없으면 null로
-      setEditDraft(null); // 불필요한 초기화
-      setIsEditing(true); // ✅ 자동 수정 모드 진입
-    }
-  }, [route.params?.mode]);
+  if (route.params?.mode === 'edit') {
+    setIsEditing(true);
+  } else {
+    setIsEditing(false); // ✅ read 모드일 경우 명시적으로 edit 모드 해제
+  }
+}, [route.params?.mode]);
 
   const ensurePlaceIds = (data) => ({
     ...data,
