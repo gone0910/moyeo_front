@@ -131,14 +131,16 @@ export default function PlannerInfoScreen() {
     from: 'mock',
     mock: true,
     data: mockData,
+    mode: 'read',
   });
-  
- //여기까지
-  navigation.navigate('PlannerResponse', {
+ 
+  //여기까지
+  /*navigation.navigate('PlannerResponse', {
     from: 'mock',
     mock: true,
     data: mockData,
-  });
+    mode: 'read',
+  }); */
 };
   const toggleSelectNone = () => {
     if (selectedTravelStyles.includes('선택없음')) {
