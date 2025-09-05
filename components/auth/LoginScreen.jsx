@@ -149,6 +149,10 @@ useEffect(() => {
       <View style={styles.logoContainer}>
         <Text style={styles.appName}>moyeo </Text>
       </View>
+      <View style={styles.appContainer}>
+        <Text style={styles.LogoName1}>지금 모여와 함께 </Text>
+         <Text style={styles.LogoName2}>새로운 여정을 떠나요!</Text>
+      </View>
 
       <View style={styles.buttonContainer}>
         {/* 카카오 로그인 */}
@@ -157,7 +161,7 @@ useEffect(() => {
           onPress={() => handleOAuthLogin('kakao')}
         >
           <Image source={kakaoIcon} style={styles.icon1} />
-          <Text style={styles.loginButtonText}>카카오 로그인</Text>
+          <Text style={styles.loginButtonText}>카카오로 로그인</Text>
         </TouchableOpacity>
 
         {/* 구글 로그인 */}
@@ -166,7 +170,7 @@ useEffect(() => {
           onPress={() => handleOAuthLogin('google')}
         >
           <Image source={googleIcon} style={styles.icon2} />
-          <Text style={styles.loginButtonText}>구글 로그인</Text>
+          <Text style={styles.loginButtonText}>구글로 로그인</Text>
         </TouchableOpacity>
 
         {/* mock 로그인 */}
@@ -189,23 +193,45 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     justifyContent: 'center',
-    alignItems: 'center',
+    alignItems: 'stretch',    
     backgroundColor: '#fff',
+    paddingHorizontal: normalize(24),
   },
   logoContainer: {
-    alignItems: 'center',
-    marginTop: normalize(180, 'height'),
+    alignItems: 'flex-start',
+    marginTop: normalize(48, 'height'),
+    marginBottom: normalize(12, 'height'),
+  },
+  appContainer: {
+    alignItems: 'flex-start',
+    marginTop: normalize(4, 'height'),
     marginBottom: normalize(100, 'height'),
   },
   appName: {
-    fontSize: normalize(100),
+    fontSize: normalize(60),
     fontFamily: 'KaushanScript_400Regular',
     color: '#4F46E5',
-    lineHeight: normalize(100, 'height'),
-    marginBottom: normalize(40, 'height'),
+    lineHeight: normalize(52, 'height'),
+    marginBottom: normalize(10, 'height'),
+  },
+  LogoName1: {
+    fontSize: normalize(28),                  
+    fontFamily: 'Pretendard',                 
+    lineHeight: normalize(28, 'height'),
+    letterSpacing: -0.5,                     
+    marginBottom: normalize(10, 'height'),
+    fontWeight: '500',
+  },
+
+  LogoName2: {
+    fontSize: normalize(28),
+    fontFamily: 'Pretendard',
+    lineHeight: normalize(28, 'height'),
+    letterSpacing: -0.5,
+    fontWeight: '500',
   },
   buttonContainer: {
-    width: '90%',
+    width: '100%',
     alignItems: 'center',
   },
   loginButton: {
@@ -240,7 +266,9 @@ const styles = StyleSheet.create({
   loginButtonText: {
     fontSize: normalize(17),
     color: '#000000',
-    marginLeft: normalize(-14),
+    marginLeft: normalize(-22),
+    fontWeight:600,
+    fontFamily:'Pretendard',
   },
   mockButtonText: {
     fontSize: normalize(17),
