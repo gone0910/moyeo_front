@@ -1,23 +1,22 @@
 import React, { useContext } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image, Dimensions, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Image, Dimensions, PixelRatio } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { UserContext } from '../../contexts/UserContext';
 import { KaushanScript_400Regular } from '@expo-google-fonts/kaushan-script';
 import { useFonts } from 'expo-font';
-import { RFValue } from 'react-native-responsive-fontsize';
 import HeaderBar from '../../components/common/HeaderBar';
 
-const matchingImage = require('../../assets/images/Planner_image.png');
+const PlanImage = require('../../assets/images/Plan_image_new.png');
 
 // 기준 width (iPhone 13)
 const BASE_WIDTH = 390;
 const BASE_HEIGHT = 844;
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
-const scale = SCREEN_WIDTH / BASE_WIDTH;
 
-function normalize(size) {
-  // 폰트, 마진 등 크기 보정
-  return Math.round(RFValue(size, BASE_HEIGHT));
+// ✅ 소수점 normalize (반올림 제거)
+function normalize(size, based = 'width') {
+  const scale = based === 'height' ? SCREEN_HEIGHT / BASE_HEIGHT : SCREEN_WIDTH / BASE_WIDTH;
+  return PixelRatio.roundToNearestPixel(size * scale); // 소수점 유지
 }
 
 export default function PlannerScreen() {
@@ -29,132 +28,126 @@ export default function PlannerScreen() {
 
   return (
     <View style={styles.container}>
-      <HeaderBar/>
+      <HeaderBar />
 
       {/* Main 안내 문구 */}
-      <View style={styles.mainSection}>
-      <Text style={[styles.title, { fontSize: normalize(28) }]}>
-          일정만 입력하셔도
+      <View style={styles.centerWrapper}>
+        <Text style={styles.title}>
+          일정만 입력하셔도 {'\n'}
+          <Text style={styles.title}>여행 플랜 완성</Text>
         </Text>
-        <Text style={[styles.subtitle, { fontSize: normalize(28), marginTop: normalize(4) }]}>
-          여행 플랜 완성
+        <Text style={styles.desc}>
+          내 취향에 맞춘 {'\n'}
+          <Text style={styles.desc}>여행 계획을 세워보세요</Text>
         </Text>
-        <Text style={[styles.desc, { fontSize: normalize(18), marginTop: normalize(14) }]}>
-          내 취향에 맞춘 여행 계획을 세워보세요
-        </Text>
-      </View>
 
       {/* 일러스트 이미지 */}
-      <View style={styles.illustrationWrapper}>
-        <Image
-          source={matchingImage}
-          style={{
-            width: SCREEN_WIDTH * 0.75,
-            height: SCREEN_WIDTH * 0.75,
-            borderRadius: SCREEN_WIDTH * 0.4,
-          }}
-          resizeMode="contain"
-        />
-      </View>
+        <Image source={PlanImage} style={styles.PlanImage} />
 
       {/* 버튼 */}
-      <View style={styles.bottomSection}>
         <TouchableOpacity
-          style={[styles.button, { width: SCREEN_WIDTH * 0.9, paddingVertical: normalize(18) }]}
-          onPress={() => navigation.navigate('PlannerInfo')}
-        >
-          <Text style={[styles.buttonText, { fontSize: normalize(18) }]}>
-            여행 플랜 만들러 가기
-          </Text>
-        </TouchableOpacity>
+                  style={styles.ctaButton}
+                  onPress={() => navigation.navigate('PlannerInfoScreen')}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.ctaText}>여행 플랜 만들러 가기</Text>
+                </TouchableOpacity>
       </View>
     </View>
   );
 }
-
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#FAFAFA',
   },
+  centerWrapper: {
+    flex: 1,
+    alignItems: 'center',
+    paddingHorizontal: normalize(24),
+    paddingTop: normalize(28, 'height'),     // 상단 여백
+  },
   headerWrapper: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 22,
-    marginBottom: 4,
+    paddingHorizontal: normalize(21.5),
+    marginBottom: normalize(3.5),
   },
   logotext: {
     color: '#4F46E5',
-    // fontFamily, fontSize는 인라인에서 반응형 처리
-    letterSpacing: 0,
+    letterSpacing: 0.0,
   },
   profileImage: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: normalize(43.5),
+    height: normalize(43.5),
+    borderRadius: normalize(21.75),
     backgroundColor: '#EEE',
   },
   profilePlaceholder: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: normalize(43.5),
+    height: normalize(43.5),
+    borderRadius: normalize(21.75),
     backgroundColor: '#D1D5DB',
   },
   headerLine: {
-    height: 1,
+    height: normalize(1.0, 'height'),
     backgroundColor: '#D1D5DB',
-    marginTop: 6,
+    marginTop: normalize(5.5),
     marginBottom: 0,
-    marginHorizontal: 10,
-  },
-  mainSection: {
-    marginTop: normalize(50),
-    alignItems: 'center',
-    justifyContent: 'center',
+    marginHorizontal: normalize(9.5),
   },
   title: {
-    color: '#1E1E1E',
-    fontWeight: '400',
+    fontSize: normalize(24.5),
+    color: '#111827',
     textAlign: 'center',
-    fontFamily: 'Inter_400Regular',
-  },
-  subtitle: {
-    color: '#1E1E1E',
-    fontWeight: '400',
-    textAlign: 'center',
-    fontFamily: 'Inter_400Regular',
+    fontFamily: 'Pretendard',
+    fontWeight:500,
+    marginTop: normalize(36, 'height'),
+    marginBottom: normalize(6),
+    lineHeight: normalize(34, 'height'),
   },
   desc: {
-    color: '#7E7E7E',
+    fontSize: normalize(17.5),
+    fontWeight:400,
+    color: '#6B7280',
     textAlign: 'center',
-    fontFamily: 'Inter_400Regular',
-    marginTop: 0,
+    fontFamily: 'Pretendard',
+    marginTop: normalize(8, 'height'),
+    lineHeight: normalize(21, 'height'),
   },
+  PlanImage: {
+      width: normalize(264.5),              
+      height: normalize(327.5, 'height'),
+      borderRadius: normalize(16),
+      marginTop: normalize(22, 'height'),
+    },
   illustrationWrapper: {
     alignItems: 'center',
-    marginTop: normalize(50),
-    marginBottom: normalize(24),
+    marginTop: normalize(49.5),
+    marginBottom: normalize(23.5),
   },
-  bottomSection: {
-    position: 'absolute',
-    bottom: normalize(35, 'height'), 
-    left: normalize(16),
-    right: normalize(16),
-    alignItems: 'center',
-  },
-  button: {
+  ctaButton: {
+    marginTop: normalize(28, 'height'),
+    width: normalize(188.5),
+    height:normalize(50.5),
+    justifyContent: 'center',
+    borderRadius: normalize(12),
     backgroundColor: '#4F46E5',
-  paddingVertical: normalize(18, 'height'),
-  paddingHorizontal: normalize(20),
-  borderRadius: normalize(10),
-  alignItems: 'center',
-  width: '100%',
- top: normalize(2, 'height'),
-  marginLeft: 0,
-},
-  buttonText: {
-    color: '#fff',
+    alignItems: 'center',
+    // 그림자
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.12,
+    shadowRadius: 12,
+    elevation: 6,
+  },
+  ctaText: {
+    color: '#FFFFFF',
+    fontSize: normalize(16.5),
+    fontFamily: 'Pretendard',
+    fontWeight: 600,
+    textAlign: 'center',
   },
 });
