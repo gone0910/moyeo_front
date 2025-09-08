@@ -16,6 +16,11 @@ export default function Dropdown({ label, selectedValue, onValueChange, items })
   const [value, setValue] = useState(selectedValue);
   const [options, setOptions] = useState(items);
 
+  // selectedValue가 바뀔 때마다 value도 맞춰줌!
+  React.useEffect(() => {
+    setValue(selectedValue);
+  }, [selectedValue]);
+
   const handleChangeValue = (val) => {
     setValue(val);
     onValueChange(val);
@@ -33,6 +38,8 @@ export default function Dropdown({ label, selectedValue, onValueChange, items })
         setValue={handleChangeValue}
         setItems={setOptions}
         placeholder="선택안함"
+        closeOnBackPressed={true} // 뒤로가기 시 닫힘
+        closeOnBlur={true}        // 외부 터치 시 닫힘
         style={[styles.dropdown, { zIndex: 1000 }]} // ✅ 다른 컨포넌트와 결치해 방지
         textStyle={styles.text}
         dropDownContainerStyle={[

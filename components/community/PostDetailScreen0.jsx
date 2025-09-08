@@ -1,10 +1,9 @@
 // components/commnuity/PostDetailScreen.jsx 게시글 상세보기기
 // 게시글 상세 전체(메인) 화면, 컴포넌트 조합
 import React, { useEffect, useState, useRef } from 'react';
-import { SafeAreaView, View, Text, StyleSheet, Dimensions, Image,
-   Alert, KeyboardAvoidingView, Platform
+import { SafeAreaView, ScrollView, View, Text, StyleSheet, Dimensions, Image,
+   ActivityIndicator, useNavigation, BackHandler, Alert, RefreshControl, KeyboardAvoidingView, Platform ,FlatList
   } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import PostHeader from './common/PostHeader';
 import PostImageCarousel from './common/PostImageCarousel';
@@ -13,7 +12,7 @@ import { getPostDetail, deletePost, getCommentList } from '../../api/community';
 import {decode as atob} from 'base-64';
 import { ENUM_TO_PROVINCE_KOR, ENUM_TO_CITY_KOR } from '../common/regionMap';
 import { useFocusEffect } from '@react-navigation/native';
-import { LogBox, BackHandler } from 'react-native';
+import { LogBox } from 'react-native';
 
 LogBox.ignoreLogs([
   'VirtualizedLists should never be nested', // 해당 경고 포함하는 메시지 모두 무시
@@ -66,71 +65,31 @@ const vScale = (size) => (SCREEN_HEIGHT / BASE_HEIGHT) * size;
 
 
 // 1. mock/postId 설정
-//  const isMock = false; // true면 mock, false면 api 연동
- const isMock = true; //목데이터
-
-const mockPostList = {
-  1: {
-    id: 1,
-    title: "서울 강남 맛집 추천드려요!",
-    nickname: "여행러버123",
-    userProfileImage: "https://via.placeholder.com/36x36.png",
-    createdDate: "2025.07.09 15:30",
-    destination: "서울",
-    postImages: ["https://source.unsplash.com/800x600/?korea,food"],
-    content: "강남구에서 발견한 숨은 맛집 공유해요! 가격도 괜찮고 분위기 좋았어요~",
-    userId: 101,
-  },
-  2: {
-    id: 2,
-    title: "제주도 한달살기 후기 공유합니다",
-    nickname: "오지여행자",
-    userProfileImage: "https://via.placeholder.com/36x36.png",
-    createdDate: "2025.07.08 11:10",
-    destination: "제주",
-    postImages: ["https://source.unsplash.com/800x600/?jeju,island"],
-    content: "제주에 살아보니 알게 된 현실 정보들! 렌트카 팁도 있어요.",
-    userId: 102,
-  },
+const isMock = false; // true면 mock, false면 api 연동
+const mockPost = {
+  id: 1,
+  title: "일본식 정통카레의 끝장판",
+  nickname: "카레홀릭",
+  userProfileImage: "https://placehold.co/36x36.png",
+  createdDate: "2025.06.03 14:05",
+  destination: "춘천",
+  postImages: [
+    
+  ],
+  content: `노란 간판부터 일본식 감성 제대로.
+혼밥하기 좋은 바 좌석도 있어서
+점심에 조용히 혼자 먹기에도 딱 좋은 곳이에요.
+카레는 기본 매운맛 조절 가능!`,
+  userId: 7
 };
-
-const mockCommentList = {
-  1: [
-    {
-      id: 101,
-      nickname: '도리',
-      content: '돌아버린거냐 저건 카레가 아니잖아',
-      profileUrl: 'https://placehold.co/36x36',
-      createdDate: '15분 전',
-      isMine: false,
-    },
-    {
-      id: 102,
-      nickname: '카레홀릭',
-      content: '맛있어요~',
-      profileUrl: 'https://placehold.co/36x36',
-      createdDate: '8분 전',
-      isMine: true,
-    },
-  ],
-  2: [
-    {
-      id: 103,
-      nickname: '오지여행자',
-      content: '좋은 정보 감사합니다!',
-      profileUrl: 'https://placehold.co/36x36',
-      createdDate: '1시간 전',
-      isMine: false,
-    },
-  ],
-}; 
 
 
 export default function PostDetailScreen({ route, navigation }) {
   const [token, setToken] = useState(null);
-  const [post, setPost] = useState(isMock ? mockPostList : null);
+  const [post, setPost] = useState(isMock ? mockPost : null);
   const [loading, setLoading] = useState(!isMock);
   const [myNickname, setMyNickname] = useState('');
+  const [refreshing, setRefreshing] = useState(false);
   const commentSectionRef = useRef();
   const [comments, setComments] = useState([]);
 
@@ -163,6 +122,37 @@ export default function PostDetailScreen({ route, navigation }) {
       return `${Math.floor(diff / 31536000)}년 전`;
     }
   
+  // 게시글 + 댓글 새로고침
+  const onRefresh = async () => {
+    setRefreshing(true);
+    try {
+      // 본문 새로고침
+      if (!isMock && token && postId) {
+        const data = await getPostDetail(postId, token);
+        setPost(data);
+      }
+      // 댓글 새로고침 (직접 API 호출)
+      if (!isMock && token && postId) {
+        const commentData = await getCommentList(postId, token);
+    // myNickname은 이미 상태에 있음
+    setComments(
+      commentData.map(item => ({
+        id: item.commentId,
+        nickname: item.nickname,
+        content: item.comment,
+        profileUrl: item.userProfile,
+        createdDate: getRelativeTime(item.updatedAt), // (함수 선언 필요)
+        isMine: item.nickname === myNickname,
+      })));
+            console.log('[새로고침] 댓글 리스트 갱신', commentData);
+      }
+    } catch (error) {
+      Alert.alert('새로고침 실패!');
+      console.error(error);
+    }
+    setRefreshing(false);
+  };
+
   // 뒤로가기 시 무조건 commuinityScren.jsx
   useFocusEffect(
     React.useCallback(() => {
@@ -178,6 +168,7 @@ export default function PostDetailScreen({ route, navigation }) {
       };
     }, [navigation])
   );
+
 
   // route에서 postId 받아오기, 없으면 1 (fallback)
   const postId = route?.params?.postId || 1;
@@ -212,18 +203,6 @@ export default function PostDetailScreen({ route, navigation }) {
 
 
   // 3. 게시글 상세 API 호출 (토큰/ID 모두 준비된 후)
-  //목데이터
-  
-  useEffect(() => {
-  if (!isMock && token && postId) {
-    getPostDetail(postId, token);
-  } else if (isMock) {
-    const selected = mockPostList[postId];
-    setPost(selected || null);
-  }
-}, [isMock, token, postId]);
-
-//여기까지
   useEffect(() => {
   if (!isMock && token && postId) { // token이 있을 때만 호출
     setLoading(true);
@@ -238,7 +217,7 @@ export default function PostDetailScreen({ route, navigation }) {
       })
       .finally(() => setLoading(false));
   }
-}, [isMock, token, postId]); 
+}, [isMock, token, postId]);
 
 
   if (!post) return <Text>게시글을 불러올 수 없습니다.</Text>; // 최소 로딩 표시
@@ -284,8 +263,8 @@ export default function PostDetailScreen({ route, navigation }) {
       <CommentSection.CommentItem {...item} />
     );
 
-  // 게시글 본문 렌더 (헤더) — 네가 달아둔 주석 그대로 유지
-  const renderHeader = () => (
+    // 게시글 본문 렌더 (헤더)
+    const renderHeader = () => (
     <View style={styles.mainCardContainer}>
       <View style={styles.titleProfileContainer}>
         <Text style={styles.title}>{post.title}</Text>
@@ -331,14 +310,26 @@ export default function PostDetailScreen({ route, navigation }) {
     </View>
   );
 
+
+  // 입력창 + 댓글 작성 영역 (Footer)
+  const renderFooter = () => (
+  <CommentSection
+    postId={post.postId}
+    myNickname={myNickname}
+    // comments={comments}
+    // setComments={setComments}
+  />
+);
+
   if (!post) return <Text>게시글을 불러올 수 없습니다.</Text>;
  
-  return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      style={{ flex: 1 }}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0} // 헤더 높이에 따라 조절
-    >
+    
+    return (
+    //<KeyboardAvoidingView
+    //  style={{ flex: 1 }}
+    //  behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    //  keyboardVerticalOffset={Platform.OS === 'ios' ? 60 : 0}
+    //>
       <SafeAreaView style={{ flex: 1, backgroundColor: '#FAFAFA' }}>
         <PostHeader
           title={post.title}
@@ -347,20 +338,25 @@ export default function PostDetailScreen({ route, navigation }) {
           onBack={() => navigation.navigate('CommunityMain')}
           onEdit={() => navigation.navigate('EditPost', { postId: post.postId, post })}
         />
-
-        {/* ✅ 바깥 FlatList/ScrollView 제거.
-            댓글 컴포넌트 하나만 스크롤러로 사용하고,
-            헤더는 headerComponent로 넘겨 댓글과 함께 스크롤되게 처리 */}
-        <CommentSection
-          ref={commentSectionRef}
-          postId={postId}
-          myNickname={myNickname}                 
-          headerComponent={renderHeader()}        
-          comments={isMock ? mockCommentList[postId] : undefined}
-          setComments={undefined}
+        <FlatList
+          data={[]}                 // ① 빈 배열!
+          renderItem={null}         // ② 없음!
+          keyExtractor={() => null} // ③ 키 없음!
+          ListHeaderComponent={renderHeader}
+          ListFooterComponent={renderFooter}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              colors={['#4F46E5']}
+              tintColor="#4F46E5"
+            />
+          }
+          contentContainerStyle={{ paddingBottom: 30 }}
+          keyboardShouldPersistTaps="handled"
         />
       </SafeAreaView>
-    </KeyboardAvoidingView>
+    //</KeyboardAvoidingView>
   );
 }
 
@@ -406,6 +402,14 @@ const styles = StyleSheet.create({
     height: scale(36),
     borderRadius: scale(14),
     backgroundColor: '#eee',
+    // marginRight: scale(8),
+  },
+  profileImg: {
+  width: scale(36),
+  height: scale(36),
+  borderRadius: scale(14),
+  backgroundColor: '#eee',
+  // marginRight: scale(8),  // 제거
   },
   nickname: {
     fontFamily: 'Roboto',
@@ -414,18 +418,19 @@ const styles = StyleSheet.create({
     lineHeight: scale(25),
     color: '#333333',
     borderRadius: scale(8),
-    marginLeft: scale(6),
+    marginLeft: scale(6),   // 제거
   },
   date: {
     fontSize: scale(14),
     color: '#606060',
     borderRadius: scale(6),
+    // marginRight: scale(6),  // 제거
   },
   destination: {
     fontSize: scale(14),
     color: '#606060',
     borderRadius: scale(6),
-    marginLeft: scale(6),
+    marginLeft: scale(6),  // 제거
   },
 
   content: {
@@ -446,6 +451,6 @@ const styles = StyleSheet.create({
     borderBottomColor: '#B3B3B3',
     marginTop: vScale(18),
     marginLeft: scale(16),
-    marginBottom: scale(6),
+    marginBottom: vScale(6),
   },
 });

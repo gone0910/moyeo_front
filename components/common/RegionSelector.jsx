@@ -8,6 +8,7 @@ export default function RegionSelector({
   selectedCity,
   onProvinceChange,
   onCityChange,
+  onCompleteSelect,
 }) {
   // 🔹 도 목록: '선택없음' 포함하여 표시 (광역시는 DB에 구현안됨)
   const removedProvinces = ['부산', '대구', '인천', '광주', '대전', '울산', '세종'];
@@ -21,18 +22,20 @@ export default function RegionSelector({
   // 🔹 해당 도에 포함된 시 목록
   const cities = selectedKorProvince ? REGION_MAP[selectedKorProvince] : [];
 
-  // ✅ 도 선택 핸들러
   const handleProvinceSelect = (korName) => {
-    const enumValue = PROVINCE_MAP[korName] || '';
-    onProvinceChange(enumValue);   // ''이면 해제
-    onCityChange('');              // 도가 바뀌면 시 초기화
-  };
+  const enumValue = PROVINCE_MAP[korName] || '';
+  onProvinceChange(enumValue);
+  onCityChange('');
+  // ✅ 도만 골라도 다음으로
+  if (onCompleteSelect) setTimeout(() => onCompleteSelect(), 100);
+};
 
-  // ✅ 시 선택 핸들러
-  const handleCitySelect = (korName) => {
-    const city = cities.find((c) => c.name === korName);
-    onCityChange(city?.code || '');
-  };
+const handleCitySelect = (korName) => {
+  const city = cities.find((c) => c.name === korName);
+  onCityChange(city?.code || '');
+  // ✅ 시 선택 후 다음으로
+  if (onCompleteSelect) setTimeout(() => onCompleteSelect(), 100);
+};
 
   return (
     <>
