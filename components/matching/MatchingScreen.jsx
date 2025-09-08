@@ -9,157 +9,124 @@ import HeaderBar from '../../components/common/HeaderBar';
 
 const matchingImage = require('../../assets/images/match_image.jpg');
 
-// ==== 반응형 유틸 함수 (iPhone 13 기준) ====
+// ==== 반응형 유틸 (iPhone 13 기준, 소수점 유지) ====
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const BASE_WIDTH = 390;
 const BASE_HEIGHT = 844;
 function normalize(size, based = 'width') {
-  const scale = based === 'height'
-    ? SCREEN_HEIGHT / BASE_HEIGHT
-    : SCREEN_WIDTH / BASE_WIDTH;
-  const newSize = size * scale;
-  if (Platform.OS === 'ios') {
-    return Math.round(PixelRatio.roundToNearestPixel(newSize));
-  } else {
-    return Math.round(PixelRatio.roundToNearestPixel(newSize)) - 1;
-  }
+  const scale = based === 'height' ? SCREEN_HEIGHT / BASE_HEIGHT : SCREEN_WIDTH / BASE_WIDTH;
+  return PixelRatio.roundToNearestPixel(size * scale); // 소수점 유지
 }
 
 export default function MatchingScreen() {
   const navigation = useNavigation();
   const { user } = useContext(UserContext);
   const [fontsLoaded] = useFonts({ KaushanScript: KaushanScript_400Regular });
-
-  if (!fontsLoaded) {
-    return null; // Avoid rendering until fonts are loaded
-  }
+  if (!fontsLoaded) return null;
 
   return (
     <View style={styles.container}>
-    <HeaderBar/>
+      <HeaderBar/>
 
       {/* Main Section */}
       <View style={styles.centerWrapper}>
         <Text style={styles.title}>
-  여행을 함께할 <Text style={{ color: '#4F46E5' }}>동행자</Text>를 찾아보세요
-</Text>
-  <Text style={styles.titletext}>자신과 일정이 같으며 목적지, 여행성향이</Text>
-  <Text style={styles.titletext2}>비슷한 여행자를 찾아 보실 수 있어요</Text>
+          여행을 함께할{'\n'}
+          <Text style={styles.blue}>동행자</Text>를 찾아보세요
+        </Text>
 
-  {/* ✅ 그 다음 이미지 */}
-  <Image source={matchingImage} style={styles.matchingImage} />
+        <Text style={styles.subtitle}>
+          자신과 일정이 같으며 목적지, 여행성향이
+        </Text>
+        <Text style={styles.subtitle}>
+          비슷한 여행자를 찾아 보실 수 있어요
+        </Text>
 
-        {/* New Container Bar Section */}
-        <View style={styles.containerBar}>
-          <Text style={styles.containerBarText}>동행자 찾기</Text>
-          <TouchableOpacity
-            style={styles.containerBarButton}
-            // 후에 변경 필요
-            onPress={() => navigation.navigate('MatchingInfo')}
-          >
-            <Text style={styles.containerBarButtonText}>동행자 찾기</Text>
-          </TouchableOpacity>
-        </View>
+        {/* 이미지 */}
+        <Image source={matchingImage} style={styles.matchingImage} />
+
+        {/* 버튼 */}
+        <TouchableOpacity
+          style={styles.ctaButton}
+          onPress={() => navigation.navigate('MatchingInfo')}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.ctaText}>동행자 찾기</Text>
+        </TouchableOpacity>
       </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  // 배경
   container: {
     flex: 1,
-    backgroundColor: '#FAFAFA',
+    backgroundColor: '#FAFAFA', 
   },
-  headerWrapper: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  logoText: {
-    fontSize: normalize(40),
-    fontFamily: 'KaushanScript',
-    color: '#4F46E5',
-    lineHeight: normalize(80, 'height'),
-    letterSpacing: normalize(0),
-  },
-  profileImage: {
-    width: normalize(44),
-    height: normalize(44),
-    borderRadius: normalize(22),
-    marginTop: normalize(22, 'height'),
-    top: normalize(-5, 'height'),
-  },
-  profilePlaceholder: {
-    width: normalize(44),
-    height: normalize(44),
-    borderRadius: normalize(22),
-    top: normalize(5, 'height'),
-    backgroundColor: '#D1D5DB',
-  },
-  headerLine: {
-    height: normalize(1, 'height'),
-    backgroundColor: '#999',
-    marginVertical: normalize(8, 'height'),
-    top: normalize(-10, 'height'),
-  },
+
+  // 본문 레이아웃
   centerWrapper: {
     flex: 1,
-    justifyContent: 'center',
     alignItems: 'center',
+    paddingHorizontal: normalize(24),
+    paddingTop: normalize(28, 'height'),     // 상단 여백
   },
+
+  // 타이틀
+  title: {
+    fontSize: normalize(24.5),
+    color: '#111827',
+    textAlign: 'center',
+    fontFamily: 'Pretendard',
+    fontWeight:500,
+    marginTop: normalize(36, 'height'),
+    marginBottom: normalize(6),
+    lineHeight: normalize(34, 'height'),
+  },
+  blue: { color: '#4F46E5' },
+
+  // 서브타이틀(2줄)
+  subtitle: {
+    fontSize: normalize(17.5),
+    fontWeight:400,
+    color: '#6B7280',
+    textAlign: 'center',
+    fontFamily: 'Pretendard',
+    marginTop: normalize(8, 'height'),
+    lineHeight: normalize(21, 'height'),
+  },
+
+  // 메인 이미지
   matchingImage: {
-  width: normalize(360),
-  height: normalize(400, 'height'),
-  marginBottom: normalize(-40, 'height'),
-  borderRadius: normalize(16),
-  marginTop: normalize(25, 'height'), // 너무 크면 줄이기
-},
-title: {
-  fontSize: normalize(24),
-  color: '#000000',
-  textAlign: 'center',
-  fontFamily: 'Inter_400Regular',
-  marginTop: normalize(40, 'height'), // 🔄 정상 위치에서 시작
-},
-titletext: {
-  fontSize: normalize(18),
-  marginTop: normalize(12, 'height'),
-  color: '#999999',
-  textAlign: 'center',
-  fontFamily: 'Inter_400Regular',
-},
-titletext2: {
-  fontSize: normalize(18),
-  top: normalize(2, 'height'), // 🔄 top 제거 후 자연스러운 간격
-  color: '#999999',
-  textAlign: 'center',
-  fontFamily: 'Inter_400Regular',
-},
-  containerBar: {
-    width: '100%',
-    padding: normalize(16),
-    backgroundColor: '#FAFAFA',
+    width: normalize(264.5),              
+    height: normalize(327.5, 'height'),
     borderRadius: normalize(16),
-    marginTop: normalize(40, 'height'),
+    marginTop: normalize(22, 'height'),
+  },
+
+  // CTA 버튼
+  ctaButton: {
+    marginTop: normalize(28, 'height'),
+    width: normalize(188.5),
+    height:normalize(50.5),
+    justifyContent: 'center',
+    borderRadius: normalize(12),
+    backgroundColor: '#4F46E5',
     alignItems: 'center',
+    // 그림자
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.12,
+    shadowRadius: 12,
+    elevation: 6,
   },
-  containerBarText: {
-    fontSize: normalize(20),
-    color: '#FAFAFA',
-    marginBottom: normalize(10, 'height'),
-  },
-  containerBarButton: {
-  backgroundColor: '#4F46E5',
-  paddingVertical: normalize(18, 'height'),
-  paddingHorizontal: normalize(22),
-  borderRadius: normalize(10),
-  alignItems: 'center',
-  width: '100%',
- top: normalize(-8, 'height'),
-  marginLeft: 0,
-},
-  containerBarButtonText: {
+  ctaText: {
     color: '#FFFFFF',
-    fontSize: normalize(18),
+    fontSize: normalize(16.5),
+    fontFamily: 'Pretendard',
+    fontWeight: 600,
+    textAlign: 'center',
+    
   },
 });
