@@ -1,18 +1,15 @@
 import React, { useContext } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image, Dimensions, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Image, Dimensions, PixelRatio } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { UserContext } from '../../contexts/UserContext';
 import { KaushanScript_400Regular } from '@expo-google-fonts/kaushan-script';
 import { useFonts } from 'expo-font';
 import HeaderBar from '../../components/common/HeaderBar';
 
-const matchingImage = require('../../assets/images/Planner_image.png');
+const PlanImage = require('../../assets/images/Plan_image_new.png');
 
 // 현재 기기의 화면 너비 / 높이 가져오기
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
-
-// 📐 클램핑 함수: 크기가 너무 작거나 커지지 않도록 제한
-const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
 
 export default function PlannerScreen() {
   const navigation = useNavigation();                 // 화면 전환 기능
@@ -35,51 +32,6 @@ export default function PlannerScreen() {
 
   return (
     <View style={styles.container}>
-      {/* 상단 헤더 */}
-      <HeaderBar />
-
-      {/* Main 안내 문구 영역 */}
-      <View style={styles.mainSection}>
-        <Text style={[styles.title, { fontSize: titleFontSize }]}>
-          일정만 입력하셔도
-        </Text>
-        <Text style={[styles.subtitle, { fontSize: titleFontSize, marginTop: subtitleGap }]}>
-          여행 플랜 완성
-        </Text>
-        <Text style={[styles.desc, { fontSize: descFontSize, marginTop: descGap }]}>
-          내 취향에 맞춘 여행 계획을 세워보세요
-        </Text>
-      </View>
-
-      {/* 여행 이미지 일러스트 */}
-      <View style={styles.illustrationWrapper}>
-        <Image
-          source={matchingImage}
-          style={{
-            width: imageSize,
-            height: imageSize,
-            borderRadius: imageSize / 2, // 원형 이미지로 만들기
-          }}
-          resizeMode="contain"
-        />
-      </View>
-
-      {/* 하단 버튼 영역 */}
-      <View style={styles.bottomSection}>
-        <TouchableOpacity
-          style={[
-            styles.button,
-            {
-              width: buttonWidth,
-              paddingVertical: buttonPadding,
-            },
-          ]}
-          onPress={() => navigation.navigate('PlannerInfo')} 
-        >
-          <Text style={[styles.buttonText, { fontSize: buttonFontSize }]}>
-            여행 플랜 만들러 가기
-          </Text>
-        </TouchableOpacity>
       </View>
     </View>
   );
@@ -88,49 +40,35 @@ export default function PlannerScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FAFAFA', // 전체 배경색
-  },
-  mainSection: {
-    marginTop: SCREEN_HEIGHT * 0.06, // 상단 여백
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  title: {
-    color: '#1E1E1E',
-    fontWeight: '400',
+
     textAlign: 'center',
-    fontFamily: 'Inter_400Regular', // 커스텀 폰트
-  },
-  subtitle: {
-    color: '#1E1E1E',
-    fontWeight: '400',
-    textAlign: 'center',
-    fontFamily: 'Inter_400Regular',
+    fontFamily: 'Pretendard',
+    fontWeight:500,
+    marginTop: normalize(36, 'height'),
+    marginBottom: normalize(6),
+    lineHeight: normalize(34, 'height'),
   },
   desc: {
-    color: '#7E7E7E',
+    fontSize: normalize(17.5),
+    fontWeight:400,
+    color: '#6B7280',
     textAlign: 'center',
-    fontFamily: 'Inter_400Regular',
   },
+  PlanImage: {
+      width: normalize(264.5),              
+      height: normalize(327.5, 'height'),
+      borderRadius: normalize(16),
+      marginTop: normalize(22, 'height'),
+    },
   illustrationWrapper: {
     alignItems: 'center',
-    marginTop: SCREEN_HEIGHT * 0.06,    // 상단 여백
-    marginBottom: SCREEN_HEIGHT * 0.028, // 하단 여백
-  },
-  bottomSection: {
-    position: 'absolute',
-    bottom: SCREEN_HEIGHT * 0.04,     // 화면 하단에서 띄우기
-    left: SCREEN_WIDTH * 0.041,       // 좌우 여백
-    right: SCREEN_WIDTH * 0.041,
     alignItems: 'center',
+    // 그림자
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.12,
+    shadowRadius: 12,
+    elevation: 6,
   },
-  button: {
-    backgroundColor: '#4F46E5',        // 버튼 색상
-    paddingHorizontal: SCREEN_WIDTH * 0.051, // 좌우 패딩
-    borderRadius: SCREEN_WIDTH * 0.025,      // 버튼 둥글게
-    alignItems: 'center',
-  },
-  buttonText: {
-    color: '#fff',                     // 버튼 글씨 흰색
   },
 });
