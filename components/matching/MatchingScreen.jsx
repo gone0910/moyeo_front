@@ -32,7 +32,7 @@ export default function MatchingScreen() {
       <View style={styles.centerWrapper}>
         <Text style={styles.title}>
           여행을 함께할{'\n'}
-          <Text style={styles.blue}>동행자</Text>를 찾아보세요
+          <Text style={styles.blue}>동행자를</Text> 찾아보세요
         </Text>
 
         <Text style={styles.subtitle}>
