@@ -32,6 +32,30 @@ export default function PlannerScreen() {
 
   return (
     <View style={styles.container}>
+      <HeaderBar />
+
+      {/* Main 안내 문구 */}
+      <View style={styles.centerWrapper}>
+        <Text style={styles.title}>
+          일정만 입력하셔도 {'\n'}
+          <Text style={styles.blue}>여행플랜</Text> 완성
+        </Text>
+        <Text style={styles.desc}>
+          내 취향에 맞춘 {'\n'}
+          <Text style={styles.desc}>여행 계획을 세워보세요</Text>
+        </Text>
+
+      {/* 일러스트 이미지 */}
+        <Image source={PlanImage} style={styles.PlanImage} />
+
+      {/* 버튼 */}
+        <TouchableOpacity
+                  style={styles.ctaButton}
+                  onPress={() => navigation.navigate('PlannerInfo')}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.ctaText}>여행 플랜 만들러 가기</Text>
+                </TouchableOpacity>
       </View>
     </View>
   );
@@ -48,6 +72,9 @@ const styles = StyleSheet.create({
     marginBottom: normalize(6),
     lineHeight: normalize(34, 'height'),
   },
+  blue: {
+  color: '#4F46E5',
+ },
   desc: {
     fontSize: normalize(17.5),
     fontWeight:400,
