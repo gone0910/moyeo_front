@@ -280,14 +280,14 @@ const styles = StyleSheet.create({
   height: normalize(26),
   resizeMode: 'contain',
   marginRight: normalize(8),
-  transform: [{ translateX: normalize(-110) }], // ← 왼쪽으로 20px 이동
+  transform: [{ translateX: normalize(-100) }], 
 },
 icon2: {
   width: normalize(26),
   height: normalize(26),
   resizeMode: 'contain',
   marginRight: normalize(8),
-  transform: [{ translateX: normalize(-115) }], // ← 왼쪽으로 20px 이동
+  transform: [{ translateX: normalize(-105) }], 
 },
   fabContainer: {
     position: 'absolute',
