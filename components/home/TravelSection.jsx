@@ -34,6 +34,7 @@ function normalize(size, based = 'width') {
  */
 export default function TravelSection({ travelList = [], onPressCreate, onPressCard }) {
   const safeList = Array.isArray(travelList) ? travelList : [];
+  console.log('📦 onPressCard:', onPressCard);
 
   return (
     <View style={styles.container}>

@@ -28,7 +28,7 @@
     "base-64": "^1.0.0",
     "buffer": "^6.0.3",
     "events": "^3.3.0",
-    "expo": "^53.0.0",
+    "expo": "^53.0.20",
     "expo-blur": "14.1.4",
     "expo-font": "13.3.0",
     "expo-image-manipulator": "~13.1.7",
@@ -60,7 +60,8 @@
     "react-native-web": "^0.20.0",
     "react-native-webview": "^13.14.1",
     "sockjs-client": "^1.6.1",
-    "text-encoding": "^0.7.0"
+    "text-encoding": "^0.7.0",
+    "lottie-react-native": "7.2.2"
   },
   "devDependencies": {
     "@babel/core": "^7.20.0",

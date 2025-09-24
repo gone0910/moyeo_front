@@ -1,9 +1,10 @@
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import uuid from 'react-native-uuid';
+import { BASE_URL } from './config/api_Config'; // apiConfig.js에서 baseUrl 주소 변경
 
 const api = axios.create({
-  baseURL: 'https://your-api-server.com',
+  baseURL: BASE_URL,
   headers: {
     'Content-Type': 'application/json',
   },
