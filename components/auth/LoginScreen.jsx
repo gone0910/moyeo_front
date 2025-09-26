@@ -287,7 +287,7 @@ icon2: {
   height: normalize(26),
   resizeMode: 'contain',
   marginRight: normalize(8),
-  transform: [{ translateX: normalize(-105) }], 
+  transform: [{ translateX: normalize(-108) }], 
 },
   fabContainer: {
     position: 'absolute',
