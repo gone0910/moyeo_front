@@ -10,7 +10,6 @@ import * as FileSystem from 'expo-file-system/legacy';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { BASE_URL } from './config/api_Config'; // apiConfig.js에서 baseUrl 주소 변경
 
-
 /**
  * 1. OAuth2.0 로그인 요청 (auth.js로 이전됨, 기존 사용되지 않음.)
  * - OAuth 로그인 페이지로 리디렉션
@@ -25,14 +24,11 @@ import { BASE_URL } from './config/api_Config'; // apiConfig.js에서 baseUrl �
 //     console.log('🔗 OAuth 로그인 요청 URL:', oauthUrl);
 //     await Linking.openURL(oauthUrl);
 
-
 //   } catch (error) {
 //     console.error('❌ OAuth2.0 로그인 요청 실패:', error);
 //     throw error;
 //   }
 // };
-
-
 
 
 // 2. 회원가입 요청 (FormData 전송 방식)
@@ -62,7 +58,6 @@ export const registerUserWithFetch = async (userData, image, token) => {
       console.log('type:', image.type);
       console.log('name:', image.name);
 
-
       // Base64 인코딩된 이미지 크기 로그 (전송 직전,) 파악 후 삭제 요먕.
       if (image.uri && image.uri.startsWith('data:image')) {
         const base64String = image.uri.split(',')[1];
@@ -72,7 +67,6 @@ export const registerUserWithFetch = async (userData, image, token) => {
         const info = await FileSystem.getInfoAsync(image.uri);
         console.log('📏 [원본 파일 용량] ' + info.size + ' bytes ≈ ' + (info.size / 1024).toFixed(1) + ' KB');
       }
-
 
       formData.append('profileImage', {
         uri: image.uri,
@@ -96,7 +90,6 @@ export const registerUserWithFetch = async (userData, image, token) => {
         }
       }
     }
-
 
     const response = await fetch(`${BASE_URL}/auth/signup`, {
       method: 'POST',
@@ -183,7 +176,7 @@ export const editUserProfileWithFetch = async (userData, image, token) => {
   // ✅ 사용자 정보 → JSON → Base64 → 파일처럼 전송
   const userInfoJson = JSON.stringify({
     nickname: userData.nickname,
-    gender: userData.gender === '남성' ? 'MALE' : 'FEMALE',
+    gender: userData.gender,
     age: typeof userData.age === 'string' ? parseInt(userData.age) : userData.age,
     mbti: userData.mbti,
   });
@@ -204,7 +197,6 @@ export const editUserProfileWithFetch = async (userData, image, token) => {
       const size = Math.floor((base64String.length * 3) / 4);
       console.log('📏 [전송 Base64 이미지 용량] ' + size + ' bytes ≈ ' + (size / 1024).toFixed(1) + ' KB');
 
-
     } else if (image.uri.startsWith('file://')) {
       // [UPDATED] 구버전 getInfoAsync → 최신 File API로 교체
       const info = await FileSystem.getInfoAsync(image.uri);
@@ -219,18 +211,16 @@ export const editUserProfileWithFetch = async (userData, image, token) => {
     });
   }
 
-
   // ✅ 디버깅 로그
   console.log('📦 전송할 FormData 항목들:');
   try {
     // RN FormData.entries는 환경에 따라 없을 수 있음
     if (formData?.entries) {
       for (let [key, value] of formData.entries()) {
-        console.log(`${key}:`, typeof value === 'object' ? value.uri || '[object]' : value);
+        //console.log(`${key}:`, typeof value === 'object' ? value.uri || '[object]' : value);
       }
     }
   } catch {}
-
 
   try {
     const response = await fetch(`${BASE_URL}/user/edit`, {
@@ -250,7 +240,7 @@ export const editUserProfileWithFetch = async (userData, image, token) => {
       console.error('❌ 프로필 수정 실패:', response.status, text);
       throw new Error(text); // 에러 메시지 body
     }
-    console.log('🟦 [프로필 편집 요청] JWT 토큰:', token);
+    //console.log('🟦 [프로필 편집 요청] JWT 토큰:', token);
     console.log('🟦 [프로필 편집 요청] fetch headers:', {
       Authorization: `Bearer ${token}`,
     });
@@ -284,24 +274,19 @@ export const editUserProfileWithFetch = async (userData, image, token) => {
 //   };
 // };
 
-
 export async function urlToBase64ProfileImage(url) {
   const filename = 'profile_from_url.jpg'; // 변환한 사진고정.
 
-
-  // [UPDATED] createDownloadResumable → 최신 DownloadResumable 생성자 사용
-  const downloadResumable = new DownloadResumable(
+  const downloadResumable = FileSystem.createDownloadResumable(
     url,
-    Directory.cache + filename // [UPDATED] 최신 Directory 사용
+    FileSystem.cacheDirectory + filename 
   );
-
 
   const { uri } = await downloadResumable.downloadAsync();
   // console.log('✅ [이미지 다운로드 성공] 로컬 파일 경로:', uri);
 
-
-  // [UPDATED] readAsStringAsync + EncodingType 사용
-  const base64 = await readAsStringAsync(uri, { encoding: EncodingType.Base64 });
+  
+  const base64 = await FileSystem.readAsStringAsync(uri, { encoding: FileSystem.EncodingType.Base64 });
   // console.log('✅ [base64 인코딩 성공] base64 앞 80자:', base64.slice(0, 80));
 
 
