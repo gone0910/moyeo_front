@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import TravelCard from '../common/TravelCard';
+import { useNavigation } from '@react-navigation/native';
 
 // ==== 반응형 유틸 함수 (iPhone 13 기준) ====
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -34,6 +35,24 @@ function normalize(size, based = 'width') {
  */
 export default function TravelSection({ travelList = [], onPressCreate, onPressCard }) {
   const safeList = Array.isArray(travelList) ? travelList : [];
+  const navigation = useNavigation();
+
+  // ✅ 통일: plan 객체를 인자로 받는다.
+  const handlePress = (plan) => {
+    if (!plan) return;
+    if (typeof onPressCard === 'function') {
+   onPressCard(plan); // ✅ 부모(HomeScreen)에게만 위임
+ }
+
+    // 부모 핸들러가 없으면 기본 동작: PlannerResponse로 이동 (편집 모드 + 목)
+  navigation.navigate('PlannerResponse', {
+   scheduleId: String(plan.id), // ✅ 키도 scheduleId로 통일
+   from: 'Home',
+   mode: 'read',                // ✅ 읽기 모드
+   mock: false,                 // ✅ 저장본 기준
+ });
+  
+  };
 
   return (
     <View style={styles.container}>
@@ -45,21 +64,18 @@ export default function TravelSection({ travelList = [], onPressCreate, onPressC
           </TouchableOpacity>
         </View>
       ) : (
-        safeList.map(plan => (
+        safeList.map((plan) => (
           <TravelCard
-            key={plan.id}
-            title={plan.title}
+            key={String(plan?.id ?? Math.random())}
+            title={plan?.title}
             period={
-              plan.startDate && plan.endDate
-                ? `${plan.startDate.replace(/-/g, '.')} ~ ${plan.endDate.replace(/-/g, '.')}`
-                : plan.period || ''
+              plan?.startDate && plan?.endDate
+                ? `${String(plan.startDate).replace(/-/g, '.')} ~ ${String(plan.endDate).replace(/-/g, '.')}`
+                : plan?.period || ''
             }
-            dDay={plan.dDay || plan.dday || ''}
-            route={Array.isArray(plan.route) ? plan.route : []}
-            onPress={() => {
-              console.log('✅ TravelCard 클릭됨! plan.id:', plan.id);  // ← 정상 위치로 이동
-              onPressCard?.(plan.id);
-            }}
+            dDay={plan?.dDay || plan?.dday || ''}
+            route={Array.isArray(plan?.route) ? plan.route : []}
+            onPress={() => handlePress(plan)} // ← 여기서 plan을 그대로 넘김
           />
         ))
       )}
@@ -67,19 +83,7 @@ export default function TravelSection({ travelList = [], onPressCreate, onPressC
         <View style={styles.plusCircle}>
           <MaterialIcons name="add" size={normalize(36)} color="#FFFFFF" />
         </View>
-        <Text
-          style={{
-            fontFamily: 'Roboto',
-            fontWeight: '400',
-            fontSize: normalize(16),
-            color: '#000000',
-            textAlign: 'center',
-            flex: 1,
-            paddingRight: normalize(36),
-          }}
-        >
-          여행 플랜 만들러 가기
-        </Text>
+        <Text style={styles.createText}>여행 플랜 만들러 가기</Text>
       </TouchableOpacity>
     </View>
   );
@@ -124,10 +128,10 @@ const styles = StyleSheet.create({
     borderRadius: normalize(20),
     backgroundColor: '#FFFFFF',
     shadowColor: '#000000',
-  shadowOpacity: 0.1, 
-  shadowRadius: normalize(6), 
-  shadowOffset: { width: 0, height: 0 }, 
-  elevation: 12, 
+    shadowOpacity: 0.1,
+    shadowRadius: normalize(6),
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 12,
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: normalize(36),
