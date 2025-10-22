@@ -1,4 +1,4 @@
-// 📁 components/home/TravelSection.jsx
+// components/home/TravelSection.jsx
 import React from 'react';
 import {
   View,
@@ -13,6 +13,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 import TravelCard from '../common/TravelCard';
 
 // ==== 반응형 유틸 함수 (iPhone 13 기준) ====
+// (원본 유지)
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const BASE_WIDTH = 390;
 const BASE_HEIGHT = 844;
@@ -36,13 +37,23 @@ export default function TravelSection({ travelList = [], onPressCreate, onPressC
   const safeList = Array.isArray(travelList) ? travelList : [];
   console.log('📦 onPressCard:', onPressCard);
 
+  const isEmpty = (safeList?.length ?? 0) === 0;
+
   return (
     <View style={styles.container}>
-      {(safeList?.length ?? 0) === 0 ? (
-        <View style={styles.noPlanBox}>
-          <Text style={styles.noPlanText}>아직 여행 플랜이 없어요</Text>
-          <TouchableOpacity onPress={onPressCreate}>
-            <Text style={styles.noPlanLink}>함께 여행계획을 세우러 가볼까요?</Text>
+      {isEmpty ? (
+        // [UPDATED] 빈 상태: 점선 박스 + 내부 중앙 보라 CTA (onPress는 기존 그대로)
+        <View style={styles.emptyCard}>
+          <View style={styles.emptyTextWrap}>
+            <Text style={styles.emptyTitle}>아직 여행 플랜이 없어요</Text>
+            <Text style={styles.emptySub}>함께 여행계획을 세우러 가볼까요?</Text>
+          </View>
+
+          <TouchableOpacity style={styles.ctaButton} onPress={onPressCreate}>
+            <View style={styles.ctaIconBox}>
+              <MaterialIcons name="add" size={normalize(12)} color="#FFFFFF" />
+            </View>
+            <Text style={styles.ctaLabel}>여행 플랜 만들기</Text>
           </TouchableOpacity>
         </View>
       ) : (
@@ -58,30 +69,24 @@ export default function TravelSection({ travelList = [], onPressCreate, onPressC
             dDay={plan.dDay || plan.dday || ''}
             route={Array.isArray(plan.route) ? plan.route : []}
             onPress={() => {
-              console.log('✅ TravelCard 클릭됨! plan.id:', plan.id);  // ← 정상 위치로 이동
+              console.log('✅ TravelCard 클릭됨! plan.id:', plan.id);
               onPressCard?.(plan.id);
             }}
           />
         ))
       )}
-      <TouchableOpacity style={styles.createBtn} onPress={onPressCreate}>
-        <View style={styles.plusCircle}>
-          <MaterialIcons name="add" size={normalize(36)} color="#FFFFFF" />
-        </View>
-        <Text
-          style={{
-            fontFamily: 'Roboto',
-            fontWeight: '400',
-            fontSize: normalize(16),
-            color: '#000000',
-            textAlign: 'center',
-            flex: 1,
-            paddingRight: normalize(36),
-          }}
-        >
-          여행 플랜 만들러 가기
-        </Text>
-      </TouchableOpacity>
+
+      {/* [UPDATED] 시안에서는 빈 상태일 때 내부 CTA만 보임.
+          기존 '항상 하단 버튼'은 유지 가능하지만, 시안과 맞추기 위해
+          빈 상태가 아닐 때만 하단 버튼을 노출하도록 처리 (기능 동일). */}
+      {!isEmpty && (
+        <TouchableOpacity style={styles.createBtn} onPress={onPressCreate}>
+          <View style={styles.plusCircle}>
+            <MaterialIcons name="add" size={normalize(20)} color="#FFFFFF" />
+          </View>
+          <Text style={styles.createText}>여행 플랜 만들러 가기</Text>
+        </TouchableOpacity>
+      )}
     </View>
   );
 }
@@ -89,51 +94,84 @@ export default function TravelSection({ travelList = [], onPressCreate, onPressC
 const styles = StyleSheet.create({
   container: {
     marginTop: normalize(0, 'height'),
+    paddingHorizontal: normalize(20), // [UPDATED] 좌우 20 기준
   },
-  noPlanBox: {
-    backgroundColor: '#fff',
-    borderRadius: normalize(20),
-    width: normalize(360),
-    height: normalize(100, 'height'),
-    paddingHorizontal: normalize(16),
-    marginTop: normalize(8, 'height'),
-    alignSelf: 'center',
+
+  // ===== Empty State (시안 적용) =====
+  emptyCard: {
+    // [UPDATED] dashed 1px #D3D3DE, radius 12, paddingV 32, 가운데 정렬
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#D3D3DE',
+    borderStyle: 'dashed',
+    borderRadius: normalize(12),
+    paddingVertical: normalize(32, 'height'),
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: normalize(4, 'height') },
-    shadowOpacity: 0.15,
-    shadowRadius: normalize(8),
-    elevation: 2,
+    gap: normalize(20, 'height'),
   },
-  noPlanText: {
-    fontFamily: 'Roboto',
+  emptyTextWrap: {
+    gap: normalize(4, 'height'),
+    width: '100%',
+    alignItems: 'center',
+  },
+  emptyTitle: {
+    // 16/500/#141414 center
     fontSize: normalize(16),
-    fontWeight: '400',
-    color: '#000000',
+    fontFamily: 'Inter_600SemiBold',
+    color: '#141414',
+    textAlign: 'center',
+    letterSpacing: normalize(-0.4),
   },
-  noPlanLink: {
-    fontFamily: 'Roboto',
-    fontSize: normalize(12),
-    fontWeight: '400',
-    color: '#4F46E5B2',
-    marginTop: normalize(8, 'height'),
+  emptySub: {
+    // 14/400/#767676 center
+    fontSize: normalize(14),
+    fontFamily: 'Inter_400Regular',
+    color: '#767676',
+    textAlign: 'center',
+    letterSpacing: normalize(-0.35),
   },
+  ctaButton: {
+    // [NEW] 내부 보라 CTA 141x40, radius 12, 가로 중앙
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: normalize(40, 'height'),
+    paddingVertical: normalize(10, 'height'),
+    paddingHorizontal: normalize(16),
+    gap: normalize(4),
+    backgroundColor: '#4F46E5',
+    borderRadius: normalize(12),
+  },
+  ctaIconBox: {
+    width: normalize(20),
+    height: normalize(20),
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  ctaLabel: {
+    // 14/500/#FFFFFF
+    fontSize: normalize(14),
+    fontFamily: 'Inter_600SemiBold',
+    color: '#FFFFFF',
+    letterSpacing: normalize(-0.35),
+  },
+
+  // ===== 기존 리스트 하단 CTA (빈 상태 아닐 때) =====
   createBtn: {
-    width: '92%',
+    width: '100%',
     height: normalize(48, 'height'),
     borderRadius: normalize(20),
     backgroundColor: '#FFFFFF',
     shadowColor: '#000000',
-  shadowOpacity: 0.1, 
-  shadowRadius: normalize(6), 
-  shadowOffset: { width: 0, height: 0 }, 
-  elevation: 12, 
+    shadowOpacity: 0.1,
+    shadowRadius: normalize(6),
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 12,
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: normalize(36),
     marginTop: normalize(18, 'height'),
-    marginHorizontal: normalize(0),
     alignSelf: 'center',
   },
   plusCircle: {
@@ -146,7 +184,7 @@ const styles = StyleSheet.create({
     marginRight: normalize(12),
   },
   createText: {
-    fontFamily: 'Roboto',
+    fontFamily: 'Inter_400Regular',
     fontWeight: '400',
     fontSize: normalize(16),
     color: '#000000',

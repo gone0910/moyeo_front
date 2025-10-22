@@ -11,142 +11,179 @@ const BASE_HEIGHT = 844;
 const scale = (size) => (SCREEN_WIDTH / BASE_WIDTH) * size;
 const vScale = (size) => (SCREEN_HEIGHT / BASE_HEIGHT) * size;
 
-// 더미 데이터: 실제 API 연동 전 테스트용
+// 더미 데이터(실제 API 연결 시 data 사용)
 const dummySightList = [
   {
     name: "한라산 국립 공원",
-    description: "“ 한국의 가장 높은 산, 한라산이 있는 곳”",
+    description: "한국의 가장 높은 산, 한라산이 있는 곳",
     hours: "매일 00:00 ~ 24:00",
     fee: "무료",
     location: "제주특별자치도 서귀포시 중앙로48번길 14"
   },
   {
     name: "성산일출봉",
-    description: "“일출 명소로 유명한 제주 대표 관광지입니다.”",
+    description: "일출 명소로 유명한 제주 대표 관광지입니다.",
     hours: "06:00 ~ 20:00",
     fee: "성인 2,000원",
     location: "제주특별자치도 서귀포시 성산읍 일출로 284-12"
   }
 ];
 
-
-// 카드 내부 내용 정의 (아래 함수도 Bubble 파일 내부에 포함)
+// [ADDED] 카드 내부 콘텐츠 (피그마 레이아웃 반영)
 function SightCardContent({ name, description, hours, fee, location }) {
   return (
-    <View style={styles.innerContainer}>
-      <Text style={styles.title}>{name}</Text> 
-      <View style={styles.addressRow}>
-        <MaterialIcons name="location-on" size={12} color="#4F46E5" style={{ marginRight: 4 }} />
-        <Text style={styles.address}>{location}</Text>
+    <View style={styles.cardRoot /* 233x172 컨테이너 내부 레이아웃 */}>
+      {/* 상단 헤더바 */}
+      <View style={styles.headerBar}>
+        <Text style={styles.headerTitle} >{name}</Text>
       </View>
-      <Text style={styles.desc}>{description}</Text>   
-      <View style={styles.infoRow}>
-        <Text style={styles.infoLabel}>운영시간 :</Text>
-        <Text style={styles.infoValue}>
-          {
-            typeof hours === 'string'
-              ? hours.split(/ *[\/,] *|\s*\(/).join('\n(') // (도 줄바꿈되게, (는 붙여줌
-              : Array.isArray(hours)
-                ? hours.join('\n')
-                : hours
-          }
+
+      {/* 본문 영역 */}
+      <View style={styles.bodyArea}>
+        {/* 주소 */}
+        <View style={styles.addressRow}>
+          <MaterialIcons name="location-on" size={scale(12)} color="#4F46E5" style={{ marginRight: scale(4) }} />
+          <Text style={styles.addressText} >
+            {location}
           </Text>
+        </View>
+
+        {/* 설명 */}
+        <Text style={styles.descText} >
+          {description}
+        </Text>
+
+        {/* 운영시간 */}
+        <View style={styles.infoRow}>
+          <Text style={styles.infoLabel}>운영시간 :</Text>
+          <Text style={styles.infoValue} >{hours}</Text>
+        </View>
+
+        {/* 입장료 */}
+        <View style={styles.infoRow}>
+          <Text style={styles.infoLabel}>입장료 :</Text>
+          <Text style={styles.infoValue} >{fee}</Text>
+        </View>
       </View>
-      <View style={styles.infoRow}>
-        <Text style={styles.infoLabel}>입장료 :</Text>
-        <Text style={styles.infoValue}>{fee}</Text>
-      </View>      
     </View>
   );
 }
 
-
-
 export default function ResultSightBubble({ data }) {
-  const viewData = data || dummySightList; // 배열!
+  const viewData = data || dummySightList;
 
   return (
-    <ChatBotCardList data={viewData} renderItem={({ item }) => (
-      <ChatBotCard>
-        <SightCardContent {...item} />
-      </ChatBotCard>
-    )} />
+    // [ADDED] 바깥 프레임(359x208, #F1F1F5)
+    <View style={styles.resultFrame}>
+      <ChatBotCardList
+        data={viewData}
+        renderItem={({ item }) => (
+          <ChatBotCard /* noShadow 기본 (피그마는 보더 중심) */>
+            <SightCardContent {...item} />
+          </ChatBotCard>
+        )}
+      />
+    </View>
   );
 }
 
 // Figma 기준 스타일 반영
 const styles = StyleSheet.create({
-  innerContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    minHeight: vScale(100),        // 필요시 110~120까지 조절
-    paddingVertical: vScale(2),
-  },
-  title: {
-    fontFamily: 'Roboto',
-    fontWeight: '400',
-    fontSize: scale(18),
-    lineHeight: scale(24),
-    color: '#373737',
-    marginLeft: scale(10),
-    marginRight: scale(10),
-    marginBottom: vScale(2),
-    flexWrap: 'wrap',
-    flexShrink: 1,
-    // height: scale(24), // 삭제!
-  },
-  desc: {
-    fontFamily: 'Roboto',
-    fontWeight: '400',
-    fontSize: scale(14),
-    lineHeight: scale(18),
-    color: '#616161',
-    marginLeft: scale(10),
-    marginRight: scale(10),
-    marginBottom: vScale(10),
-    flexWrap: 'wrap',
-    flexShrink: 1,
+  // [ADDED] 바깥 프레임 359x208 #F1F1F5 (Frame 1707485838)
+  resultFrame: {
+    width: scale(359),
+    // [CHANGED] auto 높이로 — 카드가 커져도 잘리지 않게
+    minHeight: vScale(208),
+    backgroundColor: '#F1F1F5',
     alignSelf: 'flex-start',
-    width: '90%',
+    borderRadius: scale(8),
+    paddingVertical: vScale(18),
   },
+
+  // [ADDED] 카드 내부 루트 (233x172 내부 레이아웃)
+  cardRoot: {
+    flex: 1,
+    width: '100%',
+    height: '100%',
+  },
+
+  // [ADDED] 헤더 바 (height 47, #BCBAEB)
+  headerBar: {
+    height: vScale(40),
+    backgroundColor: '#BCBAEB',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  headerTitle: {
+    fontFamily: 'Roboto',
+    fontWeight: '400',
+    fontSize: scale(16),
+    lineHeight: scale(25),
+    color: '#373737',
+    textAlign: 'center',
+    paddingHorizontal: scale(10),
+  },
+
+  // [ADDED] 본문 영역 (남은 높이 채움)
+  bodyArea: {
+    flex: 1,
+    paddingHorizontal: scale(10),
+    paddingTop: vScale(8),         // [CHANGED] 위 여백 살짝 증가
+    paddingBottom: vScale(10),     // [ADDED] 아래 여백 추가
+    rowGap: vScale(4),             // [ADDED] 요소 간 간격
+  },
+
+  // 주소(아이콘+텍스트 10/12)
+  addressRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',      // [CHANGED] 여러 줄일 때 위쪽 정렬
+    marginBottom: vScale(6),
+    columnGap: scale(4),           // [ADDED]
+  },
+  addressText: {
+    fontFamily: 'Roboto',
+    fontWeight: '400',
+    fontSize: scale(10),
+    lineHeight: scale(12),
+    color: '#868686',
+    flex: 1,
+    flexWrap: 'wrap',              // [ADDED] 줄바꿈 허용
+  },
+
+  // 설명(12/25)
+  descText: {
+    fontFamily: 'Roboto',
+    fontWeight: '400',
+    fontSize: scale(12),
+    lineHeight: scale(15), // 설명문 상하 간격
+    color: '#616161',
+
+  },
+
+  // 운영시간/입장료 라벨-값 행
   infoRow: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginLeft: scale(10),
+    alignItems: 'flex-start',      // [CHANGED] 값이 2줄 이상일 때 위 정렬
+    flexWrap: 'wrap',              // [ADDED] 라벨/값 줄바꿈 허용
+    columnGap: scale(4),           // [ADDED]
+    rowGap: vScale(2),             // [ADDED]
     marginBottom: vScale(2),
   },
   infoLabel: {
+    width: scale(57), // 피그마 고정폭
     fontFamily: 'Roboto',
     fontWeight: '400',
-    fontSize: scale(14),
-    lineHeight: scale(18),
-    color: '#373737',
-    width: scale(70),
-    // height: scale(18), // 삭제!
+    fontSize: scale(12),
+    lineHeight: scale(15),
+    color: '#333333',
   },
   infoValue: {
     fontFamily: 'Roboto',
     fontWeight: '400',
-    fontSize: scale(14),
-    lineHeight: scale(18),
-    color: '#616161',
-    flexShrink: 1,
-    flexWrap: 'wrap',
-  },
-  addressRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginTop: vScale(6),
-    marginLeft: scale(10),
-    marginBottom: vScale(10),
-  },
-  address: {
-    fontFamily: 'Roboto',
-    fontWeight: '400',
     fontSize: scale(12),
-    lineHeight: scale(14),
-    color: '#868686',
-    flexShrink: 1,
+    lineHeight: scale(15),
+    color: '#616161',
+    flex: 1,
     flexWrap: 'wrap',
   },
 });

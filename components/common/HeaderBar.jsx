@@ -52,7 +52,7 @@ export default function CommonHeader({ showDivider = true, showChatBot = false }
           </TouchableOpacity>
         )}
       </View>
-      {showDivider && <View style={styles.headerLine} />}
+       {/* {showDivider && <View style={styles.headerLine} />} */}
     </View>
   );
 }

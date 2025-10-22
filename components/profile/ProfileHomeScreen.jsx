@@ -1,3 +1,4 @@
+// ProfileHomeScreen.jsx
 import React, { useContext } from 'react';
 import {
   View,
@@ -9,14 +10,16 @@ import {
   Dimensions,
   PixelRatio,
   Platform,
-  SafeAreaView,
 } from 'react-native';
+import { SafeAreaView } from "react-native-safe-area-context";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { UserContext } from '../../contexts/UserContext';
+import { logoutUser } from '../../api/AuthApi';
 
-// ==== 반응형 유틸 함수 ====
+
+// ==== 반응형 유틸 함수 (보존) ====
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const BASE_WIDTH = 390; // iPhone 13 기준
 const BASE_HEIGHT = 844;
@@ -34,10 +37,10 @@ export default function ProfileHomeScreen({ route }) {
   const navigation = useNavigation();
   const { user, setUser } = useContext(UserContext);
 
-  // 로그아웃 처리
+  // 로그아웃 처리 (기능 보존)
   const handleLogout = async () => {
     try {
-      await AsyncStorage.clear();
+      await logoutUser();
       setUser(null);
       navigation.reset({
         index: 0,
@@ -59,54 +62,68 @@ export default function ProfileHomeScreen({ route }) {
     );
   };
 
-  return (
-    <View style={styles.safe}>
-      <View style={styles.container}>
-        {/* 상단 헤더 */}
-        <View style={styles.header}>
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={() => navigation.goBack()}
-          >
-            <MaterialIcons name="arrow-back-ios" size={normalize(22)} color="#5347EA" style={{ marginBottom: normalize(-10) }}/>
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>프로필 홈</Text>
-          <TouchableOpacity style={styles.logoutButton} onPress={confirmLogout}>
-            <MaterialIcons name="logout" size={normalize(22)} color="#5347EA" style={{ marginBottom: normalize(-10) }}/>
-          </TouchableOpacity>
-        </View>
-        <View style={styles.headerLine} />
-
-        {/* 본문 영역 */}
-        <View style={styles.contentWrapper}>
-          {/* 프로필 이미지 */}
-          <View style={styles.imageContainer}>
-            {user?.profileImageUrl ? (
-              <Image source={{ uri: user.profileImageUrl }} style={styles.profileImage} />
-            ) : (
-              <View style={styles.placeholderImage} />
-            )}
-          </View>
-
-          {/* 정보 표시 */}
-          <View style={styles.infoContainer}>
-            <View style={styles.infoBox}>
-  {[
+  // 표시 데이터 (기능 보존)
+  const infoItems = [
     { label: '닉네임', value: user?.nickname || '-' },
     { label: '성별', value: user?.gender === 'MALE' ? '남성' : user?.gender === 'FEMALE' ? '여성' : '-' },
-    { label: '나이', value: user?.age ? String(user.age) : '-' },
-    { label: 'MBTI', value: user?.mbti || '-' },
-  ].map((item, idx) => (
-    <View key={idx} style={styles.infoRow}>
-      <Text style={styles.label}>{item.label}</Text>
-      <Text style={styles.value}>{item.value}</Text>
-    </View>
-  ))}
-</View>
+    { label: '나이',   value: user?.age ? String(user.age) : '-' },
+    { label: 'MBTI',  value: user?.mbti || '-' },
+  ];
+
+  return (
+    <SafeAreaView style={styles.safe}>
+      {/* === 상단 헤더 (수정 제외) === */}
+      <View style={styles.headerBar}>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => navigation.goBack()}
+          accessibilityLabel="뒤로가기"
+        >
+          <MaterialIcons name="arrow-back-ios" size={normalize(22)} color="#111111" />
+        </TouchableOpacity>
+
+        <Text style={styles.headerTitle}>프로필 홈</Text>
+
+        <View style={{ flex: 1 }} />
+
+        <TouchableOpacity
+          style={styles.logoutButton}
+          onPress={confirmLogout}
+          accessibilityLabel="로그아웃"
+        >
+          <MaterialIcons name="logout" size={normalize(22)} color="#111111" />
+        </TouchableOpacity>
+      </View>
+      <View style={styles.headerDivider} />
+
+      {/* === 본문 영역 === */}
+      <View style={styles.container}>
+        {/* 프로필 이미지 (수정 제외) */}
+        <View style={styles.imageContainer}>
+          {user?.profileImageUrl ? (
+            <Image source={{ uri: user.profileImageUrl }} style={styles.profileImage} />
+          ) : (
+            <View style={styles.placeholderImage} />
+          )}
+        </View>
+
+        {/* 정보 표시 (수정 제외) */}
+        <View style={styles.infoContainer}>
+          <View style={styles.infoBox}>
+            {infoItems.map((item, idx) => (
+              <View key={idx} style={styles.infoRow}>
+                <View style={styles.labelBox}>
+                  <Text style={styles.labelText}>{item.label}</Text>
+                </View>
+                <View style={styles.valueBox}>
+                  <Text style={styles.valueText}>{item.value}</Text>
+                </View>
+              </View>
+            ))}
           </View>
         </View>
 
-        {/* 하단 버튼 */}
+        {/* === 하단 버튼 (EditProfileScreen.jsx 기준으로 수정) === */}
         <View style={styles.footerWrapper}>
           <TouchableOpacity
             style={styles.editButton}
@@ -116,7 +133,7 @@ export default function ProfileHomeScreen({ route }) {
           </TouchableOpacity>
         </View>
       </View>
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -124,168 +141,149 @@ export default function ProfileHomeScreen({ route }) {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: '#fafafa',
+    backgroundColor: '#FFFFFF',
   },
+  // [MODIFIED] container: EditProfileScreen.jsx의 formArea, scrollContent 참조
   container: {
     flex: 1,
-    backgroundColor: '#fafafa',
-    paddingHorizontal: normalize(14),
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: normalize(32), // <-- [FIX] 14 -> 32 (EditProfile의 formArea와 동일하게)
     paddingTop: normalize(18, 'height'),
-    borderRadius: normalize(24),
-    margin: normalize(10),
+    paddingBottom: normalize(24, 'height'), // <-- [ADD] EditProfile의 scrollContent와 동일하게
   },
-  header: {
+
+  /** =========================
+   * 헤더 (수정 제외)
+   * ========================= */
+  headerBar: {
+    height: normalize(56, 'height'),
     flexDirection: 'row',
     alignItems: 'center',
-    height: normalize(80, 'height'),
-    justifyContent: 'space-between',
-    position: 'relative',
-    paddingHorizontal: normalize(2),
-    marginBottom: normalize(-25, 'height'),
+    paddingHorizontal: normalize(20),
   },
   backButton: {
-    padding: normalize(3),
-    paddingLeft: normalize(2),
-    zIndex: 2,
+    width: normalize(24),
+    height: normalize(24),
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   headerTitle: {
-    flex: 1,
-    textAlign: 'center',
-    fontSize: normalize(16),
-    marginBottom: normalize(-10, 'height'),
-    fontWeight: '400',
-    color: '#000000',
-    letterSpacing: -0.2,
-    zIndex: 1,
+    fontSize: normalize(20),
+    fontWeight: '500',
+    color: '#111111',
+    letterSpacing: -0.3,
+    marginLeft: normalize(8),
   },
   logoutButton: {
-    padding: normalize(3),
-    zIndex: 2,
-  },
-  headerLine: {
-    height: 1,
-    backgroundColor: '#B5B5B5',
-    marginTop: 12,
-  },
-  contentWrapper: {
-    flex: 1,
+    width: normalize(24),
+    height: normalize(24),
     alignItems: 'center',
+    justifyContent: 'center',
   },
+  headerDivider: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: '#EDEDF2',
+    marginTop: 0,
+  },
+
+  /** =========================
+   * 프로필 이미지 (수정 제외)
+   * ========================= */
   imageContainer: {
     alignItems: 'center',
-    marginBottom: normalize(18, 'height'),
+    marginBottom: normalize(34, 'height'), 
     marginTop: normalize(40, 'height'),
   },
   profileImage: {
-    width: normalize(200),
-    height: normalize(200),
-    borderRadius: normalize(100),
+    width: normalize(110),
+    height: normalize(110),
+    borderRadius: normalize(55),
     backgroundColor: '#E5E7EB',
   },
   placeholderImage: {
-    width: normalize(200),
-    height: normalize(200),
-    borderRadius: normalize(100),
+    width: normalize(110),
+    height: normalize(110),
+    borderRadius: normalize(55),
     backgroundColor: '#D1D5DB',
   },
+
+  /** =========================
+   * 정보 영역 (수정 제외)
+   * ========================= */
   infoContainer: {
-    marginTop: normalize(70, 'height'),
+    marginTop: 0, 
     marginBottom: normalize(8, 'height'),
     width: '100%',
   },
-  infoRowWrapper: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'flex-start',
-    columnGap: normalize(36),
-  },
-  infoColumn: {
-    flexDirection: 'column',
-    justifyContent: 'flex-start',
-    alignItems: 'flex-start',
-    rowGap: normalize(40, 'height'),
-  },
-  label: {
-    fontFamily: 'System',
-    fontSize: normalize(18),
-    fontWeight: '700',
-    color: '#1E1E1E',
-    textAlign: 'left',
-    minWidth: normalize(60),
-    marginBottom: 0,
-    marginRight: normalize(20),
-  },
-  value: {
-    fontFamily: 'System',
-    fontSize: normalize(18),
-    fontWeight: '400',
-    color: '#1E1E1E',
-    textAlign: 'left',
-    minWidth: normalize(60),
-    top: normalize(0),
-    marginLeft: normalize(30),
-  },
-  boldValue: {
-    fontFamily: 'System',
-    fontSize: normalize(18),
-    fontWeight: '400',
-    color: '#1E1E1E',
-    textAlign: 'left',
-    minWidth: normalize(60),
-    top: normalize(-3),
-    marginLeft: normalize(30),
-    
-  },
-  footerWrapper: {
-    paddingBottom: normalize(15, 'height'),
-    paddingTop: normalize(10, 'height'),
-    paddingHorizontal: normalize(0),
-  },
-  editButton: {
-    backgroundColor: '#4F46E5',
-    paddingVertical: normalize(18, 'height'),
-    borderRadius: normalize(8),
-    alignItems: 'center',
-    marginTop: normalize(30, 'height'),
-    marginBottom: normalize(24, 'height'),
-  },
-  editButtonText: {
-    fontFamily: 'System',
-    fontSize: normalize(16),
-    fontWeight: '600',
-    color: '#FFFFFF',
-    letterSpacing: 0.2,
-  },
   infoBox: {
     width: '100%',
-    paddingHorizontal: normalize(20),
-    marginTop: normalize(50, 'height'),
-    // rowGap은 RN 최신 버전에서만 동작 → 하위 호환 위해 생략하거나 marginBottom 사용
+    paddingHorizontal: 0,
   },
-
   infoRow: {
-    flexDirection: 'row',           // 가로 정렬
-    justifyContent: 'center',       // 전체 줄 가운데 배치
-    alignItems: 'center',           // 라벨과 값의 세로 기준선 정렬 ← 중요!
-    marginBottom: normalize(20),    // 줄 간 간격
+    flexDirection: 'row',
+    alignItems: 'center',
+    height: normalize(58, 'height'),
+    backgroundColor: '#F0F0FE',
+    borderRadius: normalize(12),
+    padding: normalize(4),
+    gap: normalize(1),
+    marginBottom: normalize(16),
   },
-
-  label: {
-    fontSize: normalize(18),
-    fontWeight: '700',
-    color: '#1E1E1E',
-    textAlign: 'center',
-    lineHeight: normalize(24),
-    minWidth: normalize(80),
-    marginRight: normalize(16),     // 라벨과 값 사이 간격
+  labelBox: {
+    width: normalize(105),
+    height: normalize(50, 'height'),
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#000000',
+    shadowOffset: { width: 1, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    elevation: 2,
+    borderRadius: normalize(8),
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-
-  value: {
-    fontSize: normalize(18),
+  valueBox: {
+    flex: 1,
+    height: normalize(50, 'height'),
+    borderRadius: normalize(8),
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: normalize(16),
+  },
+  labelText: {
+    fontSize: normalize(16),
+    fontWeight: '600',
+    color: '#4F46E5',
+    letterSpacing: -0.4,
+  },
+  valueText: {
+    fontSize: normalize(16),
     fontWeight: '400',
-    color: '#1E1E1E',
+    color: '#111111',
+    letterSpacing: -0.4,
     textAlign: 'center',
-    lineHeight: normalize(24),
-    minWidth: normalize(80),
+  },
+
+  /** =========================
+   * 하단 버튼
+   * ========================= */
+
+  footerWrapper: {
+    marginTop: normalize(76, 'height'), 
+
+  },
+  editButton: {
+    marginHorizontal: normalize(-8),
+    height: normalize(56, 'height'), 
+    borderRadius: normalize(12),
+    backgroundColor: '#4F46E5', 
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  editButtonText: {
+    color: '#FFFFFF',
+    fontSize: normalize(20), 
+    fontWeight: '600', 
+    letterSpacing: -0.2, 
   },
 });

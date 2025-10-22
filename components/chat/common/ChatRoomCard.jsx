@@ -1,80 +1,123 @@
-// components/chat/common/ChatRoomCard.jsx  채팅 리스트에서 채팅방들을 카드로 보여주는 컴포넌트
+// components/chat/common/ChatRoomCard.jsx
+
 import React from 'react';
 import { View, Text, Image, StyleSheet, TouchableOpacity, Dimensions } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { MaterialIcons } from '@expo/vector-icons';
 
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
-const BASE_WIDTH = 390;
-const BASE_HEIGHT = 844;
-const scale = (size) => (SCREEN_WIDTH / BASE_WIDTH) * size;
-const vScale = (size) => (SCREEN_HEIGHT / BASE_HEIGHT) * size;
+// ... (스타일링 함수 및 formatListTime 함수는 기존과 동일)
+const { width: W, height: H } = Dimensions.get('window');
+const BW = 390, BH = 844;
+const s = (x) => Math.round((W / BW) * x);
+const vs = (x) => Math.round((H / BH) * x);
 
-export default function ChatRoomCard({ chat, isEditing, onDeletePress }) {
+const formatListTime = (isoLike) => {
+  // ... (기존 코드와 동일)
+  if (!isoLike) return '';
+  try {
+    const d = new Date(isoLike);
+    if (isNaN(d.getTime())) return '';
+
+    const now = new Date();
+    const y = d.getFullYear();
+    const m = d.getMonth() + 1;
+    const day = d.getDate();
+
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const target = new Date(y, d.getMonth(), day);
+    const diffDays = Math.floor((today - target) / (1000 * 60 * 60 * 24));
+
+    if (diffDays === 0) {
+      const hh = String(d.getHours()).padStart(2, '0');
+      const mm = String(d.getMinutes()).padStart(2, '0');
+      return `${hh}:${mm}`;
+    }
+    if (diffDays === 1) return '어제';
+    if (y === now.getFullYear()) return `${m}월 ${day}일`;
+
+    const MM = String(m).padStart(2, '0');
+    const DD = String(day).padStart(2, '0');
+    return `${y}.${MM}.${DD}`;
+  } catch {
+    return '';
+  }
+};
+
+
+export default function ChatRoomCard({ room, isEditing, onDeletePress }) {
   const navigation = useNavigation();
 
   const handlePress = () => {
-    if (isEditing) return; // ✅ 편집모드일 때 채팅방 진입 방지
-
-    // ✅ 변경: 백엔드 명세서 기반 route.params 키 이름 수정
+    if (isEditing) return;
     navigation.navigate('ChatRoomScreen', {
-      roomId: chat.roomId, // ✅ 변경된 키 이름 및 값
-      nickname: chat.nickname,        // ✅ 변경된 키 이름
-      profileUrl: chat.profileUrl,
+      roomId: room.roomId,
+      nickname: room.otherUserNickname, // API 명세와 일치
+      profileUrl: room.otherUserImageUrl, // API 명세와 일치
     });
   };
 
+  // 안전 처리
+  const name = room?.otherUserNickname || '';
+  const lastMessage = room?.lastMessage || '';
+  // [수정] lastMessageCreatedAt -> lastMessageTime
+  const time = formatListTime(room?.lastMessageTime);
+  const unread = Number(room?.unReadCount ?? 0);
+  const profileUrl = room?.otherUserImageUrl || '';
+
   return (
-    <TouchableOpacity style={styles.card} onPress={handlePress}>
+    <TouchableOpacity style={styles.card} onPress={handlePress} activeOpacity={0.8}>
       {/* 프로필 이미지 */}
-      <Image source={{ uri: chat.profileUrl }} style={styles.avatar} />
+      <Image source={{ uri: profileUrl }} style={styles.avatar} />
 
-      {/* 닉네임 */}
+      {/* 중앙 텍스트 */}
       <View style={styles.textWrapper}>
-        <Text style={styles.name}>{chat.nickname}</Text>
+        <Text style={styles.name} numberOfLines={1}>{name}</Text>
+
+        {/* 마지막 메시지 */}
+        {!!lastMessage && (
+          <Text style={styles.preview} numberOfLines={1}>
+            {lastMessage}
+          </Text>
+        )}
+
+        {/* 시간 — 마지막 메시지 바로 아래로 */}
+        {!!time && <Text style={styles.time}>{time}</Text>}
       </View>
 
-      {/* 뱃지: 편집모드일 때만 marginLeft */}
-      {chat.unreadCount > 0 && (
-      <View
-        style={[
-          styles.badge,
-          isEditing && styles.badgeEditing, // 편집모드에서만 marginRight 추가
-        ]}
-      >
-        <Text style={styles.badgeText}>{chat.unreadCount}</Text>
-      </View>
+      {/* 안읽은 수 */}
+      {unread > 0 && (
+        <View style={[styles.badge, isEditing && styles.badgeEditing]}>
+          <Text style={styles.badgeText}>{unread}</Text>
+        </View>
       )}
 
-      {/* 삭제 아이콘: 편집모드에서만 우측 */}
+      {/* 삭제 아이콘 */}
       {isEditing && (
         <TouchableOpacity onPress={onDeletePress} style={styles.deleteIconWrapper}>
-          <MaterialIcons name="remove-circle" size={scale(21)} color="#FF7E7E" />
+          <MaterialIcons name="remove-circle" size={s(21)} color="#FF7E7E" />
         </TouchableOpacity>
       )}
     </TouchableOpacity>
-
   );
 }
+
+const AVATAR = s(48);
+const BADGE = s(22);
 
 const styles = StyleSheet.create({
   card: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: vScale(14),
+    height: vs(72), // 살짝 높여서 3줄 여유
+    paddingHorizontal: s(20),
     position: 'relative',
-  },
-  deleteIconWrapper: {
-    position: 'absolute',
-    top: '55%', // 상대적 위치 유지 (fixed size 쓰고 싶으면 vScale로 조정)
-    right: scale(8),
-    zIndex: 1,
+    marginBottom: vs(10),
   },
   avatar: {
-    width: scale(56),
-    height: scale(56),
-    borderRadius: scale(22),
-    marginRight: scale(36),
+    width: AVATAR,
+    height: AVATAR,
+    borderRadius: AVATAR / 2,
+    marginRight: s(12),
     backgroundColor: '#E0E0E0',
   },
   textWrapper: {
@@ -82,26 +125,40 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   name: {
-    fontFamily: 'Roboto_400Regular',
-    fontSize: scale(18),
-    color: '#333333',
-    lineHeight: vScale(24),
+    fontSize: s(15),
+    fontWeight: '500',
+    color: '#111111',
+    lineHeight: vs(18),
+  },
+  preview: {
+    fontSize: s(13),
+    fontWeight: '400',
+    color: '#767676',
+    lineHeight: vs(18),
+    marginTop: vs(2),
+  },
+  time: {
+    fontSize: s(12),
+    fontWeight: '400',
+    color: '#767676',
+    lineHeight: vs(17),
+    marginTop: vs(2),
   },
   badge: {
-    width: scale(32),
-    height: vScale(20),
-    borderRadius: scale(16),
-    backgroundColor: '#FF7272',
+    width: BADGE,
+    height: BADGE,
+    borderRadius: BADGE / 2,
+    backgroundColor: '#4F46E5',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  badgeText: {
-    color: 'white',
-    fontWeight: 'bold',
-    fontSize: scale(12),
+  badgeText: { color: '#FFF', fontSize: s(11), fontWeight: '500' },
+  badgeEditing: { marginRight: s(44) },
+  deleteIconWrapper: {
+    position: 'absolute',
+    top: '50%',
+    right: s(8),
+    marginTop: -s(10),
+    zIndex: 1,
   },
-  badgeEditing: {
-    marginRight: scale(44),
-  },
-
 });

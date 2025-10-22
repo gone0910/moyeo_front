@@ -30,32 +30,48 @@ const dummyFoodList = [
 ];
 
 function FoodCardContent({ name, menu, hours, priceRange, location }) {
+  // [CHANGED] innerContainer -> cardRoot로 스타일 이름 변경 및 flex:1 설정 유지
   return (
-    <View style={styles.innerContainer}>
-      <Text style={styles.title}>{name}</Text>
-      <View style={styles.addressRow}>
-        <MaterialIcons name="location-on" size={12} color="#4F46E5" style={{ marginRight: 4 }} />
-        <Text style={styles.address}>{location}</Text>
+    <View style={styles.cardRoot}>
+      {/* [ADDED] SightBubble처럼 상단 제목 바 스타일 적용 */}
+      <View style={styles.headerBar}>
+        <Text style={styles.headerTitle}>{name}</Text>
       </View>
-      <View style={styles.infoRow}>
-        <Text style={styles.infoLabel}>대표메뉴 :</Text>
-        <Text style={styles.infoValue}>{menu}</Text>
-      </View>
-      <View style={styles.infoRow}>
-        <Text style={styles.infoLabel}>영업시간 :</Text>
-        <Text style={styles.infoValue}>
-          {
-            typeof hours === 'string'
-              ? hours.split(/ *[\/,] */).join('\n') // , 포함 줄바꿈.
-              : Array.isArray(hours) // 줄바꿈시에 앞에 공백 1칸 방지
-                ? hours.join('\n')
-                : hours
-          }
-        </Text>
-      </View>
-      <View style={styles.infoRow}>
-        <Text style={styles.infoLabel}>가격대 :</Text>
-        <Text style={styles.infoValue}>{priceRange}</Text>
+
+      {/* [ADDED] 본문 영역 스타일 적용 */}
+      <View style={styles.bodyArea}>
+        
+        {/* 주소 */}
+        <View style={styles.addressRow}>
+          <MaterialIcons name="location-on" size={scale(12)} color="#4F46E5" style={{ marginRight: scale(4) }} />
+          <Text style={styles.addressText}>{location}</Text> {/* [CHANGED] address -> addressText */}
+        </View>
+
+        {/* 대표메뉴 */}
+        <View style={styles.infoRow}>
+          <Text style={styles.infoLabel}>대표메뉴 :</Text>
+          <Text style={styles.infoValue}>{menu}</Text>
+        </View>
+        
+        {/* 영업시간 */}
+        <View style={styles.infoRow}>
+          <Text style={styles.infoLabel}>영업시간 :</Text>
+          <Text style={styles.infoValue}>
+            {
+              typeof hours === 'string'
+                ? hours.split(/ *[\/,] */).join('\n') // , 포함 줄바꿈.
+                : Array.isArray(hours) // 줄바꿈시에 앞에 공백 1칸 방지
+                  ? hours.join('\n')
+                  : hours
+            }
+          </Text>
+        </View>
+        
+        {/* 가격대 */}
+        <View style={styles.infoRow}>
+          <Text style={styles.infoLabel}>가격대 :</Text>
+          <Text style={styles.infoValue}>{priceRange}</Text>
+        </View>
       </View>
     </View>
   );
@@ -66,84 +82,111 @@ export default function ResultFoodBubble({ data }) {
   const foodList = data || dummyFoodList;
 
   return (
-    <ChatBotCardList
-      data={foodList}
-      renderItem={({ item }) => (
-        <ChatBotCard>
-          <FoodCardContent {...item} />
-        </ChatBotCard>
-      )}
-    />
+    // [ADDED] SightBubble과 동일한 외부 프레임 적용
+    <View style={styles.resultFrame}>
+      <ChatBotCardList
+        data={foodList}
+        renderItem={({ item }) => (
+          <ChatBotCard>
+            <FoodCardContent {...item} />
+          </ChatBotCard>
+        )}
+      />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  innerContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    minHeight: vScale(90),           // 90~120 사이 필요에 따라 조정
-    paddingVertical: vScale(8),
+  // [ADDED] SightBubble의 외부 프레임 스타일
+  resultFrame: {
+    width: scale(359),
+    minHeight: vScale(208),
+    backgroundColor: '#F1F1F5',
+    alignSelf: 'flex-start',
+    borderRadius: scale(8),
+    paddingVertical: vScale(18),
   },
-  title: {
+
+  // [ADDED/CHANGED] SightBubble의 카드 루트 스타일 (233x172 내부 레이아웃)
+  cardRoot: {
+    flex: 1,
+    width: '100%',
+    height: '100%',
+    // [REMOVED] 기존 innerContainer의 불필요한 스타일 제거 (minHeight, justify, padding)
+  },
+
+  // [ADDED] SightBubble의 헤더 바 스타일 (제목 영역)
+  headerBar: {
+    height: vScale(50),
+    backgroundColor: '#BCBAEB',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: scale(10), // 제목이 너무 길 때를 대비
+  },
+  headerTitle: {
     fontFamily: 'Roboto',
     fontWeight: '400',
-    fontSize: scale(18),
-    lineHeight: scale(24),
+    fontSize: scale(16),
+    lineHeight: scale(25),
     color: '#373737',
-    minWidth: scale(90),
-    marginLeft: scale(9),
-    marginTop: vScale(1),
-    marginBottom: vScale(2),
-    // textAlignVertical: 'flex-start',
-    flexWrap: 'wrap',
-    flexShrink: 1,
-    // height: scale(25), // 제거!
+    textAlign: 'center',
+    flexShrink: 1, // 텍스트 줄바꿈 허용
   },
+
+  // [ADDED] SightBubble의 본문 영역 스타일
+  bodyArea: {
+    flex: 1,
+    paddingHorizontal: scale(10),
+    paddingTop: vScale(8),
+    paddingBottom: vScale(10),
+    rowGap: vScale(4), // 요소 간 간격
+  },
+
+  // [CHANGED] 주소 행 스타일 (SightBubble과 통일)
+  addressRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    columnGap: scale(4),
+    marginBottom: vScale(6),
+  },
+  // [CHANGED] 주소 텍스트 스타일 (SightBubble과 통일)
+  addressText: {
+    fontFamily: 'Roboto',
+    fontWeight: '400',
+    fontSize: scale(10),
+    lineHeight: scale(12),
+    color: '#868686',
+    flex: 1,
+    flexWrap: 'wrap',
+  },
+  
+  // [CHANGED] 정보 행 스타일 (SightBubble과 통일)
   infoRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    marginLeft: scale(9),
-    marginBottom: vScale(1),
-    marginTop: vScale(10),
+    flexWrap: 'wrap',
+    columnGap: scale(4),
+    rowGap: vScale(2),
+    marginBottom: vScale(2),
+    // [REMOVED] 기존의 불필요한 마진/패딩 제거
   },
+  // [CHANGED] 라벨 스타일 (SightBubble과 통일)
   infoLabel: {
+    width: scale(57), // SightBubble의 고정폭
     fontFamily: 'Roboto',
     fontWeight: '400',
-    fontSize: scale(14),
-    lineHeight: scale(18),
+    fontSize: scale(12), // SightBubble과 동일한 글꼴 크기
+    lineHeight: scale(15),
     color: '#333333',
-    width: scale(70),
-    textAlignVertical: 'center',
-    // height: scale(19), // 제거!
   },
+  // [CHANGED] 값 스타일 (SightBubble과 통일)
   infoValue: {
     fontFamily: 'Roboto',
     fontWeight: '400',
-    fontSize: scale(14),
-    lineHeight: scale(18),
+    fontSize: scale(12), // SightBubble과 동일한 글꼴 크기
+    lineHeight: scale(15),
     color: '#616161',
-    marginLeft: scale(1),
-    flexShrink: 1,
+    flex: 1,
     flexWrap: 'wrap',
-  },
-  addressRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: vScale(10),
-    marginLeft: scale(10),
-    width: scale(212),
-    // height: scale(12), // 제거!
-  },
-  address: {
-    fontFamily: 'Roboto',
-    fontWeight: '400',
-    fontSize: scale(12),
-    lineHeight: scale(14),
-    color: '#868686',
-    marginLeft: scale(2),
-    minwidth: scale(100),
-    textAlignVertical: 'center',
-    flexWrap: 'wrap',
-    // height: scale(12), // 제거!
   },
 });
