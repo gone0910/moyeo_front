@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 export async function fetchFilteredPostList({ page = 0, size = 10, city, province, title, token }) {
-  let url = `http://ec2-3-35-253-224.ap-northeast-2.compute.amazonaws.com:8080/community/post/filter/list?page=${page}&size=${size}`;
+  let url = `http://ec2-3-34-144-242.ap-northeast-2.compute.amazonaws.com:8080/community/post/filter/list?page=${page}&size=${size}`;
   if (city) url += `&city=${encodeURIComponent(city)}`;
   if (province) url += `&province=${encodeURIComponent(province)}`;
   if (title) url += `&title=${encodeURIComponent(title)}`;
