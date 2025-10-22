@@ -1,6 +1,7 @@
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { BASE_URL } from './config/api_Config'; // apiConfig.js에서 baseUrl 주소 변경
+import api from './AxiosInstance';
 
 /**
  * 플랜(여행 일정) 리스트 조회 API
@@ -9,19 +10,13 @@ import { BASE_URL } from './config/api_Config'; // apiConfig.js에서 baseUrl �
  */
 export const fetchPlanList = async () => {
   try {
-    // JWT 토큰 가져오기 (jwt 또는 token 키로 저장된 값)
-    const token = await AsyncStorage.getItem('jwt');
-    if (!token) {
-      throw new Error('JWT 토큰이 없습니다. 로그인이 필요합니다.');
-    }
+    // [REMOVED] 수동 토큰 조회 및 Authorization 부착 (전부 인터셉터가 처리)
+    // const token = await AsyncStorage.getItem('jwt');
+    // if (!token) throw new Error('JWT 토큰이 없습니다. 로그인이 필요합니다.');
 
-    // API 호출
-    const response = await axios.get(
-      `${BASE_URL}/schedule/list`,
-      { headers: { Authorization: `Bearer ${token}` } }
-    );
+    // [UPDATED] 전역 api 인스턴스로 호출 → 401이면 AxiosInstance에서 자동 재발급 후 재시도
+    const response = await api.get('/schedule/list');
 
-    // 성공 시 결과 반환
     if (response.status === 200) {
       console.log('✅ 플랜 리스트 조회 성공:', response.data);
       return response.data;
