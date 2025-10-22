@@ -4,7 +4,7 @@
 import axios from 'axios';
 
 // ✅ 실제 API 주소로 교체 필요
-const BASE_URL = 'http://ec2-3-35-253-224.ap-northeast-2.compute.amazonaws.com:8080';
+const BASE_URL = 'http://ec2-3-34-144-242.ap-northeast-2.compute.amazonaws.com:8080';
 
 // ✅ axios 인스턴스 생성: baseURL과 JSON Content-Type 설정
 const axiosInstance = axios.create({
