@@ -32,7 +32,7 @@ const dummyMatches = [
     image: 'https://via.placeholder.com/60x60.png?text=1',
     gender: '남성',
     travelStyle: ['액티비티', '문화/관광', '맛집'],
-    destination: ['충북/청주시'],
+    destination: ['충북/청주시'], // destination 아님! dto 참고
     mbti: '선택안함',
   },
 ];
@@ -164,10 +164,16 @@ const MatchingList = () => {
                     {item.date? item.date.replace(/-/g, '/'): `${formatDate(item.startDate)} ~ ${formatDate(item.endDate)}`}
                   </Text>
                   <View style={styles.tagsContainer}>
-                    {(item.tags || item.travelStyles)?.map((tag, i) => (
-                      <View key={i} style={styles.tag}>
-                        <Text style={styles.tagText}>#{STYLE_ENUM_TO_KOR[tag] || tag}</Text>
-                      </View>
+                  {Array.from(
+                    new Set(
+                      (item.travelStyles || item.travelStyle || item.tags || [])
+                        .filter(Boolean)
+                        .map(s => String(s).trim())
+                    )
+                  ).map((tag, i) => (
+                    <View key={`${tag}-${i}`} style={styles.tag}>
+                      <Text style={styles.tagText}>#{STYLE_ENUM_TO_KOR[tag] || tag}</Text>
+                    </View>
                     ))}
                   </View>
                 </View>
@@ -311,7 +317,7 @@ const styles = StyleSheet.create({
   },
   matchBox: {
     backgroundColor: '#fff',
-    borderRadius: scale(12),
+    borderRadius: scale(20),
     padding: scale(12),
     marginBottom: vScale(12),
     flexDirection: 'row',
@@ -326,8 +332,9 @@ const styles = StyleSheet.create({
     width: '90%',
     maxWidth: scale(400),
     backgroundColor: '#FFF',
-    borderRadius: scale(20),
-    padding: scale(16),
+    borderRadius: scale(18), 
+    paddingVertical: vScale(12), 
+    paddingHorizontal: scale(16), 
     alignItems: 'center',
     shadowColor: '#888',
     shadowOffset: { width: 0, height: vScale(10) },
@@ -337,20 +344,21 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   modalProfileImageUpdated: {  // 프로필 이미지
-    width: scale(86),
-    height: scale(86),
-    borderRadius: scale(18),  // 기존 14
+    width: scale(68), 
+    height: scale(68), 
+    borderRadius: scale(21),
     backgroundColor: '#ECECEC',
     borderWidth: 2,
     borderColor: '#E0E7FF',
-    marginLeft: scale(12),
+    marginLeft: scale(0), 
 
   }, // 매칭 값
-  matchImage: { width: scale(71), height: scale(71), borderRadius: scale(21), marginRight: scale(12) },
+  matchImage: { width: scale(69), height: scale(69), borderRadius: scale(21), marginRight: scale(12) },
   matchName: { fontSize: scale(16), color: '#1E1E1E' },
   matchDate: { fontSize: scale(14), color: '#7E7E7E', marginTop: vScale(8) },
   tagsContainer: { flexDirection: 'row', flexWrap: 'wrap', marginTop: vScale(8) },
-  tag: { backgroundColor: '#EFEAE5', paddingVertical: vScale(3), paddingHorizontal: scale(6), borderRadius: scale(4), marginRight: scale(6), marginBottom: scale(4), },
+  tag: { backgroundColor: '#EFEAE5', paddingVertical: vScale(5), paddingHorizontal: scale(6), borderRadius: scale(6), 
+    marginRight: scale(7), marginBottom: scale(4), },
   tagText: { fontSize: scale(12), color: '#7E7E7E' },
 
   modalCenter: {
@@ -370,18 +378,17 @@ const styles = StyleSheet.create({
     marginBottom: vScale(18),
     marginTop: vScale(10),
     width: '100%',
-    justifyContent: 'row',  // 사진 좌측정렬
+    justifyContent: 'flex-start',
   },
   modalUserName: {
     fontSize: scale(20),
-    //fontWeight: 'bold',
-    color: '#4F46E5',
+    color: '#111111', 
     marginLeft: scale(20),
   },
   modalDate: {
-    fontSize: scale(16),
-    color: '#888',
-    marginTop: vScale(6),
+    fontSize: scale(18), 
+    color: '#7E7E7E', 
+    marginTop: vScale(0),
     marginLeft: scale(20),
   },
   infoRow: {
@@ -400,7 +407,7 @@ const styles = StyleSheet.create({
     color: '#1E1E1E',
     textAlignVertical: 'top',
     lineHeight: scale(22),
-    marginTop: scale(4),
+    marginTop: scale(0),
   },
   tagGroup: {
     flexDirection: 'row',
@@ -464,21 +471,16 @@ const styles = StyleSheet.create({
   },
   chatButton: {
     backgroundColor: '#4F46E5',
-    marginTop: vScale(25),
-    borderRadius: scale(14),
-    paddingVertical: vScale(15),
+    marginTop: vScale(20), 
+    borderRadius: scale(10), 
+    paddingVertical: vScale(10), 
     width: '100%',
     alignItems: 'center',
-    shadowColor: '#7C3AED',
-    shadowOffset: { width: 0, height: vScale(5) },
-    shadowOpacity: 0.18,
-    shadowRadius: scale(10),
-    elevation: 5,
   },
   chatButtonText: {
     color: 'white',
-    fontSize: scale(17),
-    fontWeight: '700',
+    fontSize: scale(16), 
+    fontWeight: '400'
   },
   contentContainer: {
     padding: scale(25),

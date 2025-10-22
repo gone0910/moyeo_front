@@ -1,6 +1,6 @@
 import React, { useState, useContext, useRef } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity,
+  View, Text, Image, StyleSheet, ScrollView, TouchableOpacity,
   Alert, Dimensions, PixelRatio, Platform, findNodeHandle
 } from 'react-native';
 import { Calendar } from 'react-native-calendars';
@@ -12,9 +12,10 @@ import ToggleSelector2 from '../common/ToggleSelector2';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { convertMatchingInputToDto } from './utils/matchingUtils';
 import { submitMatchingProfile } from '../../api/matching';
-import { REGION_MAP } from '../common/regionMap';
+import { REGION_MAP, PROVINCE_MAP } from '../common/regionMap';
 import HeaderBar from '../../components/common/HeaderBar';
 import { UIManager } from 'react-native';
+import MultiRegionSelector from '../matching/common/MultiRegionSelector';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const BASE_WIDTH = 390;
@@ -33,25 +34,17 @@ export default function MatchingInfoScreen() {
 
   const [startDate, setStartDate] = useState(null);
   const [endDate, setEndDate] = useState(null);
-  const [selectedProvince, setSelectedProvince] = useState('');
-  const [selectedCity, setSelectedCity] = useState('');
+  const [selectedProvinces, setSelectedProvinces] = useState([]);
+  const [selectedCities, setSelectedCities] = useState([]);
   const [selectedItems, setSelectedItems] = useState({
     group: '', tripstyle: [], gender: '', age: '',
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [openSections, setOpenSections] = useState({});
 
   const scrollViewRef = useRef(null);
   const sectionRefs = useRef({});
 
-  const openNextSection = (currentKey) => {
-    const keys = ['region', 'group', 'style', 'gender', 'age'];
-    const currentIndex = keys.indexOf(currentKey);
-    if (currentIndex === -1 || currentIndex === keys.length - 1) return;
-    const nextKey = keys[currentIndex + 1];
-    setOpenSections((prev) => ({ ...prev, [nextKey]: true }));
-    handleAccordionToggle(nextKey);
-  };
+  
 
   const handleDayPress = (day) => {
     const selected = day.dateString;
@@ -65,21 +58,17 @@ export default function MatchingInfoScreen() {
 
   const handleSelect = (key) => (value) => {
     setSelectedItems((prev) => ({ ...prev, [key]: value }));
-    openNextSection(key);
   };
 
   const handleMultiSelect = (key) => (value) => {
-  const dataKey = key === 'style' ? 'tripstyle' : key;
-  setSelectedItems((prev) => {
-    const current = prev[dataKey] ?? []; // ✅ undefined일 경우 빈 배열로
-    const updated = current.includes(value)
-      ? current.filter((item) => item !== value)
-      : [...current, value];
-    return { ...prev, [dataKey]: updated };
-  });
-
-  setTimeout(() => openNextSection(key), 100);
-};
+    setSelectedItems((prev) => {
+      const current = prev[key];
+      const updated = current.includes(value)
+        ? current.filter((item) => item !== value)
+        : [...current, value];
+      return { ...prev, [key]: updated };
+    });
+  };
 
   const getMarkedDates = () => {
     if (!startDate) return {};
@@ -118,22 +107,31 @@ export default function MatchingInfoScreen() {
     setIsSubmitting(true);
     try {
       const token = await AsyncStorage.getItem('jwt');
-      const provinceData = REGION_MAP[selectedProvince] || [];
-      const selectedCityCodes = selectedCity
-        ? [provinceData.find((c) => c.name === selectedCity)?.code]
-        : ['NONE'];
 
-      const rawInput = {
-        startDate,
-        endDate,
-        province: selectedProvince || 'NONE',
-        selectedCities: selectedCity ? [selectedCity] : ['NONE'],
-        groupType: selectedItems.group,
-        ageRange: selectedItems.age,
-        travelStyles: Array.isArray(selectedItems.tripstyle)
-          ? selectedItems.tripstyle.length > 0 ? selectedItems.tripstyle : ['NONE']
-          : selectedItems.tripstyle ? [selectedItems.tripstyle] : ['NONE'],
-      };
+    // ✅ province: 코드(ENUM) 그대로 사용 — 한글로 바꾸지 않음!
+    const provinceEnum =
+      Array.isArray(selectedProvinces) && selectedProvinces.length > 0
+        ? selectedProvinces[0]           // 예: 'SEOUL' | 'GYEONGGI'
+        : 'NONE';
+
+    // cities: 코드 배열 (중복 제거)
+    const uniqueCityCodes = Array.isArray(selectedCities)
+      ? Array.from(new Set(selectedCities))
+      : [];
+
+    // 변환 유틸이 기대하는 원본 입력(rawInput)
+    const rawInput = {
+      startDate,
+      endDate,
+      province: provinceEnum,                                 // ★ ENUM 그대로
+      selectedCities: uniqueCityCodes.length ? uniqueCityCodes : ['NONE'],
+      groupType: selectedItems.group || '선택없음',
+      ageRange: selectedItems.age || '선택없음',
+      travelStyles: Array.isArray(selectedItems.tripstyle)
+        ? (selectedItems.tripstyle.length ? selectedItems.tripstyle : ['선택없음'])
+        : ['선택없음'],
+      preferenceGender: selectedItems.gender || '선택없음',
+    };
 
       const dto = convertMatchingInputToDto(rawInput);
       console.log('📦 백엔드 전송 DTO:', dto);
@@ -150,23 +148,21 @@ export default function MatchingInfoScreen() {
   };
 
   const handleAccordionToggle = (key) => {
-  // 열 때만 스크롤
   setTimeout(() => {
-    if (!openSections[key]) {
-      const node = sectionRefs.current[key];
-      const scrollViewNode = findNodeHandle(scrollViewRef.current);
-      if (node && scrollViewNode) {
-        UIManager.measureLayout(
-          findNodeHandle(node),
-          scrollViewNode,
-          (error) => {
-            console.error('measureLayout error:', error);
-          },
-          (x, y) => {
-            scrollViewRef.current.scrollTo({ y: y - normalize(100, 'height'), animated: true });
-          }
-        );
-      }
+    const node = sectionRefs.current[key];
+    const scrollViewNode = findNodeHandle(scrollViewRef.current);
+
+    if (node && scrollViewNode) {
+      UIManager.measureLayout(
+        findNodeHandle(node), // node는 View에 ref된 실제 컴포넌트
+        scrollViewNode,
+        (error) => {
+          console.error('measureLayout error:', error);
+        },
+        (x, y) => {
+          scrollViewRef.current.scrollTo({ y: y - normalize(100, 'height'), animated: true });
+        }
+      );
     }
   }, 200);
 };
@@ -174,6 +170,7 @@ export default function MatchingInfoScreen() {
   return (
     <View style={styles.container}>
       <HeaderBar />
+
       <ScrollView
         style={styles.scrollArea}
         contentContainerStyle={[styles.wrapper, { paddingTop: normalize(115, 'height') }]}
@@ -183,11 +180,14 @@ export default function MatchingInfoScreen() {
           <Text style={styles.infoText}>여행 일정은 필수 입력이에요.</Text>
           <Text style={styles.infoText}>그 외의 여행 스타일은 자유롭게 선택해주세요.</Text>
         </View>
+
         <View style={styles.calendarBox}>
           <Text style={styles.calendarLabel}>일정 선택<Text style={styles.asterisk}> *</Text></Text>
           <Calendar
-            style={{ backgroundColor: '#FAFAFA' }}
-            theme={{ calendarBackground: '#FAFAFA' }}
+    style={{ backgroundColor: '#FAFAFA' }}  // ✅ 추가
+    theme={{
+      calendarBackground: '#FAFAFA', 
+    }}
             hideDayNames={false}
             markingType={'period'}
             markedDates={getMarkedDates()}
@@ -195,11 +195,21 @@ export default function MatchingInfoScreen() {
             dayComponent={({ date }) => {
               const dayOfWeek = new Date(date.dateString).getDay();
               const isSelected = date.dateString === startDate || date.dateString === endDate;
-              const isBetween = startDate && endDate && date.dateString > startDate && date.dateString < endDate;
+              const isBetween =
+                startDate && endDate &&
+                date.dateString > startDate &&
+                date.dateString < endDate;
+
               let textColor = '#000';
               if (dayOfWeek === 0) textColor = '#FF3B30';
               else if (dayOfWeek === 6) textColor = '#007AFF';
-              const backgroundColor = isSelected ? '#716AE9' : isBetween ? '#CECCF5' : 'transparent';
+
+              const backgroundColor = isSelected
+                ? '#716AE9'
+                : isBetween
+                  ? '#CECCF5'
+                  : 'transparent';
+
               return (
                 <TouchableOpacity onPress={() => handleDayPress(date)}>
                   <View
@@ -221,37 +231,66 @@ export default function MatchingInfoScreen() {
             }}
           />
         </View>
+
         <View style={styles.divider} />
+
         {(startDate || endDate) && (
           <View style={styles.dateButtonContainer}>
             {startDate && <View style={styles.dateButton}><Text style={styles.dateButtonText}>시작일: {formatDate(startDate)}</Text></View>}
             {endDate && <View style={styles.dateButton}><Text style={styles.dateButtonText}>종료일: {formatDate(endDate)}</Text></View>}
           </View>
         )}
+
+        {/* 👇 아코디언 카드 영역 + 참조 저장 + 토글 핸들러 전달 */}
         {[
-          { key: 'region', title: '이번 여행, 어디로 떠나시나요?', content: <RegionSelector selectedProvince={selectedProvince} selectedCity={selectedCity} onProvinceChange={setSelectedProvince} onCityChange={setSelectedCity} onCompleteSelect={() => openNextSection('region')}/>, contentStyle: { marginTop: 6 } },
-          { key: 'group', title: '나의 여행, 몇명이 좋을까요?', content: <ToggleSelector2 items={['선택없음', '단둘이', '여럿이']} selectedItem={selectedItems.group} onSelect={handleSelect('group')} size='large' /> },
-          { key: 'style', title: '나의 여행 스타일을 알려주세요', content: <ToggleSelector2 items={['액티비티', '문화/관광', '힐링', '맛집', '도심', '자연']} selectedItem={selectedItems.tripstyle} onSelect={handleMultiSelect('style')} size='large' /> },
-          { key: 'gender', title: '선호하는 동행자의 성별은?', content: <ToggleSelector2 items={['선택없음', '남성', '여성']} selectedItem={selectedItems.gender} onSelect={handleSelect('gender')} size='large' /> },
-          { key: 'age', title: '동행자 나이는 어느 연령대가 편하신가요?', content: <ToggleSelector2 items={['선택없음', '20대', '30대', '40대', '50대', '60대 이상']} selectedItem={selectedItems.age} onSelect={handleSelect('age')} size='large' /> },
+          { key: 'region', title: "이번 여행, 어디로 떠나시나요?", content:
+            <MultiRegionSelector
+              selectedProvinces={selectedProvinces}
+              selectedCities={selectedCities}
+              onProvincesChange={setSelectedProvinces}
+              onCitiesChange={setSelectedCities}
+            />,
+            contentStyle: { marginTop: 6 },
+          },
+          { key: 'group', title: "나의 여행, 몇명이 좋을까요?", content:
+            <ToggleSelector2 items={["선택없음", "단둘이", "여럿이"]}
+              selectedItem={selectedItems.group}
+              onSelect={handleSelect('group')} size="large" />
+          },
+          { key: 'style', title: "나의 여행 스타일을 알려주세요", content:
+            <ToggleSelector2 items={["액티비티", "문화/관광", "힐링", "맛집", "도심", "자연"]}
+              selectedItem={selectedItems.tripstyle}
+              onSelect={handleMultiSelect('tripstyle')} size="large" />
+          },
+          { key: 'gender', title: "선호하는 동행자의 성별은?", content:
+            <ToggleSelector2 items={["선택없음", "남성", "여성"]}
+              selectedItem={selectedItems.gender}
+              onSelect={handleSelect('gender')} size="large" />
+          },
+          { key: 'age', title: "동행자 나이는 어느 연령대가 편하신가요?", content:
+            <ToggleSelector2 items={["선택없음", "20대", "30대", "40대", "50대", "60대 이상"]}
+              selectedItem={selectedItems.age}
+              onSelect={handleSelect('age')} size="large" />
+          },
         ].map(({ key, title, content, contentStyle }) => (
-          <View key={key}>
-            <View ref={(ref) => { sectionRefs.current[key] = ref; }} collapsable={false} />
+           <View key={key}>
+    {/* ✅ 여기에 ref와 collapsable=false 적용 */}
+    <View
+      ref={(ref) => { sectionRefs.current[key] = ref; }}
+      collapsable={false}
+    />
             <AccordionCardInfo
-              ref={(ref) => { sectionRefs.current[key] = ref; }}
-              title={title}
-              isOpen={openSections[key] || false}
-              onToggle={() => {
-                setOpenSections((prev) => ({ ...prev, [key]: !prev[key] }));
-                handleAccordionToggle(key);
-              }}
-              contentStyle={contentStyle}
-            >
+  ref={(ref) => { sectionRefs.current[key] = ref; }}
+  title={title}
+  onToggle={() => handleAccordionToggle(key)}
+  contentStyle={contentStyle}
+>
               {content}
             </AccordionCardInfo>
           </View>
         ))}
       </ScrollView>
+
       <View style={styles.fixedButtonContainer}>
         <TouchableOpacity
           style={[styles.fixedButton, (isSubmitting || !startDate || !endDate) && { opacity: 0.5 }]}

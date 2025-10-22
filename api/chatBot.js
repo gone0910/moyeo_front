@@ -1,69 +1,34 @@
-// api/chatBot.js  (챗봇 명세서 v2 최신화 버전)
+// api/chatBot.js (수정 완료)
 
-import axios from 'axios';
-import { BASE_URL } from './config/api_Config'; // apiConfig.js에서 baseUrl 주소 변경
+import api from './AxiosInstance'; // 1. axios 대신 중앙 인스턴스 'api'를 가져옵니다.
 
-// const BASE_URL = 'http://ec2-3-35-253-224.ap-northeast-2.compute.amazonaws.com:8080'; // 실제 배포 주소로 교체
+// 2. 모든 함수에서 token 파라미터와 try...catch를 제거합니다.
 
-// 1. GPS 기반 질의 (현재 위치/카테고리로 여행 정보 or 날씨 요청)
-export async function queryByGPS({ category, latitude, longitude }, token) {
-  try {
-    // category: "SPOT"|"FOOD"|"HOTEL"|"FESTIVAL"|"WEATHER"
-    const body = { category, latitude, longitude };
-    const res = await axios.post(
-      `${BASE_URL}/chatbot/gps`,
-      body,
-      { headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' } }
-    );
-    return res.data; // 서버 응답 리스트(카테고리별 DTO)
-  } catch (error) {
-    return { success: false, error: error?.response?.data?.message || error.message };
-  }
-}
+// GPS 기반 질의
+export const queryByGPS = async ({ category, latitude, longitude }) => {
+  const body = { category, latitude, longitude };
+  // 3. axios.post 대신 api.post를 사용하고, 헤더 설정을 삭제합니다.
+  const response = await api.post('/chatbot/gps', body);
+  return response.data;  // 서버 응답 dto
+};
 
-// 2. 목적지 기반 질의 (선택한 시/카테고리로 여행 정보 or 날씨 요청)
-export async function queryByDestination({ city, category }, token) {
-  console.log('[API 호출 - 목적지]', city, category, token);
+// 목적지 기반 질의
+export const queryByDestination = async ({ city, category }) => {
+  const body = { city, category };
+  const response = await api.post('/chatbot/destination', body);
+  return response.data;
+};
 
-  try {
-    const body = { city, category };
-    const res = await axios.post(
-      `${BASE_URL}/chatbot/destination`,
-      body,
-      { headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' } }
-    );
-    return res.data; // 서버 응답 리스트(카테고리별 DTO)
-  } catch (error) {
-    return { success: false, error: error?.response?.data?.message || error.message };
-  }
-}
+// GPS 기반 재질의
+export const recreateByGPS = async ({ category, latitude, longitude, excludedNames }) => {
+  const body = { category, latitude, longitude, excludedNames };
+  const response = await api.post('/chatbot/recreate/gps', body);
+  return response.data;
+};
 
-// 3. GPS 기반 재질의 (중복 제외, 기존 응답 데이터 제외하고 재조회)
-export async function recreateByGPS({ category, latitude, longitude, excludedNames }, token) {
-  try {
-    const body = { category, latitude, longitude, excludedNames };
-    const res = await axios.post(
-      `${BASE_URL}/chatbot/recreate/gps`,
-      body,
-      { headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' } }
-    );
-    return res.data; // 서버 응답 리스트(카테고리별 DTO)
-  } catch (error) {
-    return { success: false, error: error?.response?.data?.message || error.message };
-  }
-}
-
-// 4. 목적지 기반 재질의 (중복 제외, 기존 응답 데이터 제외하고 재조회)
-export async function recreateByDestination({ city, category, excludedNames }, token) {
-  try {
-    const body = { city, category, excludedNames };
-    const res = await axios.post(
-      `${BASE_URL}/chatbot/recreate/destination`,
-      body,
-      { headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' } }
-    );
-    return res.data; // 서버 응답 리스트(카테고리별 DTO)
-  } catch (error) {
-    return { success: false, error: error?.response?.data?.message || error.message };
-  }
-}
+// 목적지 기반 재질의
+export const recreateByDestination = async ({ city, category, excludedNames }) => {
+  const body = { city, category, excludedNames };
+  const response = await api.post('/chatbot/recreate/destination', body);
+  return response.data;
+};
