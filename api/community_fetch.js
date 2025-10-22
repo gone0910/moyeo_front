@@ -1,7 +1,9 @@
 // api/community_fetch.js
-import * as FileSystem from 'expo-file-system';
+// import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy'; // sdk54로 인해, 지원되지 않는 api를 위해 임시사용
+import { BASE_URL } from './config/api_Config'; // apiConfig.js에서 baseUrl 주소 변경
 
-const BASE_URL = 'http://ec2-3-34-144-242.ap-northeast-2.compute.amazonaws.com:8080'; // 실제 서버 주소로 교체
+// const BASE_URL = 'http://ec2-3-35-253-224.ap-northeast-2.compute.amazonaws.com:8080'; // 실제 서버 주소로 교체
 
 // 1. 게시글 생성 (POST /community/post/create)
 // (이미지 첨부)

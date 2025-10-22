@@ -1,13 +1,11 @@
 // AuthAPI.js
 // 백엔드 명세서: 소셜 리다이렉트 파라미터, 회원가입, 재발급, 로그아웃만 구현
 
-
 import axios from 'axios';
 import { BASE_URL } from './config/api_Config';
 import * as TokenManager from './TokenManager';
 
-
-// 소셜 로그인 리다이렉트 파라미터 처리
+// 소셜 로그인 리다이렉트 파라미터 처리 
 export async function handleOAuthRedirectParams(params) {
   try {
     if (params?.mode === 'login') {
@@ -31,13 +29,11 @@ export async function handleOAuthRedirectParams(params) {
   }
 }
 
-
 // [ADDED] 회원가입 (multipart/form-data)
 // Header: Authorization: Bearer {jwt}  (임시/정식 모두 동일 키 사용)
 export async function signupWithFormData(formData) {
   const bearer = await TokenManager.getAccessToken();
   if (!bearer) throw new Error('JWT가 없습니다(jwt).');
-
 
   const res = await axios.post(`${BASE_URL}/auth/signup`, formData, {
     headers: {
@@ -47,17 +43,13 @@ export async function signupWithFormData(formData) {
     },
   });
 
-
   const at = res.data?.accessToken;
   const rt = res.data?.refreshToken;
   if (!at || !rt) throw new Error('SignupResponseMissingTokens');
 
-
   await TokenManager.setTokens(at, rt); // 회원가입 성공 → 정식 토큰 저장(= jwt 덮어쓰기)
   return res.data;
 }
-
-
 
 
 // 토큰 재발급 (POST /auth/reissue)
@@ -68,18 +60,15 @@ export async function reissueToken(refreshToken) {
     headers: { refreshToken: refreshToken }, // 정정 : 순수 RT만 전송
   });
 
+  console.log('--- 🚨 토큰 재발급 API 응답 원본 🚨 ---', res.data);
 
   const at = res.data?.accessToken;
   const newRt = res.data?.refreshToken;                 // [RESTORED] 변수 충돌 방지
   if (!at || !newRt) throw new Error('ReissueResponseMissingTokens');
 
-
   await TokenManager.setTokens(at, newRt);              // 'jwt' / 'refreshToken' 저장
   return { accessToken: at, refreshToken: newRt };
 }
-
-
-
 
 
 
@@ -88,13 +77,10 @@ export async function reissueToken(refreshToken) {
 export async function logoutUser() {
   const rt = await TokenManager.getRefreshToken();
 
-
   // 로컬 토큰은 선삭제 (명세 외 부가동작 없이 정리만)
   await TokenManager.clearTokens();
 
-
   if (!rt) return; // RT 없으면 서버 호출 생략 가능 (명세 위반 아님)
-
 
   try {
     await axios.post(`${BASE_URL}/auth/logout`, null, {
@@ -104,6 +90,3 @@ export async function logoutUser() {
     // 명세에 없는 추가 처리(알림/네비게이션)는 하지 않음
   }
 }
-
-
-

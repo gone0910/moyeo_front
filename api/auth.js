@@ -12,11 +12,8 @@ import { isMockMode } from '../utils/MockMode'; // 테스트용 로그인, api �
 import { BASE_URL } from './config/api_Config'; // apiConfig.js에서 baseUrl 주소 변경
 
 
-
-
 // ✅ 백엔드 주소 설정 (배포 서버 또는 EC2 주소로 반드시 수정)
 //const BASE_URL = 'http://ec2-3-35-253-224.ap-northeast-2.compute.amazonaws.com:8080';
-
 
 // ---------------------------------------------------
 // 1. [OAuth 로그인 시작]
@@ -146,7 +143,6 @@ export const registerUser = async (userData, image, token) => {
 // ---------------------------------------------------
 // export const editUserProfile = async (userInfo, profileImage, token) => {
 
-
 //   if (await isMockMode()) { // 테스트용 mock 전용 함수
 //     console.log('🧪 [MockMode] editUserProfile 실행됨 - 서버 전송 생략');
 //     const updatedUser = {
@@ -158,14 +154,11 @@ export const registerUser = async (userData, image, token) => {
 //   }
 
 
-
-
 //   try {
 //     const requestBody = {
 //       userInfo,                       // nickname, gender, age, mbti
 //       profileImage: profileImage || null,
 //     };
-
 
 //     const response = await axios.put(`${BASE_URL}/user/edit`, requestBody, {
 //       headers: {
@@ -179,7 +172,6 @@ export const registerUser = async (userData, image, token) => {
 //     throw error;
 //   }
 // };
-
 
 // ---------------------------------------------------
 // 5. [사용자 정보 조회 - JWT 기반] + 홈화면에서 프로필 사진 요청
@@ -225,4 +217,3 @@ export const getUserInfo = async (token) => {
 //   await AsyncStorage.removeItem('jwt'); // 임시 토큰 제거
 //   setUser(mockUser);
 // };
-

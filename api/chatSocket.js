@@ -1,23 +1,25 @@
 // 📁 api/chatSocket.js
 // ✅ React Native 환경 대응 STOMP WebSocket 연결 모듈
 
-// ✅ 필수 Polyfill (React Native 호환용)
-import { Buffer } from 'buffer';
-global.Buffer = Buffer;
+// ⬇️ [수정] Polyfill (Buffer, text-encoding) 제거
+// import { Buffer } from 'buffer';
+// global.Buffer = Buffer;
 
 // import { EventEmitter } from 'events';
 // global.EventEmitter = EventEmitter;
 
-// ✅ TextEncoder/Decoder polyfill 등록
-import * as encoding from 'text-encoding';
-Object.assign(global, {
-  TextEncoder: encoding.TextEncoder,
-  TextDecoder: encoding.TextDecoder,
-});
+// ⬇️ [수정] TextEncoder/Decoder polyfill 등록 제거
+// import * as encoding from 'text-encoding';
+// Object.assign(global, {
+//   TextEncoder: encoding.TextEncoder,
+//   TextDecoder: encoding.TextDecoder,
+// });
 
 // ✅ STOMP + SockJS
 import { Client } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
+
+import { BASE_URL } from './config/api_Config'; // apiConfig.js에서 baseUrl 주소 변경
 
 // ✅ 전역 STOMP 클라이언트
 let stompClient = null;
@@ -31,6 +33,7 @@ let stompClient = null;
  * @param {function} onReadNotice - 읽음 알림 수신 콜백 (선택적)
  */
 export const connectStompClient = (roomId, onMessage, token, onConnected, onReadNotice) => {
+  // ⬇️ [수정] Polyfill이 제거되었으므로 "토큰 수리" 로직이 필요 없음.
   console.log('🛰️ connectStompClient 실행됨', { roomId, token });
 
   if (!token) {
@@ -42,11 +45,11 @@ export const connectStompClient = (roomId, onMessage, token, onConnected, onRead
     // ✅ RN에서 직접 SockJS 인스턴스를 반환
     webSocketFactory: () => {
       console.log('🌐 SockJS 인스턴스 생성');
-      return new SockJS('http://ec2-3-35-253-224.ap-northeast-2.compute.amazonaws.com:8080/connect');
+      return new SockJS(`${BASE_URL}/connect`);
     },
 
     connectHeaders: {
-      Authorization: `Bearer ${token}`,
+      Authorization: `Bearer ${token}`, // ⬅️ 전달받은 원본 토큰 사용
     },
 
     reconnectDelay: 0, // ❗ 자동 재연결 방지
@@ -137,4 +140,3 @@ export const sendMessage = (roomId, payload) => {
     console.warn('⚠️ STOMP가 연결되지 않아 메시지 전송 실패');
   }
 };
-

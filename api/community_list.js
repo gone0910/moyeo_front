@@ -1,10 +1,11 @@
 import axios from 'axios';
+import { BASE_URL } from './config/api_Config'; // apiConfig.js에서 baseUrl 주소 변경
 
 export async function fetchCommunityPosts({ page = 0, size = 10, token, province, city, title }) {
-  let url = `http://ec2-3-35-253-224.ap-northeast-2.compute.amazonaws.com:8080/community/post/list?page=${page}&size=${size}`;
+  let url = `${BASE_URL}/community/post/list?page=${page}&size=${size}`;
   // 필터 값 있으면 filter API 사용
   if (province || city || title) {
-    url = `http://ec2-3-35-253-224.ap-northeast-2.compute.amazonaws.com:8080/community/post/filter/list?page=${page}&size=${size}` +
+    url = `${BASE_URL}/community/post/filter/list?page=${page}&size=${size}` +
       `&province=${province || ''}&city=${city || ''}&title=${title || ''}`;
   }
   console.log('[API] fetchCommunityPosts REQUEST:', url);
