@@ -11,6 +11,9 @@ import SplashScreen from '../common/SplashScreen';
 import { Ionicons } from '@expo/vector-icons';
 import * as Linking from 'expo-linking';
 import Feather from 'react-native-vector-icons/Feather';
+// ✅ [이식] LoginScreen0.jsx 에서 사용된 기능 import 추가
+import { handleOAuthRedirectParams } from '../../api/AuthApi';
+
 
 // 아이콘 이미지
 const kakaoIcon = require('../../assets/icons/kakao_logo.png');
@@ -41,77 +44,72 @@ export default function LoginScreen() {
     return <SplashScreen />;
   }
 
-  // 🔁 mock 로그인 체크용 useEffect
-useEffect(() => {
-  const checkMockLogin = async () => {
-    const isMock = await AsyncStorage.getItem('mock');
-    const token = await AsyncStorage.getItem('jwt');
-    if (isMock === 'true' && token) {
-      console.log('🧪 [Mock 로그인 감지됨] → UserInfo 이동');
-      navigation.replace('UserInfo'); // 또는 'BottomTab'
-    }
-  };
-  checkMockLogin();
-}, []);
+  // 🧪 [Mock 로그인 체크용 useEffect 제거]
+  // 딥링크 핸들러 및 Mock 버튼에서 직접 처리하도록 통합
 
-  // ✅ 딥링크로 앱이 돌아왔을 때 토큰과 모드를 추출하여 처리
+  // ✅ [이식] 딥링크로 앱이 돌아왔을 때 토큰과 모드를 추출하여 처리 (LoginScreen0.jsx 로직)
   useEffect(() => {
     const handleDeepLink = async ({ url }) => {
       console.log('[딥링크 수신] URL:', url);
+
       try {
         const parsed = Linking.parse(url);
         console.log('[🔍 parsed 전체 구조 확인]', parsed);
-        const token = parsed.queryParams?.token;
-        const mode = parsed.queryParams?.mode;
-        console.log('🔑 파싱된 token:', token);
-        console.log('🧭 파싱된 mode:', mode);
 
-        if (!token) {
-          console.warn(' 토큰이 존재하지 않음 → 아무 처리 안 함');
-          return;
-        }
-        await AsyncStorage.setItem('jwt', token);
-        console.log('💾 토큰 저장 완료');
-        await AsyncStorage.removeItem('mock');
-        console.log('🧹 mock 상태 제거 완료');
-        const savedToken = await AsyncStorage.getItem('jwt');
-        console.log('🔁 저장된 토큰 재확인:', savedToken);
+        // [이식] 명세서 키 그대로 중앙 처리
+        const outcome = await handleOAuthRedirectParams(parsed?.queryParams || {}); //
 
-        if (!savedToken) {
-          console.warn(' 토큰 저장 실패 또는 반영 안 됨 → 이동 중단');
-          Alert.alert('오류', '토큰 저장에 실패했습니다. 다시 시도해주세요.');
-          return;
-        }
-
-        if (mode === 'register') {
-          console.log('[모드: register] → UserInfo로 이동');
+        // [이식] 분기: next='SignUp' → 회원가입 화면 / next='Home' → 홈
+        if (outcome?.next === 'SignUp') { // 신규 사용자
+          await AsyncStorage.removeItem('mock');
+          console.log('🆕 [SignUp] 임시 토큰 저장 완료 → UserInfo 이동');
           navigation.replace('UserInfo');
           return;
         }
 
-        try {
-          console.log('📡 기존 사용자 정보 요청 시작');
-          const user = await getUserInfo(token);
-          setUser({ ...user, token }); // ✅ token 포함
-          await AsyncStorage.setItem('user', JSON.stringify({ ...user, token }));
-          console.log('✅ 사용자 정보 저장 완료 → BottomTab 이동');
-          navigation.replace('BottomTab');
-        } catch (error) {
-          console.error('❌ 사용자 정보 요청 실패');
-          if (error.response?.status === 400) {
-            console.log('🆕 [getUserInfo] 400 예외 → 회원가입 이동');
-            navigation.replace('UserInfo');
-          } else {
+        if (outcome?.next === 'Home') { // 기존 사용자
+          await AsyncStorage.removeItem('mock');
+          const savedToken = await AsyncStorage.getItem('jwt'); // 중앙 저장된 AT 사용
+          if (!savedToken) {
+            console.warn('토큰 저장 실패 → 이동 중단');
+            Alert.alert('오류', '토큰 저장에 실패했습니다. 다시 시도해주세요.');
+            return;
+          }
+
+          // 사용자 정보 조회 후 홈 이동
+          try {
+            console.log('📡 사용자 정보 요청 시작');
+            const user = await getUserInfo(savedToken);
+            const refreshToken = await AsyncStorage.getItem('refreshToken'); // Refresh Token도 가져옴
+            setUser({ ...user, accessToken: savedToken, refreshToken });     // UserContext 업데이트
+            await AsyncStorage.setItem('user', JSON.stringify({ ...user, accessToken: savedToken, refreshToken })); // AsyncStorage 업데이트
+            console.log('✅ 사용자 정보 저장 완료 → BottomTab 이동');
+            navigation.replace('BottomTab');
+            return;
+          } catch (error) {
+            if (error?.response?.status === 400) { //
+              console.log('🆕 신규 사용자(400) → UserInfo 이동');
+              navigation.replace('UserInfo');
+              return;
+            }
             console.error('📛 상세 오류:', error);
             Alert.alert('오류', '사용자 정보를 불러오는 데 실패했습니다.');
+            return;
           }
         }
+
+        // [이식] 방어 로직: 처리할 모드가 없으면 무시
+        console.warn('ℹ️ 처리 가능한 딥링크 모드/토큰이 아님 → 무시');
+        return;
+
       } catch (err) {
         console.error('❌ [딥링크 파싱 중 예외 발생]', err);
       }
     };
 
     const sub = Linking.addEventListener('url', handleDeepLink);
+
+    // 초기 URL 처리 로직
     Linking.getInitialURL().then((url) => {
       if (url) {
         console.log('💡 초기 URL 감지됨 → 직접 처리 시작');
