@@ -5,38 +5,38 @@
 // - 사용자 정보 조회 및 수정도 포함
 
 import * as Linking from 'expo-linking';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { BASE_URL } from './config/api_Config'; // apiConfig.js에서 baseUrl 주소 변경
 
-// ✅ 백엔드 서버 주소 설정 auth.js도 똑같이 바꿔줘야함함
-//const BASE_URL = 'http://ec2-3-35-253-224.ap-northeast-2.compute.amazonaws.com:8080';
-
 /**
- * 1. OAuth2.0 로그인 요청
+ * 1. OAuth2.0 로그인 요청 (auth.js로 이전됨, 기존 사용되지 않음.)
  * - OAuth 로그인 페이지로 리디렉션
  * - 백엔드가 redirect_uri를 기준으로 JWT 및 mode 포함한 딥링크 리디렉션
  *
- * @param {string} provider - 소셜 로그인 제공자 ('kakao', 'google' 등)
- */
-export const redirectToOAuthWithFetch = async (provider) => {
-  try {
-    const redirectUri = Linking.createURL('/'); // 또는 '/callback' 등 명시적으로 써줘야 함
-    const oauthUrl = `${BASE_URL}/oauth2/authorization/${provider}?redirect_uri=${encodeURIComponent(redirectUri)}`;
-    console.log('🔗 OAuth 로그인 요청 URL:', oauthUrl);
-    await Linking.openURL(oauthUrl);
+ * //  * @param {string} provider - 소셜 로그인 제공자 ('kakao', 'google' 등)
+ * //  */
+// export const redirectToOAuthWithFetch = async (provider) => {
+//   try {
+//     const redirectUri = Linking.createURL('/'); // 또는 '/callback' 등 명시적으로 써줘야 함
+//     const oauthUrl = `${BASE_URL}/oauth2/authorization/${provider}?redirect_uri=${encodeURIComponent(redirectUri)}`;
+//     console.log('🔗 OAuth 로그인 요청 URL:', oauthUrl);
+//     await Linking.openURL(oauthUrl);
 
-  } catch (error) {
-    console.error('❌ OAuth2.0 로그인 요청 실패:', error);
-    throw error;
-  }
-};
+//   } catch (error) {
+//     console.error('❌ OAuth2.0 로그인 요청 실패:', error);
+//     throw error;
+//   }
+// };
 
 
 // 2. 회원가입 요청 (FormData 전송 방식)
 // ✅ fetch 기반 회원가입 API (multipart/form-data, key 분해 방식)
 export const registerUserWithFetch = async (userData, image, token) => {
   try {
+    // 인자로 받은 token 우선, 없으면 'jwt'에서 조회
+    const bearer = token ?? (await AsyncStorage.getItem('jwt'));
+    if (!bearer) throw new Error('JWT 토큰이 없습니다. (AsyncStorage key: jwt)');
     const formData = new FormData();
 
     // 1. JSON 데이터 → Blob-like 가짜 파일처럼 첨부
@@ -55,19 +55,15 @@ export const registerUserWithFetch = async (userData, image, token) => {
       console.log('type:', image.type);
       console.log('name:', image.name);
 
-
       // Base64 인코딩된 이미지 크기 로그 (전송 직전,) 파악 후 삭제 요먕.
       if (image.uri && image.uri.startsWith('data:image')) {
         const base64String = image.uri.split(',')[1];
         const size = Math.floor((base64String.length * 3) / 4);
         console.log('📏 [전송 Base64 이미지 용량] ' + size + ' bytes ≈ ' + (size / 1024).toFixed(1) + ' KB');
       } else if (image.uri && image.uri.startsWith('file://')) {
-        // 원본 파일 크기 (Base64 변환 전 참고용)
         const info = await FileSystem.getInfoAsync(image.uri);
         console.log('📏 [원본 파일 용량] ' + info.size + ' bytes ≈ ' + (info.size / 1024).toFixed(1) + ' KB');
       }
-
-
 
       formData.append('profileImage', {
         uri: image.uri,
@@ -77,14 +73,17 @@ export const registerUserWithFetch = async (userData, image, token) => {
     }
 
     // ✅ 디버깅 도구는 여기에 삽입
-    for (let pair of formData._parts) {
-      console.log(`🧾 FormData 항목: ${pair[0]}`);
-      if (typeof pair[1] === 'object' && pair[1]?.uri) {
-        console.log(`📦   name: ${pair[1].name}`);
-        console.log(`📦   type: ${pair[1].type}`);
-        console.log(`📦   uri: ${pair[1].uri}`);
-      } else {
-        console.log(`📄   value: ${pair[1]}`);
+    // (FormData._parts는 RN 환경에서만 존재. 빌드 환경에 따라 없음)
+    if (formData?._parts) {
+      for (let pair of formData._parts) {
+        console.log(`🧾 FormData 항목: ${pair[0]}`);
+        if (typeof pair[1] === 'object' && pair[1]?.uri) {
+          console.log(`📦   name: ${pair[1].name}`);
+          console.log(`📦   type: ${pair[1].type}`);
+          console.log(`📦   uri: ${pair[1].uri}`);
+        } else {
+          console.log(`📄   value: ${pair[1]}`);
+        }
       }
     }
 
@@ -92,7 +91,7 @@ export const registerUserWithFetch = async (userData, image, token) => {
       method: 'POST',
       headers: {
         Accept: 'application/json',
-        Authorization: `Bearer ${token}`,
+        Authorization: `Bearer ${bearer}`,
       },
       body: formData,
     });
@@ -164,7 +163,7 @@ export const editUserProfileWithFetch = async (userData, image, token) => {
   // ✅ 사용자 정보 → JSON → Base64 → 파일처럼 전송
   const userInfoJson = JSON.stringify({
     nickname: userData.nickname,
-    gender: userData.gender === '남성' ? 'MALE' : 'FEMALE',
+    gender: userData.gender,
     age: typeof userData.age === 'string' ? parseInt(userData.age) : userData.age,
     mbti: userData.mbti,
   });
@@ -175,14 +174,16 @@ export const editUserProfileWithFetch = async (userData, image, token) => {
     name: 'userInfo.json',
   });
 
-    // ✅ 새 이미지가 선택된 경우에만 파일 전송
+  // ✅ 새 이미지가 선택된 경우에만 파일 전송
   if (image?.uri) {
     // 💡 Base64 인코딩된 이미지 크기 로그 (전송 직전!)
     if (image.uri.startsWith('data:image')) {
       const base64String = image.uri.split(',')[1];
       const size = Math.floor((base64String.length * 3) / 4);
       console.log('📏 [전송 Base64 이미지 용량] ' + size + ' bytes ≈ ' + (size / 1024).toFixed(1) + ' KB');
+
     } else if (image.uri.startsWith('file://')) {
+      // [UPDATED] 구버전 getInfoAsync → 최신 File API로 교체
       const info = await FileSystem.getInfoAsync(image.uri);
       console.log('📏 [원본 파일 용량] ' + info.size + ' bytes ≈ ' + (info.size / 1024).toFixed(1) + ' KB');
     }
@@ -194,22 +195,16 @@ export const editUserProfileWithFetch = async (userData, image, token) => {
     });
   }
 
-  // ✅ 새 이미지가 선택된 경우에만 파일 전송, 파일 사이즈 파악 후 활성화 요망.
-  // if (image?.uri) {
-  //   formData.append('profileImage', {
-  //     uri: image.uri,
-  //     name: image.name || 'profile.jpg',
-  //     type: image.type?.includes('image') ? 'image/jpeg' : image.type || 'image/jpeg',
-  //   });
-  // }
-  // ❌ image가 string(URL) or null이면 아무 것도 전송하지 않음
-  // → 백엔드에서는 profileImage 필드가 없으면 null 처리되기에 default 이미지로 변경.
-
   // ✅ 디버깅 로그
   console.log('📦 전송할 FormData 항목들:');
-  for (let [key, value] of formData.entries()) {
-    console.log(`${key}:`, typeof value === 'object' ? value.uri || '[object]' : value);
-  }
+  try {
+    // RN FormData.entries는 환경에 따라 없을 수 있음
+    if (formData?.entries) {
+      for (let [key, value] of formData.entries()) {
+        //console.log(`${key}:`, typeof value === 'object' ? value.uri || '[object]' : value);
+      }
+    }
+  } catch {}
 
   try {
     const response = await fetch(`${BASE_URL}/user/edit`, {
@@ -227,10 +222,10 @@ export const editUserProfileWithFetch = async (userData, image, token) => {
       console.error('❌ 프로필 수정 실패:', response.status, text);
       throw new Error(text); // 에러 메시지 body
     }
-console.log('🟦 [프로필 편집 요청] JWT 토큰:', token);
-console.log('🟦 [프로필 편집 요청] fetch headers:', {
-  Authorization: `Bearer ${token}`,
-});
+    //console.log('🟦 [프로필 편집 요청] JWT 토큰:', token);
+    console.log('🟦 [프로필 편집 요청] fetch headers:', {
+      Authorization: `Bearer ${token}`,
+    });
     console.log('✅ 프로필 수정 성공:', data);
     return data;
   } catch (error) {
@@ -250,23 +245,27 @@ console.log('🟦 [프로필 편집 요청] fetch headers:', {
  * @param {string} imageUrl - 기존 이미지 URL
  * @returns {Object} FormData에 넣을 수 있는 이미지 객체
  */
-export const convertUrlToImageObject = (imageUrl) => {
-  return {
-    uri: imageUrl,
-    type: 'image/jpeg',     // 필요시 image/png 등으로 수정 가능
-    name: 'profile.jpg',
-  };
-};
+// (현재는 urlToBase64ProfileImage만 사용)
+// export const convertUrlToImageObject = (imageUrl) => {
+//   return {
+//     uri: imageUrl,
+//     type: 'image/jpeg',     // 필요시 image/png 등으로 수정 가능
+//     name: 'profile.jpg',
+//   };
+// };
 
 export async function urlToBase64ProfileImage(url) {
   const filename = 'profile_from_url.jpg'; // 변환한 사진고정.
+
   const downloadResumable = FileSystem.createDownloadResumable(
     url,
-    FileSystem.cacheDirectory + filename
+    FileSystem.cacheDirectory + filename 
   );
+
   const { uri } = await downloadResumable.downloadAsync();
   // console.log('✅ [이미지 다운로드 성공] 로컬 파일 경로:', uri);
 
+  
   const base64 = await FileSystem.readAsStringAsync(uri, { encoding: FileSystem.EncodingType.Base64 });
   // console.log('✅ [base64 인코딩 성공] base64 앞 80자:', base64.slice(0, 80));
 
