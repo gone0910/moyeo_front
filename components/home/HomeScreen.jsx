@@ -44,9 +44,10 @@ export default function HomeScreen() {
   const { user, setUser } = useContext(UserContext);
   const nickname = user?.nickname || '사용자';
   const isLong = nickname.length > 4;
-
+  const USE_MOCK = true; // ← 목 플로우면 true
   const [showSplash, setShowSplash] = useState(false);
   const [myTrips, setMyTrips] = useState([]); // 여행 플랜 리스트 관리
+  
 
   useEffect(() => {
     if (!user) navigation.replace('Login');
@@ -66,6 +67,28 @@ export default function HomeScreen() {
       fetchTrips();
     }, [])
   );
+
+  useFocusEffect(
+  React.useCallback(() => {
+    const fetchTrips = async () => {
+      try {
+       if (USE_MOCK) {
+         const raw = await AsyncStorage.getItem('MY_TRIPS');
+         setMyTrips(raw ? JSON.parse(raw) : []);
+         return;
+       }
+       const res = await fetchPlanList();
+       // 서버가 페이지네이션이면 content 사용
+       setMyTrips(Array.isArray(res) ? res : (res?.content ?? []));
+      } catch (err) {
+       // 서버 실패 시에도 로컬 폴백
+       const raw = await AsyncStorage.getItem('MY_TRIPS');
+       setMyTrips(raw ? JSON.parse(raw) : []);
+      }
+    };
+    fetchTrips();
+  }, [])
+);
 
   return (
     <View style={styles.container}>
@@ -150,9 +173,23 @@ export default function HomeScreen() {
           <TravelSection
   travelList={myTrips}
   onPressCreate={() => navigation.navigate('Planner')}
+//목데이터
+
+onPressCard={(plan) => {
+   const scheduleId = String(plan?.id);
+   navigation.navigate('PlannerResponse', {
+     scheduleId,
+     from: 'Home',
+     mode: 'read',
+     mock: USE_MOCK,
+   });
+ }}
+
+ //여기까지
+  /*
   onPressCard={(scheduleId) => {
   navigation.navigate('PlannerResponse', { scheduleId, from: 'Home' });
-}}
+}}*/
 />
         </ScrollView>
       ) : (
