@@ -2,7 +2,7 @@
 
 import axios from 'axios';
 
-const BASE_URL = 'http://ec2-3-35-253-224.ap-northeast-2.compute.amazonaws.com:8080'; // 실제 배포 주소로 교체
+const BASE_URL = 'http://ec2-3-34-144-242.ap-northeast-2.compute.amazonaws.com:8080'; // 실제 배포 주소로 교체
 
 // 1. GPS 기반 질의 (현재 위치/카테고리로 여행 정보 or 날씨 요청)
 export async function queryByGPS({ category, latitude, longitude }, token) {
