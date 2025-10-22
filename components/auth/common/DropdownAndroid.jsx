@@ -2,11 +2,9 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Modal, FlatList } from 'react-native';
 
-
 // props: label, selectedValue, onValueChange, items (label, value)
 export default function DropdownAndroid({ label, selectedValue, onValueChange, items }) {
   const [visible, setVisible] = React.useState(false);
-
 
   return (
     <View style={styles.container}>
@@ -49,47 +47,45 @@ export default function DropdownAndroid({ label, selectedValue, onValueChange, i
   );
 }
 
-
 const styles = StyleSheet.create({
-  container: {
+  container: { 
     width: '100%',
-     marginBottom: 10
+     marginBottom: 10 
 },
-  label: {
-    fontSize: 16,
-    color: '#374151',
-    marginBottom: 4,
-    fontWeight: '400'
+  label: { 
+    fontSize: 16, 
+    color: '#374151', 
+    marginBottom: 4, 
+    fontWeight: '400' 
 },
-  dropdown: {
-    borderColor: '#D1D5DB',
-    borderWidth: 1, borderRadius: 8,
-    backgroundColor: '#fff', padding: 12,
-    minHeight: 40,
-    justifyContent: 'center'
+  dropdown: { 
+    borderColor: '#D1D5DB', 
+    borderWidth: 1, borderRadius: 8, 
+    backgroundColor: '#fff', padding: 12, 
+    minHeight: 40, 
+    justifyContent: 'center' 
 },
-  text: {
-    fontSize: 16,
-    color: '#111827',
-    textAlign: 'left'
+  text: { 
+    fontSize: 16, 
+    color: '#111827', 
+    textAlign: 'left' 
 },
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.25)',
-    justifyContent: 'center'
+  overlay: { 
+    flex: 1, 
+    backgroundColor: 'rgba(0,0,0,0.25)', 
+    justifyContent: 'center' 
 },
-  modalContent: {
+  modalContent: { 
     backgroundColor: '#fff',
     marginHorizontal: 40,
     borderRadius: 8,
     maxHeight: 300,
-    padding: 10
+    padding: 10 
 },
-  item: {
-    padding: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee'
+  item: { 
+    padding: 14, 
+    borderBottomWidth: 1, 
+    borderBottomColor: '#eee' 
 },
-
 
 });

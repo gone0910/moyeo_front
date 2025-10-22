@@ -1,22 +1,20 @@
 // components/auth/UserInfoScreen.jsx
 // NOTE: 기존 주석 유지 + 변경 지점에 ✨ 표시
 
-
 import React, { useState, useContext, useEffect } from 'react';
-import { View, Text, TextInput, StyleSheet, SafeAreaView,
-        TouchableOpacity, ScrollView, Alert, KeyboardAvoidingView,
+import { View, Text, TextInput, StyleSheet,
+        TouchableOpacity, ScrollView, Alert, KeyboardAvoidingView, 
         Platform, Dimensions, PixelRatio, Image,
 } from 'react-native';
+import { SafeAreaView } from "react-native-safe-area-context";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
 import * as Linking from 'expo-linking';
 import { MaterialIcons, Ionicons } from '@expo/vector-icons';
 
-
 import { UserContext } from '../../contexts/UserContext';
 import ProfileImagePicker from '../common/ProfileImagePicker';
 import { registerUserWithFetch, getUserInfoWithFetch } from '../../api/auth_fetch';
-
 
 // ==== 반응형 유틸 함수 (iPhone 13: 390 x 844) ====
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -35,11 +33,9 @@ function normalize(size, based = 'width') {
 const wScale = (px) => normalize(px, 'width');
 const hScale = (px) => normalize(px, 'height');
 
-
 const Dropdown = Platform.OS === 'ios'
   ? require('../common/Dropdown').default
   : require('../auth/common/DropdownAndroid').default;
-
 
 export default function UserInfoScreen() {
   const navigation = useNavigation();
@@ -53,10 +49,8 @@ export default function UserInfoScreen() {
   const [mbti, setMbti] = useState('');
   const [focusedField, setFocusedField] = useState(null);
 
-
   const parsedAge = parseInt(age);
   const isValid = nickname.length > 0 && gender && !isNaN(parsedAge) && parsedAge >= 10 && parsedAge <= 99;
-
 
   // 프로필 이미지 삭제 버튼
   const handleDeleteProfileImage = () => {
@@ -70,7 +64,6 @@ export default function UserInfoScreen() {
       { cancelable: true }
     );
   };
-
 
   // 딥링크(신규 사용자 임시 토큰) 처리
   useEffect(() => {
@@ -131,16 +124,13 @@ export default function UserInfoScreen() {
       const finalAccess = accessToken || singleToken || token;  // access 우선, 없으면 단일 token
       const finalRefresh = refreshToken || null;
 
-
       // [ADDED] 토큰 저장
       await AsyncStorage.setItem('jwt', finalAccess);
       if (finalRefresh) await AsyncStorage.setItem('refreshToken', finalRefresh);
 
-
       const newUser = await getUserInfoWithFetch(finalAccess);
       setUser(newUser);
       await AsyncStorage.setItem('user', JSON.stringify(newUser));
-
 
       Alert.alert('완료', '회원가입이 완료되었습니다.');
       navigation.replace('BottomTab');
@@ -175,7 +165,6 @@ export default function UserInfoScreen() {
           </View>
         </View>
 
-
         <ScrollView
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
@@ -198,7 +187,6 @@ export default function UserInfoScreen() {
             </Text>
           </View>
 
-
           {/* 폼 */}
           <View style={styles.formArea}>
             {/* 닉네임 카드 */}
@@ -220,7 +208,6 @@ export default function UserInfoScreen() {
               </View>
             </View>
 
-
             {/* 성별 토글 */}
             <View style={styles.genderGroup}>
               <TouchableOpacity
@@ -238,7 +225,6 @@ export default function UserInfoScreen() {
                 <Text style={[styles.genderTxt, gender === '여성' && styles.genderTxtSelected]}>여성</Text>
               </TouchableOpacity>
             </View>
-
 
             {/* 나이 카드 */}
             <View style={[styles.card, focusedField === 'age' && styles.cardFocused /* ✨ */]}>
@@ -264,7 +250,6 @@ export default function UserInfoScreen() {
               </View>
             </View>
 
-
             {/* MBTI 카드 */}
             <View style={styles.card}>
               <View style={styles.cardLabelRow}>
@@ -287,7 +272,6 @@ export default function UserInfoScreen() {
             </View>
           </View>
 
-
           {/* 하단 CTA */}
           <View style={{ height: hScale(12) }} />
           <TouchableOpacity
@@ -304,14 +288,12 @@ export default function UserInfoScreen() {
   );
 }
 
-
 // ======= 스타일 =======
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
     backgroundColor: '#FFFFFF',
   },
-
 
   // ✨ Header (56)
   headerBar: {
@@ -338,11 +320,9 @@ const styles = StyleSheet.create({
     letterSpacing: -0.3,
   },
 
-
   scrollContent: {
     paddingBottom: hScale(24),
   },
-
 
   // ✨ Profile block
   profileRow: {
@@ -379,13 +359,11 @@ const styles = StyleSheet.create({
     marginTop: hScale(15),
   },
 
-
   // ✨ Form area
   formArea: {
     paddingHorizontal: wScale(32),
     rowGap: hScale(16),
   },
-
 
   // 카드 공통 311 x 78
   card: {
@@ -420,7 +398,6 @@ const styles = StyleSheet.create({
     color: '#111111',
     paddingVertical: hScale(8),
   },
-
 
   // ✨ 성별 토글
   genderGroup: {
@@ -457,14 +434,12 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 
-
   // ✨ MBTI row (아이콘 보조)
   mbtiRow: {
     flexDirection: 'row',
     alignItems: 'center',
     columnGap: wScale(8),
   },
-
 
   // CTA
   cta: {
