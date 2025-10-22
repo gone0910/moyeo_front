@@ -27,7 +27,7 @@ export default function HomeNavigator() {
       <Stack.Screen name="NoneList" component={NoneList} />
       <Stack.Screen name="Planner" component={PlannerScreen} />
       <Stack.Screen name="PlannerInfo" component={PlannerInfoScreen} />
-      <Stack.Screen name="PlannerResponse" component={PlannerResponseHome} options={{ tabBarStyle: { display: 'none' } }}/>
+      <Stack.Screen name="PlannerResponse" component={PlannerResponseHome} />
       <Stack.Screen name="PlaceDetail" component={PlaceDetailScreen} />
       <Stack.Screen name="NewPost" component={NewPostScreen} />
 
