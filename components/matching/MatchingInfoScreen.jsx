@@ -12,9 +12,10 @@ import ToggleSelector2 from '../common/ToggleSelector2';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { convertMatchingInputToDto } from './utils/matchingUtils';
 import { submitMatchingProfile } from '../../api/matching';
-import { REGION_MAP } from '../common/regionMap';
+import { REGION_MAP, PROVINCE_MAP } from '../common/regionMap';
 import HeaderBar from '../../components/common/HeaderBar';
 import { UIManager } from 'react-native';
+import MultiRegionSelector from '../matching/common/MultiRegionSelector';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const BASE_WIDTH = 390;
@@ -33,8 +34,8 @@ export default function MatchingInfoScreen() {
 
   const [startDate, setStartDate] = useState(null);
   const [endDate, setEndDate] = useState(null);
-  const [selectedProvince, setSelectedProvince] = useState('');
-  const [selectedCity, setSelectedCity] = useState('');
+  const [selectedProvinces, setSelectedProvinces] = useState([]);
+  const [selectedCities, setSelectedCities] = useState([]);
   const [selectedItems, setSelectedItems] = useState({
     group: '', tripstyle: [], gender: '', age: '',
   });
@@ -106,22 +107,31 @@ export default function MatchingInfoScreen() {
     setIsSubmitting(true);
     try {
       const token = await AsyncStorage.getItem('jwt');
-      const provinceData = REGION_MAP[selectedProvince] || [];
-      const selectedCityCodes = selectedCity
-        ? [provinceData.find((c) => c.name === selectedCity)?.code]
-        : ['NONE'];
 
-      const rawInput = {
-        startDate,
-        endDate,
-        province: selectedProvince || 'NONE',
-        selectedCities: selectedCity ? [selectedCity] : ['NONE'],
-        groupType: selectedItems.group,
-        ageRange: selectedItems.age,
-        travelStyles: Array.isArray(selectedItems.tripstyle)
-          ? selectedItems.tripstyle.length > 0 ? selectedItems.tripstyle : ['NONE']
-          : selectedItems.tripstyle ? [selectedItems.tripstyle] : ['NONE'],
-      };
+    // ✅ province: 코드(ENUM) 그대로 사용 — 한글로 바꾸지 않음!
+    const provinceEnum =
+      Array.isArray(selectedProvinces) && selectedProvinces.length > 0
+        ? selectedProvinces[0]           // 예: 'SEOUL' | 'GYEONGGI'
+        : 'NONE';
+
+    // cities: 코드 배열 (중복 제거)
+    const uniqueCityCodes = Array.isArray(selectedCities)
+      ? Array.from(new Set(selectedCities))
+      : [];
+
+    // 변환 유틸이 기대하는 원본 입력(rawInput)
+    const rawInput = {
+      startDate,
+      endDate,
+      province: provinceEnum,                                 // ★ ENUM 그대로
+      selectedCities: uniqueCityCodes.length ? uniqueCityCodes : ['NONE'],
+      groupType: selectedItems.group || '선택없음',
+      ageRange: selectedItems.age || '선택없음',
+      travelStyles: Array.isArray(selectedItems.tripstyle)
+        ? (selectedItems.tripstyle.length ? selectedItems.tripstyle : ['선택없음'])
+        : ['선택없음'],
+      preferenceGender: selectedItems.gender || '선택없음',
+    };
 
       const dto = convertMatchingInputToDto(rawInput);
       console.log('📦 백엔드 전송 DTO:', dto);
@@ -234,11 +244,11 @@ export default function MatchingInfoScreen() {
         {/* 👇 아코디언 카드 영역 + 참조 저장 + 토글 핸들러 전달 */}
         {[
           { key: 'region', title: "이번 여행, 어디로 떠나시나요?", content:
-            <RegionSelector
-              selectedProvince={selectedProvince}
-              selectedCity={selectedCity}
-              onProvinceChange={setSelectedProvince}
-              onCityChange={setSelectedCity}
+            <MultiRegionSelector
+              selectedProvinces={selectedProvinces}
+              selectedCities={selectedCities}
+              onProvincesChange={setSelectedProvinces}
+              onCitiesChange={setSelectedCities}
             />,
             contentStyle: { marginTop: 6 },
           },
