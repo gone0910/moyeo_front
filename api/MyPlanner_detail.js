@@ -1,37 +1,48 @@
-// api/getScheduleDetail.js
-
+// /api/getScheduleDetail.js
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { BASE_URL } from './config/api_Config';
 
 /**
- * 플랜 상세 조회 (GET)
- * @param {string|number} scheduleId - 조회할 플랜의 id
- * @returns {Promise<Object>} 서버 응답 데이터
+ * 여행 일정 상세 조회
+ * GET /schedule/full/{scheduleId}
+ *
+ * @param {number|string} scheduleId - 조회할 일정의 ID
+ * @returns {Promise<Object>} 백엔드에서 반환한 일정 데이터
  */
-export const getScheduleDetail = async (scheduleId) => {
-  try {
-    const token = await AsyncStorage.getItem('jwt');
-    if (!token) {
-      throw new Error('JWT 토큰이 없습니다.');
-    }
+export async function getScheduleDetail(scheduleId) {
+  // 🔐 토큰 키 혼재 대응
+  const token =
+    (await AsyncStorage.getItem('accessToken')) ||
+    (await AsyncStorage.getItem('access')) ||
+    (await AsyncStorage.getItem('jwt'));
 
-    const response = await axios.get(
-      `http://ec2-3-35-253-224.ap-northeast-2.compute.amazonaws.com:8080/schedule/full/${scheduleId}`,
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      }
-    );
-
-    if (response.status === 200) {
-      console.log('✅ 플랜 상세 조회 성공:', response.data);
-      return response.data;
-    } else {
-      console.warn('⚠️ 플랜 상세 조회 실패:', response.status);
-    }
-  } catch (error) {
-    console.error('❌ 플랜 상세 조회 예외:', error.response?.data || error.message);
-    throw error;
+  if (!token) {
+    const e = new Error('NO_TOKEN');
+    e.code = 'NO_TOKEN';
+    throw e;
   }
-};
+
+  // 🆔 숫자만 추출
+  const idNum = Number(String(scheduleId ?? '').match(/^\d+$/)?.[0]);
+  if (!Number.isFinite(idNum)) {
+    throw new Error(`유효하지 않은 scheduleId: ${scheduleId}`);
+  }
+
+  // 📡 상세 조회 요청
+  const url = `${BASE_URL}/schedule/full/${idNum}`;
+  console.log('LOG  [getScheduleDetail] 요청 URL:', url);
+
+  try {
+    const res = await axios.get(url, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    console.log('LOG  ✅ [getScheduleDetail] 성공:', res.status);
+    return res.data;
+  } catch (err) {
+    const status = err?.response?.status;
+    const message = err?.message || '알 수 없는 오류';
+    console.warn('WARN  [getScheduleDetail] 실패:', { status, message });
+    throw err;
+  }
+}
