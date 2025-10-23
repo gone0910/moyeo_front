@@ -1,8 +1,7 @@
 // api/fetchPlanList.js (파일명 유지 OK)
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { BASE_URL } from './config/api_Config'; // apiConfig.js에서 baseUrl 주소 변경
-import api from './AxiosInstance';
+import { BASE_URL } from './config/api_Config';
 
 /**
  * 플랜(여행 일정) 리스트 조회 API
@@ -22,7 +21,6 @@ export const fetchPlanList = async () => {
 
     if (response.status === 200 && Array.isArray(response.data)) {
       console.log('✅ 플랜 리스트 조회 성공:', response.data.length, '건');
-
       return response.data;
     }
     console.warn('⚠️ 플랜 리스트 조회 비정상 응답:', response.status, response.data);
