@@ -1,15 +1,15 @@
-import React, { useEffect, useState, useRef, useLayoutEffect } from 'react';
+import React, { useEffect, useState, useRef,useCallback  } from 'react';
 import {
   View,
   Text,
   ScrollView,
-  StyleSheet,
   TouchableOpacity,
   TextInput,
   Dimensions,
+  StyleSheet,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { SafeAreaView } from "react-native-safe-area-context";
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import DraggableFlatList from 'react-native-draggable-flatlist';
@@ -23,14 +23,16 @@ import { deleteSchedule } from '../../api/planner_delete_request';
 import { getScheduleDetail } from '../../api/MyPlanner_detail';
 import { useRoute } from '@react-navigation/native';
 import uuid from 'react-native-uuid';
-import { Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import SplashScreen from '../../components/common/SplashScreen';
 import { Modal } from 'react-native';
+import { useLayoutEffect } from 'react';
+import { Alert, InteractionManager, KeyboardAvoidingView, Platform } from 'react-native';
+import { UIManager, findNodeHandle } from 'react-native';
+import { MAIN_TAB_ID, defaultTabBarStyle } from '../../navigation/BottomTabNavigator';
 
-// === 반응형 유틸 함수 ===
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
-const BASE_WIDTH = 390; // iPhone 13 기준
+const BASE_WIDTH = 390;
 const BASE_HEIGHT = 844;
 function normalize(size, based = 'width') {
   const scale = based === 'height' ? SCREEN_HEIGHT / BASE_HEIGHT : SCREEN_WIDTH / BASE_WIDTH;
@@ -53,85 +55,463 @@ const saveTripToList = async (tripData) => {
   }
 };
 
+/* ============================
+   🧪 MOCK DATA (주석 처리)
+============================ */
+/*
+const MOCK_SCHEDULE = {
+  title: '🧪 목데이터 플랜',
+  startDate: '2025-07-01',
+  endDate: '2025-07-03',
+  days: [
+    {
+      places: [
+        {
+          id: uuid.v4(),
+          name: '목 장소 1',
+          type: '관광',
+          estimatedCost: 0,
+          gptOriginalName: 'mock-tag',
+          fromPrevious: { car: 0, publicTransport: 0, walk: 0 },
+        },
+        {
+          id: uuid.v4(),
+          name: '목 장소 2',
+          type: '식사',
+          estimatedCost: 10000,
+          gptOriginalName: 'mock-food',
+          fromPrevious: { car: 5, publicTransport: 8, walk: 12 },
+        },
+      ],
+    },
+  ],
+};
+*/
+
 export default function PlannerResponseHome() {
+  function diagTransportInfo(schedule) {
+  try {
+    if (!schedule?.days?.length) {
+      console.log('[diag][transport] days 없음');
+      return;
+    }
+    let total = 0, withFP = 0, withoutFP = 0;
+    const samples = [];
+
+    schedule.days.forEach((day, dIdx) => {
+      (day?.places ?? []).forEach((p, pIdx) => {
+        total += 1;
+        const has = !!p?.fromPrevious;
+        if (has) withFP += 1; else withoutFP += 1;
+
+        // 앞쪽 일부 샘플만 포착
+        if (samples.length < 5) {
+          samples.push({
+            day: dIdx + 1,
+            idx: pIdx,
+            name: p?.name,
+            fromPrevious: p?.fromPrevious ?? null,
+          });
+        }
+      });
+    });
+
+    console.log('[diag][transport] 총 place 수:', total);
+    console.log('[diag][transport] fromPrevious 있는 곳:', withFP, '| 없는 곳:', withoutFP);
+  } catch (e) {
+    console.log('[diag][transport] 진단 중 오류:', e?.message);
+  }
+}
   const navigation = useNavigation();
-  const [scheduleData, setScheduleData] = useState(null);
+  useLayoutEffect(() => {
+    const p1 = navigation.getParent?.(MAIN_TAB_ID);
+    const p2 = navigation.getParent?.();
+    console.log('[tab-parent]', Boolean(p1), Boolean(p2));
+  }, [navigation]);
+
+   useFocusEffect(
+    useCallback(() => {
+      const parent = navigation.getParent?.(MAIN_TAB_ID) ?? navigation.getParent?.();
+      parent?.setOptions?.({ tabBarStyle: { display: 'none' } });
+      return () => parent?.setOptions?.({ tabBarStyle: defaultTabBarStyle });
+    }, [navigation])
+  );
+
+  useFocusEffect(
+  useCallback(() => {
+    // 편집 중에는 건드리지 않음
+    if (isEditing) return;
+
+    const id = getNumericScheduleId();
+    if (Number.isFinite(id)) {
+      // 화면으로 다시 돌아오면 최신 서버 데이터로 동기화
+      loadDetail(id);
+    }
+  }, [isEditing])
+);
+
+  // ✅ C. 진단용 로그
+  useLayoutEffect(() => {
+    const p1 = navigation.getParent?.(MAIN_TAB_ID);
+    const p2 = navigation.getParent?.();
+    console.log('[tab-parent]', Boolean(p1), Boolean(p2));
+  }, [navigation]);
+
+
+  const route = useRoute?.() || { params: {} };
+  const params = route?.params ?? {};
+  const { from = 'mock', mode = 'draft', scheduleId, mock } = params;
+  const isMock = mock === true;
+  const [isDeleting, setIsDeleting] = useState(false);
   const [selectedDayIndex, setSelectedDayIndex] = useState(0);
-  const [isEditing, setIsEditing] = useState(false);
+  const initialEditing = route.params?.mode === 'edit';
+  const [isEditing, setIsEditing] = useState(!!initialEditing);
   const [newlyAddedPlaceId, setNewlyAddedPlaceId] = useState(null);
   const [editedPlaces, setEditedPlaces] = useState({});
   const [editedPlaceId, setEditedPlaceId] = useState(null);
   const [isSaved, setIsSaved] = useState(false);
-  const route = useRoute();
-  const isReadOnly = route.params?.mode === 'read';
+  const isReadOnly = mode === 'read'; // read는 정말 '저장본'만
+  // [ADDED] 삭제용 숫자 ID 캐시
+  const [numericScheduleId, setNumericScheduleId] = useState(null);
+  const showEditDeleteButtons =
+    (from === 'Home' && !isMock) ||
+    (isReadOnly && !isMock) ||
+    isSaved;
   const [isRegenerating, setIsRegenerating] = useState(false);
   const scrollRef = useRef();
+  const listRef = useRef(null);
+  const [newlyAddedIndex, setNewlyAddedIndex] = useState(-1);
   const [originalScheduleData, setOriginalScheduleData] = useState(null);
   const [editDraft, setEditDraft] = useState(null);
-  const from = route.params?.from;
+  const inputRefs = useRef({});
+  const placeRefs = useRef({});
+  const cardRefs  = useRef({});
+const latestScheduleRef = useRef(null);
+useEffect(() => { latestScheduleRef.current = scheduleData; }, [scheduleData]);
 
-  useLayoutEffect(() => {
-    const parent = navigation.getParent();
-    parent?.setOptions({ tabBarStyle: { display: 'none' } });
-    return () => parent?.setOptions({ tabBarStyle: { display: 'flex' } });
-  }, [navigation]);
-  
+  const resolveScheduleId = () => {
+    return (
+      scheduleData?.id ??
+      scheduleData?.scheduleId ??
+      route?.params?.scheduleId ??
+      null
+    );
+  };
+
+  // ref setter
+  const setInputRef = (id) => (ref) => { if (ref) inputRefs.current[id] = ref; };
+  const setCardRef  = (id) => (ref) => { if (ref) cardRefs.current[id]  = ref; };
+
+  const focusAndScroll = (placeId, index) => {
+    const input = inputRefs.current[placeId];
+    const card  = cardRefs.current[placeId];
+
+    try {
+      listRef.current?.scrollToIndex?.({
+        index,
+        animated: true,
+        viewPosition: 0.2,
+      });
+    } catch (e) {
+      if (card && listRef.current) {
+        const scrollNode =
+          listRef.current?.getScrollableNode?.() ?? findNodeHandle(listRef.current);
+
+        UIManager.measureLayout(
+          findNodeHandle(card),
+          scrollNode,
+          () => {},
+          (x, y) => {
+            listRef.current?.scrollToOffset?.({
+              offset: Math.max(0, y - 80),
+              animated: true,
+            });
+          }
+        );
+      }
+    }
+
+    requestAnimationFrame(() => {
+      input?.focus?.();
+    });
+  };
+
+  const [scheduleData, setScheduleData] = useState(null);
+
+  async function loadDetail(scheduleIdRaw) {
+   const parsedId = coerceNumericScheduleId(scheduleIdRaw);
+   if (!Number.isFinite(parsedId)) {
+     console.warn('[detail] 잘못된 scheduleId(숫자 아님):', scheduleIdRaw);
+     Alert.alert('오류', '올바르지 않은 일정 ID입니다.');
+     return;
+   }
+   try {
+     const detail = await getScheduleDetail(parsedId);
+      setScheduleData(ensurePlaceIds(detail)); // 화면 상태 갱신
+    } catch (e) {
+      if (e?.code === 'NO_TOKEN') {
+        Alert.alert('로그인이 필요합니다', '다시 로그인 후 이용해 주세요.');
+        return;
+      }
+      console.warn('[detail] 조회 실패:', e?.message);
+      Alert.alert('불러오기 실패', '일정 정보를 불러오지 못했습니다.');
+    }
+  }
+  useEffect(() => {
+  const raw = route.params?.scheduleId;
+  const num = coerceNumericScheduleId(raw);
+  if (Number.isFinite(num)) {
+    loadDetail(num);
+  } else if (raw != null) {
+    console.warn('[detail] 잘못된 scheduleId(숫자 아님):', raw);
+    Alert.alert('오류', '올바르지 않은 일정 ID입니다.');
+  }
+}, [route.params?.scheduleId]);
+
+
+  // ===========================================
+  // [PATCH] 숫자형 scheduleId 추출 헬퍼 보강
+const extractNumericScheduleId = (obj) => {
+  if (!obj) return null;
+
+  // 서버가 내려줄 수 있는 다양한 후보 키를 폭넓게 커버
+  const candidates = [
+    obj.scheduleId, obj.schedule_id,
+    obj.scheduleNo, obj.schedule_no,
+    obj.scheduleIdx, obj.schedule_idx,
+    obj.serverId,   obj.server_id,
+    obj.serverNo,   obj.server_no,
+    obj.id, // 숫자면 통과, UUID면 무시됨
+  ];
+
+  for (const v of candidates) {
+    // 문자열 안에 숫자가 섞여 있어도 첫 숫자 토큰만 뽑아서 시도
+    const s = String(v ?? '').match(/\d+/)?.[0];
+    if (s && /^[0-9]+$/.test(s)) return Number(s);
+  }
+  return null;
+};
+
+// ✅ 무엇이 와도 숫자형 scheduleId로 강제 변환 (최상위 스코프!)
+const coerceNumericScheduleId = (raw) => {
+  if (raw == null) return null;
+  if (typeof raw === 'number' && Number.isFinite(raw)) return raw;
+  if (typeof raw === 'string') {
+    const n = Number(raw.match(/\d+/)?.[0]);
+    return Number.isFinite(n) ? n : null;
+  }
+  if (typeof raw === 'object') {
+    return extractNumericScheduleId(raw);
+  }
+  return null;
+};
+
+// ===========================================
+// ✅ 숫자형 scheduleId 동기 리졸버 (캐시/로컬 우선, 네트워크 X)
+// ===========================================
+const getNumericScheduleId = () => {
+  if (Number.isFinite(numericScheduleId)) return numericScheduleId;
+
+  const fromState = extractNumericScheduleId(scheduleData);
+  if (Number.isFinite(fromState)) return fromState;
+
+  const fromRoute = coerceNumericScheduleId(route?.params?.scheduleId ?? route?.params);
+  if (Number.isFinite(fromRoute)) return fromRoute;
+
+  return null;
+};
+
+  useEffect(() => {
+    if (isEditing && scheduleData && !editDraft) {
+      setOriginalScheduleData(JSON.parse(JSON.stringify(scheduleData)));
+      setEditDraft(JSON.parse(JSON.stringify(scheduleData)));
+    }
+  }, [isEditing, scheduleData, editDraft]);
+
+
   useEffect(() => {
     if (!isEditing && scrollRef.current) {
       scrollRef.current.scrollTo({ y: 0, animated: false });
     }
   }, [selectedDayIndex, isEditing]);
 
-  useEffect(() => {
-  if (route.params?.mode === 'edit') {
-    setOriginalScheduleData(null); // 기존 원본 필요 없으면 null로
-    setEditDraft(null); // 불필요한 초기화
-    setIsEditing(true); // ✅ 자동 수정 모드 진입
-  }
-}, [route.params?.mode]);
-
   const ensurePlaceIds = (data) => ({
-    ...data,
-    days: data.days.map(day => ({
-      ...day,
-      places: day.places.map(place => ({
+  ...data,
+  days: (data?.days ?? []).map(day => ({
+    ...day,
+    places: (day?.places ?? []).map(place => {
+      // 🔁 백엔드 → 프론트 렌더링용 교통 시간 매핑
+      const car = Number.isFinite(Number(place?.driveTime)) ? Number(place.driveTime) : 0;
+      const publicTransport = Number.isFinite(Number(place?.transitTime)) ? Number(place.transitTime) : 0;
+      const walk = Number.isFinite(Number(place?.walkTime)) ? Number(place.walkTime) : 0;
+
+      return {
         ...place,
-        id: place.id ? String(place.id) : uuid.v4(),
-      })),
-    })),
-  });
+        id: place?.id ? String(place.id) : uuid.v4(),
+        fromPrevious: place?.fromPrevious ?? { car, publicTransport, walk },
+        // (선택) 서버 hashtag → 화면 gptOriginalName 키 통일
+        gptOriginalName: place?.gptOriginalName ?? place?.hashtag ?? '',
+      };
+    }),
+  })),
+});
+
+  // [ADDED] 모든 장소에 필수 필드 보강
+  function ensurePlaceFields(place = {}, prev = {}) {
+    const name = (place.name ?? prev.name ?? '').trim();
+    return {
+      ...prev,
+      ...place,
+      name,
+      type: place.type ?? prev.type ?? '',
+      gptOriginalName: place.gptOriginalName ?? prev.gptOriginalName ?? '',
+      estimatedCost: Number.isFinite(Number(place.estimatedCost))
+        ? Number(place.estimatedCost)
+        : (Number.isFinite(Number(prev.estimatedCost)) ? Number(prev.estimatedCost) : 0),
+      fromPrevious: {
+        car: Number.isFinite(Number(place?.fromPrevious?.car))
+          ? Number(place.fromPrevious.car)
+          : (Number.isFinite(Number(prev?.fromPrevious?.car)) ? Number(prev.fromPrevious.car) : 0),
+        publicTransport: Number.isFinite(Number(place?.fromPrevious?.publicTransport))
+          ? Number(place.fromPrevious.publicTransport)
+          : (Number.isFinite(Number(prev?.fromPrevious?.publicTransport)) ? Number(prev.fromPrevious.publicTransport) : 0),
+        walk: Number.isFinite(Number(place?.fromPrevious?.walk))
+          ? Number(place.fromPrevious.walk)
+          : (Number.isFinite(Number(prev?.fromPrevious?.walk)) ? Number(prev.fromPrevious.walk) : 0),
+      },
+    };
+  }
+
+  /* ============================
+     초기 데이터 로드
+     (기존 mock 강제 삽입은 주석 처리)
+  ============================ */
+  useEffect(() => {
+  const loadData = async () => {
+    try {
+      const rawId = route.params?.scheduleId ?? scheduleId;
+const parsedId = coerceNumericScheduleId(rawId);
+
+      // ✅ 홈(Home) / 내 여행(MyTrips) 카드에서 들어올 때는 항상 서버 우선
+      const comeFromList = from === 'Home' || from === 'MyTrips';
+
+      if (comeFromList && Number.isFinite(parsedId)) {
+        // 📡 서버에서 최신 일정 불러오기
+        const detail = await getScheduleDetail(parsedId);
+        const detailWithId = detail?.id ? detail : { ...detail, id: parsedId };
+        const ensured = ensurePlaceIds(detailWithId);
+
+        setScheduleData(ensured);
+        diagTransportInfo(ensured);
+
+        const numFromDetail = extractNumericScheduleId(detailWithId);
+        if (Number.isFinite(numFromDetail)) setNumericScheduleId(numFromDetail);
+        return; // 🔚 서버 우선 로직 끝
+      }
+
+      // ✅ 그 외 (플랜 생성 직후 등)에서는 캐시 우선
+      const cached = await getCacheData(CACHE_KEYS.PLAN_INITIAL);
+      if (cached) {
+        const ensured = ensurePlaceIds(cached);
+        setScheduleData(ensured);
+        diagTransportInfo(ensured);
+
+        const numCached = extractNumericScheduleId(cached);
+        if (Number.isFinite(numCached)) setNumericScheduleId(numCached);
+      } else if (Number.isFinite(parsedId)) {
+        const detail = await getScheduleDetail(parsedId);
+        const detailWithId = detail?.id ? detail : { ...detail, id: parsedId };
+        const ensured = ensurePlaceIds(detailWithId);
+
+        setScheduleData(ensured);
+        diagTransportInfo(ensured);
+
+        const numFromDetail = extractNumericScheduleId(detailWithId);
+        if (Number.isFinite(numFromDetail)) setNumericScheduleId(numFromDetail);
+      }
+    } catch (err) {
+      console.error('❌ 초기 데이터 로드 실패', err);
+    }
+  };
+
+  loadData();
+  // 👇 from, scheduleId 값이 바뀌면 다시 실행되도록
+}, [from, route.params?.scheduleId, scheduleId]);
 
   useEffect(() => {
-    const loadCachedData = async () => {
+  console.log('🔥 PlannerResponseHome mounted!', route.params);
+  const fetchDetail = async () => {
+    const num = coerceNumericScheduleId(scheduleId);
+    if (Number.isFinite(num)) {
       try {
-        const cached = await getCacheData(CACHE_KEYS.PLAN_INITIAL);
-        if (cached) setScheduleData(ensurePlaceIds(cached));
-      } catch (err) {
-        console.error('❌ 캐시 또는 일정 생성 실패:', err);
-      }
-    };
-    loadCachedData();
-  }, []);
+        const detail = await getScheduleDetail(num);
+        let detailWithId = detail?.id ? detail : { ...detail, id: num };
+        const ensured = ensurePlaceIds(detailWithId);
+        setScheduleData(ensured);
+        diagTransportInfo(ensured);
 
-  useEffect(() => {
-    console.log('🔥 PlannerResponseHome mounted!', route.params);
-    const fetchDetail = async () => {
-      if (route.params?.scheduleId) {
-        try {
-          const detail = await getScheduleDetail(route.params.scheduleId);
-          let detailWithId = detail;
-          if (!detail.id && route.params?.scheduleId) {
-            detailWithId = { ...detail, id: route.params.scheduleId };
-          }
-          setScheduleData(ensurePlaceIds(detailWithId));
-          console.log('[상세보기 불러온 scheduleData]', detailWithId);
-        } catch (e) {
-          navigation.goBack();
-        }
+        const n = extractNumericScheduleId(detailWithId);
+        if (Number.isFinite(n)) setNumericScheduleId(n);
+      } catch (e) {
+        console.warn('[detail] 조회 실패:', e?.message);
+        Alert.alert('불러오기 실패', '네트워크가 불안정하거나 서버 응답이 늦습니다.\n잠시 후 다시 시도해 주세요.');
       }
+    }
+  };
+  fetchDetail();
+}, [route.params?.scheduleId]);
+
+  // [PATCH] 해시태그(gptOriginalName) / 교통정보(fromPrevious) 누락 보정
+useEffect(() => {
+  if (!scheduleData?.days?.length) return;
+
+  const hasMissing = scheduleData.days.some(day =>
+    (day?.places ?? []).some(p =>
+      !p?.fromPrevious ||
+      typeof p?.fromPrevious?.car === 'undefined' ||
+      typeof p?.fromPrevious?.publicTransport === 'undefined' ||
+      typeof p?.fromPrevious?.walk === 'undefined' ||
+      typeof p?.gptOriginalName === 'undefined'
+    )
+  );
+
+  if (hasMissing) {
+    console.log('[patch] 누락된 gptOriginalName/fromPrevious 필드 감지 → ensurePlaceIds로 보강');
+    const ensured = ensurePlaceIds(scheduleData);
+    setScheduleData(ensured);
+  }
+}, [scheduleData]);
+
+  // ✅ 재조회 파라미터 빌더 (캐시 우선 → 현재 화면 보조)
+  const buildRecreateParams = async () => {
+    let base = null;
+    try {
+      base = await getCacheData(CACHE_KEYS.PLAN_INITIAL);
+    } catch (_) {}
+
+    const src = base || scheduleData || {};
+    const startDate   = src.startDate   || scheduleData?.startDate || '';
+    const endDate     = src.endDate     || scheduleData?.endDate   || '';
+    const destination = src.destination || scheduleData?.destination || 'JEJU_SI';
+    const mbti        = (src.mbti || scheduleData?.mbti || 'ENTJ').toUpperCase();
+    const travelStyle = (src.travelStyle || scheduleData?.travelStyle || 'ACTIVITY').toUpperCase();
+    const peopleGroup = (src.peopleGroup || scheduleData?.peopleGroup || 'SOLO').toUpperCase();
+    const budget      = Number(src.budget ?? scheduleData?.budget ?? 0);
+
+    const excludedNames = (scheduleData?.days ?? [])
+      .flatMap(d => (d?.places ?? []).map(p => p?.name).filter(Boolean));
+
+    return {
+      startDate,
+      endDate,
+      destination,
+      mbti,
+      travelStyle,
+      peopleGroup,
+      budget,
+      excludedNames,
     };
-    fetchDetail();
-  }, [route.params?.scheduleId]);
+  };
 
   if (!scheduleData) {
     return (
@@ -149,52 +529,38 @@ export default function PlannerResponseHome() {
     : scheduleData.days[selectedDayIndex];
   const places = selectedDay?.places ?? [];
 
-  // 수정모드 진입: 임시본 생성
+  // 수정모드 진입
   const enterEditMode = () => {
     setOriginalScheduleData(JSON.parse(JSON.stringify(scheduleData))); // 원본 백업
     setEditDraft(JSON.parse(JSON.stringify(scheduleData))); // 편집본 생성
     setIsEditing(true);
   };
 
-  // 뒤로가기: 임시본 파기, 수정모드 해제
+  // 뒤로가기
   const handleBack = () => {
-  console.log('🔙 handleBack 호출됨');
-  if (isEditing) {
-    console.log('✏️ 수정모드 종료');
-    setEditDraft(null);
-    setIsEditing(false);
-    return;
-  }
-
-  const tabNav = navigation.getParent();
-  console.log('📦 tabNav:', tabNav);
-  console.log('🧭 from:', from);
-
-  if (from === 'Home') {
-    if (tabNav?.reset) {
-      console.log('🏠 Home으로 reset 이동');
-      tabNav.reset({
-        index: 0,
-        routes: [{ name: 'Home' }],
-      });
-    } else {
-      console.log('📌 tabNav 없음 → navigation.navigate("Home")');
-      navigation.navigate('Home');
+    if (isEditing) {
+      setEditDraft(null);
+      setIsEditing(false);
+      return;
     }
-  } else if (tabNav && tabNav.navigate) {
-    console.log('📄 MyTrips로 이동');
-    tabNav.navigate('MyTrips');
-  } else if (navigation.canGoBack()) {
-    console.log('🔙 goBack() 실행');
-    navigation.goBack();
-  } else {
-    console.log('📌 fallback: navigation.navigate("MyTrips")');
-    navigation.navigate('MyTrips');
-  }
-};
+    const tabNav = navigation.getParent();
 
+    if (from === 'Home') {
+      if (tabNav?.reset) {
+        tabNav.reset({ index: 0, routes: [{ name: 'Home' }] });
+      } else {
+        navigation.navigate('Home');
+      }
+    } else if (tabNav && tabNav.navigate) {
+      tabNav.navigate('MyTrips');
+    } else if (navigation.canGoBack()) {
+      navigation.goBack();
+    } else {
+      navigation.navigate('MyTrips');
+    }
+  };
 
-  // 드래그 결과 임시본에 반영
+  // 드래그 결과 임시본 반영
   const handleDragEnd = ({ data }) => {
     setEditDraft(prev => {
       const updatedDays = prev.days.map((day, idx) =>
@@ -204,7 +570,7 @@ export default function PlannerResponseHome() {
     });
   };
 
-  // 장소 추가: 임시본에만 반영
+  // 장소 추가
   const handleAddPlace = (insertIndex) => {
     if (newlyAddedPlaceId) return;
     setEditDraft(prev => {
@@ -213,10 +579,10 @@ export default function PlannerResponseHome() {
       const newPlace = {
         id: newPlaceId,
         name: '',
-        type: '카테고리',
+        type: '',
         estimatedCost: 0,
-        gptOriginalName: '예시태그',
-        fromPrevious: { car: 5, publicTransport: 8, walk: 12 },
+        gptOriginalName: '', // ← 변경: 기본 빈 값
+        fromPrevious: { car: 0, publicTransport: 0, walk: 0 }, // ← 변경: 0,0,0 시작
       };
       const updatedPlaces = [
         ...currentPlaces.slice(0, insertIndex + 1),
@@ -227,11 +593,14 @@ export default function PlannerResponseHome() {
         i === selectedDayIndex ? { ...day, places: updatedPlaces } : day
       );
       setNewlyAddedPlaceId(newPlaceId);
+      setNewlyAddedIndex(insertIndex + 1);
+      setEditedPlaceId(newPlaceId);
+      setEditedPlaces(p => ({ ...p, [newPlaceId]: '' }));
       return { ...prev, days: updatedDays };
     });
   };
 
-  // 삭제: 임시본에만 반영
+  // 삭제
   const handleDeletePlace = (placeId) => {
     setEditDraft(prev => {
       const currentPlaces = [...prev.days[selectedDayIndex].places];
@@ -249,103 +618,273 @@ export default function PlannerResponseHome() {
     });
   };
 
-  // 인풋 편집 완료: 임시본에만 반영
-  const handleEndEditing = (placeId) => {
+  // 인풋 편집 완료 (이름만 갱신 + 서버 반영 + 필수 필드 보강)
+  const handleEndEditing = async (placeId) => {
+    const newName = (editedPlaces[placeId] ?? '').trim();
+    if (!newName) {
+      Alert.alert('입력 필요', '장소명을 입력해주세요.');
+      return;
+    }
+
+    // 1) 로컬 편집본에 '이름만' 반영 (다른 필드는 유지)
     setEditDraft(prev => {
       const currentPlaces = [...prev.days[selectedDayIndex].places];
-      const newName = editedPlaces[placeId] ?? '';
       const updatedPlaces = currentPlaces.map((p) =>
-        p.id === placeId
-          ? {
-              ...p,
-              name: newName,
-              type: (!newName || newName !== p.name) ? '' : p.type,
-              gptOriginalName: (!newName || newName !== p.name) ? '' : p.gptOriginalName,
-              estimatedCost: (!newName || newName !== p.name) ? '' : p.estimatedCost,
-            }
-          : p
+        p.id === placeId ? { ...p, name: newName } : p
       );
       const updatedDays = prev.days.map((day, i) =>
         i === selectedDayIndex ? { ...day, places: updatedPlaces } : day
       );
       return { ...prev, days: updatedDays };
     });
+
     setNewlyAddedPlaceId(null);
+
+    // 2) 서버에 현재 Day의 placeNames로 수정 요청 → 풍부한 필드 수신/병합
+    try {
+      const draft = editDraft ? JSON.parse(JSON.stringify(editDraft)) : JSON.parse(JSON.stringify(scheduleData));
+      const day = draft.days[selectedDayIndex];
+      const placeNames = day.places.map(p => (p?.name ?? '').trim()).filter(Boolean);
+
+      const numericId = getNumericScheduleId(); // 동기
+      const sid = numericId ?? resolveScheduleId();
+
+      const result = await editSchedule(placeNames, {
+        scheduleId: sid,
+        dayIndex: selectedDayIndex,
+      });
+
+      let nextPlaces;
+
+      if (result?.places && result.totalEstimatedCost !== undefined) {
+        // 서버가 { totalEstimatedCost, places } 구조로 준 경우
+        nextPlaces = result.places.map((srv, i) =>
+          ensurePlaceFields(
+            ensurePlaceIds({ days:[{ places:[srv] }]}).days[0].places[0],
+            day.places[i]
+          )
+        );
+
+        const updated = {
+          ...draft,
+          days: draft.days.map((d, idx) =>
+            idx === selectedDayIndex ? { ...d, places: nextPlaces, totalEstimatedCost: result.totalEstimatedCost } : d
+          ),
+        };
+        setScheduleData(updated);
+        setEditDraft(updated);
+
+      } else if (Array.isArray(result)) {
+        // 서버가 배열만 주는 경우 → 기존값과 병합 + 보강
+        nextPlaces = result.map((srv, i) => {
+          const srvObj = typeof srv === 'string' ? { name: srv } : srv;
+          return ensurePlaceFields(
+            ensurePlaceIds({ days:[{ places:[srvObj] }]}).days[0].places[0],
+            day.places[i]
+          );
+        });
+
+        const updated = {
+          ...draft,
+          days: draft.days.map((d, idx) =>
+            idx === selectedDayIndex ? { ...d, places: nextPlaces } : d
+          ),
+        };
+        setScheduleData(updated);
+        setEditDraft(updated);
+
+      } else {
+        // 알 수 없는 응답 → 최소한 필수값 유지
+        const updated = {
+          ...draft,
+          days: draft.days.map((d, idx) =>
+            idx === selectedDayIndex
+              ? {
+                  ...d,
+                  places: d.places.map((p) =>
+                    p.id === placeId ? ensurePlaceFields({ ...p, name: newName }, p) : ensurePlaceFields(p, p)
+                  ),
+                }
+              : d
+          ),
+        };
+        setScheduleData(updated);
+        setEditDraft(updated);
+      }
+    } catch (e) {
+      console.warn('editSchedule 실패, 로컬 보강만 반영:', e?.message);
+
+      // 실패 시에도 필수 필드 보강하여 화면 유지
+      setEditDraft(prev => {
+        const d = JSON.parse(JSON.stringify(prev));
+        d.days[selectedDayIndex].places = d.days[selectedDayIndex].places.map(p =>
+          p.id === placeId ? ensurePlaceFields(p, p) : ensurePlaceFields(p, p)
+        );
+        setScheduleData(d);
+        return d;
+      });
+    }
   };
 
-  // 수정 완료: editDraft를 실제 데이터로 반영
-  const handleEditDone = async () => {
-    setNewlyAddedPlaceId(null);
-    setEditedPlaces({});
-    setIsRegenerating(true);
-    try {
-      await saveCacheData(CACHE_KEYS.PLAN_EDITED, editDraft);
-      const placeNames = editDraft.days[selectedDayIndex].places.map(p => p.name);
-      const result = await editSchedule(placeNames);
-      if (result.places && result.totalEstimatedCost !== undefined) {
+  // 수정 완료
+const handleEditDone = async () => {
+  let refreshed = false;
+  let freshEnsured = null;
+  // 가드
+  if (!editDraft?.days?.[selectedDayIndex]?.places) {
+    Alert.alert('오류', '편집본이 비어 있어 저장할 수 없습니다.');
+    return;
+  }
+
+  setNewlyAddedPlaceId(null);
+  setNewlyAddedIndex(-1);
+  setEditedPlaces({});
+
+  const emptyPlaces = editDraft.days[selectedDayIndex].places.filter(p => !p.name?.trim());
+  if (emptyPlaces.length > 0) {
+    Alert.alert('빈 장소가 있어요', '장소명을 입력하지 않은 항목이 있어요. 수정 후 저장해주세요');
+    return;
+  }
+
+  // 상세 재조회 결과/플래그는 함수 스코프에서 관리 (마지막 저장에도 사용)
+
+  const uniq = (arr) => Array.from(new Set(arr.map(s => (s ?? '').trim()).filter(Boolean)));
+  const sid = getNumericScheduleId();
+
+  setIsRegenerating(true);
+  try {
+    await saveCacheData(CACHE_KEYS.PLAN_EDITED, editDraft);
+
+    // 1) 현재 Day만 즉시 반영
+    const placeNames = uniq(editDraft.days[selectedDayIndex].places.map(p => p.name));
+    console.log(`[EditDone] currentDay=${selectedDayIndex} names before save: ${JSON.stringify(placeNames)}`);
+    const result = await editSchedule(placeNames, {
+      scheduleId: sid,
+      dayIndex: selectedDayIndex,
+    });
+
+    // 2) 모든 Day를 dayIndex 별로 반영 (백엔드가 Day 단위로 교체하는 구조 가정)
+    if (Number.isFinite(sid)) {
+      for (let i = 0; i < (editDraft.days?.length ?? 0); i++) {
+        const dayNames = uniq((editDraft.days[i]?.places ?? []).map(p => p?.name));
+        if (!dayNames.length) continue;  // 빈 Day 스킵
+        await editSchedule(dayNames, { scheduleId: sid, dayIndex: i });
+      }
+
+      // 3) 반영 후 상세 재조회 → 서버 계산값(이동시간/해시태그 등)으로 교체
+      const fresh = await getScheduleDetail(sid);
+ freshEnsured = ensurePlaceIds(fresh);
+ setScheduleData(freshEnsured);
+ setEditDraft(freshEnsured);
+ refreshed = true;
+      // ✅ (검증) 방금 저장한 Day에 내가 보낸 이름들이 실제로 들어갔는지 확인
+ const norm = (s) => (s ?? '').trim();
+ const want = Array.from(new Set((editDraft.days[selectedDayIndex]?.places ?? [])
+   .map(p => norm(p?.name))
+   .filter(Boolean)));
+ const got = Array.from(new Set((freshEnsured?.days?.[selectedDayIndex]?.places ?? [])
+   .map(p => norm(p?.name))
+   .filter(Boolean)));
+ const missing = want.filter(n => !new Set(got).has(n));
+ if (missing.length) {
+   console.warn('[EditDone][verify] missing after 0-based save:', missing);
+   // ▶ 백엔드가 dayIndex를 1-based로 기대하는 경우를 대비해 현재 Day만 1-based로 재시도
+   const dayIndex1b = selectedDayIndex + 1;
+await editSchedule(placeNames, { scheduleId: sid, dayIndex: dayIndex1b });
+   try {
+     await editSchedule(want, { scheduleId: sid, dayIndex: dayIndex1b });
+     const fresh2 = await getScheduleDetail(sid);
+ freshEnsured = ensurePlaceIds(fresh2);      // ✅ 일관되게 freshEnsured 사용
+ setScheduleData(freshEnsured);
+ setEditDraft(freshEnsured);
+     console.log('[EditDone][verify] 1-based retry applied');
+     const gotNames2 = uniq((freshEnsured?.days?.[selectedDayIndex]?.places ?? []).map(p => p?.name));
+console.log('[EditDone][verify] after 1-based retry, got:', gotNames2);
+   } catch (rr) {
+     console.warn('[EditDone][verify] 1-based retry failed:', rr?.message);
+   }
+ }
+    } else {
+      console.warn('[EditDone] scheduleId 없음 → 서버 동기화 생략');
+    }
+
+    // (보호 분기) 상세 재조회 못했으면 result로라도 현재 Day 갱신
+    if (!refreshed) {
+      if (result?.places && result.totalEstimatedCost !== undefined) {
         const newPlaces = ensurePlaceIds({ days: [{ places: result.places }] }).days[0].places;
         const updatedDraft = {
           ...editDraft,
           days: editDraft.days.map((day, idx) =>
             idx === selectedDayIndex
-              ? {
-                  ...day,
-                  places: newPlaces,
-                  totalEstimatedCost: result.totalEstimatedCost,
-                }
+              ? { ...day, places: newPlaces, totalEstimatedCost: result.totalEstimatedCost }
               : day
           ),
         };
         setScheduleData(updatedDraft);
-        setEditDraft(null);
       } else if (Array.isArray(result)) {
         const newPlaces = ensurePlaceIds({ days: [{ places: result }] }).days[0].places;
         const updatedDraft = {
           ...editDraft,
           days: editDraft.days.map((day, idx) =>
-            idx === selectedDayIndex
-              ? { ...day, places: newPlaces }
-              : day
+            idx === selectedDayIndex ? { ...day, places: newPlaces } : day
           ),
         };
         setScheduleData(updatedDraft);
-        setEditDraft(null);
       } else {
         setScheduleData(editDraft);
-        setEditDraft(null);
       }
-    } catch (e) {
-      console.warn('⚠️ PLAN_EDITED 캐시 저장 or API 호출 실패:', e);
     }
-    setIsEditing(false);
-    setOriginalScheduleData(null);
-    setIsRegenerating(false);
-  };
+
+    setEditDraft(null);
+  } catch (e) {
+    console.warn('⚠️ PLAN_EDITED 캐시 저장 or API 호출 실패:', e);
+    setScheduleData(editDraft); // 실패 시 화면은 편집본 유지
+  }
+
+  setIsEditing(false);
+  setOriginalScheduleData(null);
+  setIsRegenerating(false);
+
+  // 4) 캐시 무효화 + 홈/내여행 목록 갱신
+  try {
+    await AsyncStorage.removeItem(CACHE_KEYS.PLAN_INITIAL);
+    await new Promise((resolve) => InteractionManager.runAfterInteractions(() => resolve()));
+
+    // 재조회 성공 데이터가 있으면 그걸 최우선으로 저장
+    const base = refreshed ? freshEnsured : (latestScheduleRef.current || scheduleData || {});
+    const current = base?.id ? base : { ...(base || {}), id: uuid.v4() };
+    await saveTripToList(current);
+
+    console.log('[EditDone] PLAN_INITIAL 제거 및 MY_TRIPS 갱신 완료');
+  } catch (e) {
+    console.warn('[EditDone] 캐시/목록 갱신 실패:', e?.message || e);
+  }
+};
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={{ flex: 1 }}>
         {/* 헤더 */}
         <View style={{
-  flexDirection: 'row',
-  alignItems: 'center',
-  justifyContent: 'space-between',
-  paddingHorizontal: normalize(16),
-  paddingVertical: normalize(12),
-}}>
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          paddingHorizontal: normalize(16),
+          paddingVertical: normalize(12),
+        }}>
           <TouchableOpacity onPress={handleBack}>
-           <Ionicons
-             name="chevron-back"
-             size={24}
-             color="#4F46E5"
-             style={{ marginTop: -12 }} // ✅ 여기서 위로 올림
-           />
+            <Ionicons
+              name="chevron-back"
+              size={24}
+              color="#111111"
+              style={{ marginTop: -12 }}
+            />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>여행플랜</Text>
           <View style={{ width: normalize(24) }} />
-          </View>
-          <View style={styles.headerLine}>
         </View>
+       
+
         {/* 여행 정보 */}
         <View style={styles.tripInfo}>
           <View style={styles.tripInfoRow}>
@@ -355,23 +894,23 @@ export default function PlannerResponseHome() {
                 {scheduleData.startDate} ~ {scheduleData.endDate}
               </Text>
             </View>
-            <View style={{ alignItems: 'flex-end' }}>
-              <Text style={styles.totalBudgetLabel}>{selectedDay.day} 총 예산</Text>
-              <Text style={styles.budget}>
-                {selectedDay.totalEstimatedCost?.toLocaleString()}
-                <Text style={styles.budgetUnit}>원</Text>
-              </Text>
-            </View>
+            {selectedDay && (
+              <View style={{ alignItems: 'flex-end' }}>
+                <Text style={styles.budget}>
+                  {selectedDay.totalEstimatedCost?.toLocaleString()}
+                  <Text style={styles.budgetUnit}>원</Text>
+                </Text>
+              </View>
+            )}
           </View>
         </View>
+
         {/* 탭 */}
         {isEditing ? (
           <View style={{
             alignItems: 'center',
             backgroundColor: '#FAFAFA',
-            paddingVertical: normalize(10),
-            borderBottomWidth: 1,
-            borderColor: '#E5E7EB',
+            paddingVertical: normalize(10)
           }}>
             <View style={styles.tabBox}>
               <Text style={[styles.tabText, styles.tabTextSelected]}>
@@ -403,9 +942,7 @@ export default function PlannerResponseHome() {
                     >
                       Day - {idx + 1}
                     </Text>
-                    {selectedDayIndex === idx && (
-                      <View style={styles.activeBar} />
-                    )}
+                    {selectedDayIndex === idx && <View style={styles.activeBar} />}
                   </View>
                 </TouchableOpacity>
               ))}
@@ -417,14 +954,18 @@ export default function PlannerResponseHome() {
         <View style={{ flex: 1 }}>
           {isEditing ? (
             <DraggableFlatList
+              ref={listRef}
               data={places}
               keyExtractor={(item, idx) => item.id ? String(item.id) : `temp-${idx}`}
               onDragEnd={handleDragEnd}
               extraData={[places, newlyAddedPlaceId, selectedDayIndex]}
               containerStyle={styles.container}
-              contentContainerStyle={{ paddingBottom: normalize(120, 'height') }}
-              renderItem={({ item: place, drag }) => {
+              keyboardDismissMode="on-drag"
+              keyboardShouldPersistTaps="handled"
+              contentContainerStyle={{ paddingBottom: normalize(160, 'height') }}
+              renderItem={({ item: place, index, drag }) => {
                 const currentIndex = places.findIndex((p) => p.id === place.id);
+                const isEditingItem = newlyAddedPlaceId === place.id || editedPlaceId === place.id;
                 return (
                   <View key={place.id}>
                     <View style={styles.placeRow}>
@@ -453,23 +994,28 @@ export default function PlannerResponseHome() {
                         >
                           <Ionicons name="remove" size={normalize(16)} color="#fff" />
                         </TouchableOpacity>
+
                         {/* placeCard */}
                         <TouchableOpacity
+                          ref={setCardRef(place.id)}
                           style={[styles.placeCard3, { marginLeft: normalize(24) }]}
                           disabled={newlyAddedPlaceId === place.id}
                           onPress={() => {
-                            if (isEditing && !newlyAddedPlaceId && editedPlaceId !== place.id) {
+                            if (isEditing && !newlyAddedPlaceId) {
                               setEditedPlaceId(place.id);
-                              setEditedPlaces((prev) => ({ ...prev, [place.id]: place.name }));
+                              setEditedPlaces((prev) => ({ ...prev, [place.id]: place.name ?? '' }));
+                              requestAnimationFrame(() => focusAndScroll(place.id, index));
                             }
                           }}
                           activeOpacity={0.7}
                         >
-                          {(newlyAddedPlaceId === place.id || editedPlaceId === place.id) ? (
+                          {isEditingItem ? (
                             <TextInput
+                              ref={setInputRef(place.id)}
                               style={styles.placeNameInput}
                               value={editedPlaces[place.id] ?? ''}
                               placeholder="장소명을 입력하세요"
+                              onFocus={() => focusAndScroll(place.id, index)}
                               onChangeText={(text) =>
                                 setEditedPlaces((prev) => ({ ...prev, [place.id]: text }))
                               }
@@ -497,6 +1043,7 @@ export default function PlannerResponseHome() {
                         </TouchableOpacity>
                       </View>
                     </View>
+
                     {/* 카드 아래에 추가 버튼 */}
                     <TouchableOpacity
                       style={{
@@ -534,7 +1081,7 @@ export default function PlannerResponseHome() {
             <ScrollView
               ref={scrollRef}
               style={styles.container}
-              contentContainerStyle={{ paddingBottom: normalize(120, 'height') }}
+              contentContainerStyle={{ paddingBottom: normalize(160, 'height') }}
             >
               {places.map((place, idx) => (
                 <View key={place.id ? String(place.id) : `temp-${idx}`}>
@@ -555,6 +1102,7 @@ export default function PlannerResponseHome() {
                       </View>
                     </View>
                   )}
+
                   <View style={styles.placeRow}>
                     <View style={styles.timeline}>
                       <View style={[
@@ -564,6 +1112,7 @@ export default function PlannerResponseHome() {
                       ]} />
                       {idx !== places.length - 1 && <View style={[styles.verticalLine, { left: normalize(13), width: normalize(4), height: normalize(330, 'height') }]} />}
                     </View>
+
                     <View style={styles.placeContent}>
                       <TouchableOpacity
                         style={styles.placeCard}
@@ -577,26 +1126,27 @@ export default function PlannerResponseHome() {
                         </View>
                         <Text style={styles.placeType}>{place.type}</Text>
                         {place.gptOriginalName && (
-  <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginTop: 2 }}>
-    {place.gptOriginalName.split(' ').map((tag, i) => (
-      <Text
-        key={i}
-        style={{
-          color: '#606060',
-          fontSize: 14,
-          marginRight: 4,
-          fontWeight: '400',
-          lineHeight: 19,
-        }}
-      >
-        #{tag}
-      </Text>
-    ))}
-  </View>
-)}
+                          <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginTop: 2 }}>
+                            {place.gptOriginalName.split(' ').map((tag, i) => (
+                              <Text
+                                key={i}
+                                style={{
+                                  color: '#606060',
+                                  fontSize: 14,
+                                  marginRight: 4,
+                                  fontWeight: '400',
+                                  lineHeight: 19,
+                                }}
+                              >
+                                #{tag}
+                              </Text>
+                            ))}
+                          </View>
+                        )}
                       </TouchableOpacity>
                     </View>
                   </View>
+
                   {/* 마지막 카드라면 교통정보를 아래 한 번 더 (마지막 day 제외) */}
                   {idx === places.length - 1 && place.fromPrevious && selectedDayIndex !== scheduleData.days.length - 1 && (
                     <View style={styles.transportRow}>
@@ -619,24 +1169,23 @@ export default function PlannerResponseHome() {
             </ScrollView>
           )}
         </View>
+
         {/* 하단 버튼 */}
         {isEditing ? (
           <View style={styles.fixedDoneButtonWrapper}>
-            <TouchableOpacity
-              style={styles.fixedDoneButton}
-              onPress={handleEditDone}
-            >
-              <Text style={styles.fixedDoneButtonText}>수정 완료</Text>
+            <TouchableOpacity style={styles.fixedDoneButton} onPress={handleEditDone}>
+              <Text style={styles.fixedDoneButtonText}>플랜 수정 완료</Text>
             </TouchableOpacity>
           </View>
-        ) : (from === 'Home' || isReadOnly || isSaved) ? (  // ✅ 여기 수정됨
+        ) : (from === 'Home' || isReadOnly || isSaved) ? (
           <View style={styles.bottomButtonContainer}>
             <TouchableOpacity
               style={[
                 styles.editButton,
-                { flex: 1, marginRight: normalize(8), backgroundColor: '#F87171', borderColor: '#F87171' }
+                { flex: 1, marginRight: normalize(8), backgroundColor: '#fff', borderColor: '#F97575' }
               ]}
               onPress={() => {
+                console.log('[UI] delete button tapped');
                 Alert.alert(
                   '플랜 삭제',
                   '정말로 이 여행 플랜을 삭제하시겠습니까?',
@@ -646,29 +1195,50 @@ export default function PlannerResponseHome() {
                       text: '삭제',
                       style: 'destructive',
                       onPress: async () => {
+                        console.log('[UI] alert destructive tapped');
                         try {
-                          console.log('[삭제 요청 id]', scheduleData.id);
-                          const scheduleId = scheduleData.id;
-                          await deleteSchedule(scheduleId);
-                          Alert.alert('삭제 완료', '플랜이 삭제되었습니다!');
-                          navigation.goBack();
+                          setIsDeleting(true);
+
+                          // 동기 리졸버로 숫자 ID 확보
+                          const numericId = getNumericScheduleId();
+                          const fallback =
+                            /^[0-9]+$/.test(String(scheduleId ?? '')) ? Number(scheduleId) : null;
+
+                          const finalId = Number.isFinite(numericId) ? numericId : fallback;
+                          console.log('[delete] finalId =', finalId);
+
+                          if (!Number.isFinite(finalId)) {
+                            setIsDeleting(false);
+                            Alert.alert('삭제 불가', '삭제할 숫자 ID를 찾을 수 없습니다.');
+                            return;
+                          }
+
+                          console.log('🗑️ call deleteSchedule(', finalId, ')');
+                          await deleteSchedule(finalId);
+                          console.log('✅ deleteSchedule success');
+
+                          setIsDeleting(false);
+                          if (navigation.canGoBack()) navigation.goBack();
+                          else navigation.navigate('MyTrips');
                         } catch (e) {
-                          Alert.alert('삭제 실패', '플랜 삭제에 실패했습니다.');
+                          console.log('[delete] failed:', e?.message);
+                          setIsDeleting(false);
+                          Alert.alert('삭제 실패', e?.message ?? '플랜 삭제에 실패했습니다.');
                         }
                       },
                     },
-                  ],
-                  { cancelable: true }
+                  ]
                 );
               }}
             >
-              <Text style={[styles.editButtonText, { color: '#fff' }]}>플랜 삭제</Text>
+              <Text style={[styles.editButtonText, { color: '#F97575' }]}>플랜 삭제</Text>
             </TouchableOpacity>
+
             <TouchableOpacity
-              style={[styles.editButton, { flex: 1, backgroundColor: '#4F46E5', borderColor: '#4F46E5' }]}
+              style={[styles.editButton, { flex: 1, backgroundColor: '#fff', borderColor: '#4F46E5' }]}
               onPress={enterEditMode}
             >
-              <Text style={[styles.editButtonText, { color: '#fff' }]}>플랜 수정</Text>
+              <Text style={[styles.editButtonText, { color: '#4F46E5' }]}>플랜 수정</Text>
             </TouchableOpacity>
           </View>
         ) : (
@@ -680,45 +1250,28 @@ export default function PlannerResponseHome() {
               >
                 <Text style={styles.editButtonText}>플랜 수정</Text>
               </TouchableOpacity>
+
+              {/* ======================================
+                  플랜 전체 재조회 → 실제 API 연결
+                 ====================================== */}
               <TouchableOpacity
                 style={[styles.saveButton, { marginLeft: normalize(8) }]}
                 onPress={async () => {
-                  setIsRegenerating(true);
                   try {
-                    const excludedNames = scheduleData.days
-                      .flatMap(day => day.places.map(place => place.name))
-                      .filter(name => !!name);
-                    const destinationToSend = scheduleData.destination || "NONE";
-                    const mbtiToSend = scheduleData.mbti || "NONE";
-                    const travelStyleToSend = scheduleData.travelStyle || "NONE";
-                    const peopleGroupToSend = scheduleData.peopleGroup || "NONE";
-                    const budgetToSend = scheduleData.budget ?? 0;
+                    setIsRegenerating(true);
 
-                    const requestData = {
-                      startDate: scheduleData.startDate,
-                      endDate: scheduleData.endDate,
-                      destination: destinationToSend,
-                      mbti: mbtiToSend,
-                      travelStyle: travelStyleToSend,
-                      peopleGroup: peopleGroupToSend,
-                      budget: budgetToSend,
-                      excludedNames,
-                    };
-                    console.log('📤 일정 재생성 요청:', JSON.stringify(requestData, null, 2));
-                    const result = await regenerateSchedule(requestData);
-                    if (result && result.days) {
-                      setScheduleData(prev => ({
-                        ...prev,
-                        days: result.days,
-                        startDate: result.startDate,
-                        endDate: result.endDate,
-                        title: result.title || prev.title,
-                      }));
-                    } else {
-                      Alert.alert('재생성 실패', '서버에서 정상 데이터가 오지 않았습니다.');
+                    // ✅ 실제 API 호출
+                    const params = await buildRecreateParams();
+                    const response = await regenerateSchedule(params);
+
+                    if (response?.days?.length) {
+                      const next = ensurePlaceIds(response);
+                      setScheduleData(next);
+                      setSelectedDayIndex(0);
                     }
                   } catch (err) {
-                    Alert.alert('오류', '재생성 중 오류가 발생했습니다.');
+                    console.error('재조회 실패:', err?.response?.data || err?.message);
+                    Alert.alert('오류', '플랜 재조회 중 오류가 발생했습니다.');
                   } finally {
                     setIsRegenerating(false);
                   }
@@ -727,64 +1280,83 @@ export default function PlannerResponseHome() {
                 <Text style={styles.saveButtonText}>플랜 전체 재조회</Text>
               </TouchableOpacity>
             </View>
+
             <View style={styles.regenerateButtonWrapper}>
+              {/* 내 여행으로 저장 (현재 로컬 저장 동작 유지) */}
               <TouchableOpacity
-                style={styles.regenerateButton}
-                onPress={async () => {
-                  try {
-                    const saveRequest = {
-                      title: scheduleData.title,
-                      startDate: scheduleData.startDate,
-                      endDate: scheduleData.endDate,
-                      days: scheduleData.days.map(day => ({
-                        places: day.places.map(place => ({
-                          name: place.name,
-                          type: place.type,
-                          address: place.address,
-                          lat: place.lat,
-                          lng: place.lng,
-                          description: place.description,
-                          estimatedCost: place.estimatedCost,
-                          gptOriginalName: place.gptOriginalName,
-                          fromPrevious: place.fromPrevious,
-                          placeOrder: place.placeOrder,
-                        })),
-                      })),
-                    };
-                    const response = await saveSchedule(saveRequest);
-                    console.log('[플랜 저장 응답]', response);
-                    const savedScheduleId = response.id || response.scheduleId;
-                    console.log('[실제 저장할 플랜 id]', savedScheduleId);
-                    await saveCacheData(CACHE_KEYS.PLAN_SAVE_READY, scheduleData);
-                    await saveTripToList({
-                      ...saveRequest,
-                      id: savedScheduleId,
-                    });
-                    setScheduleData(prev => ({
-                      ...prev,
-                      id: savedScheduleId,
-                    }));
-                    console.log('[저장 리스트 객체]', { ...saveRequest, id: savedScheduleId });
-                    Alert.alert(
-                      '여행 플랜 저장',
-                      '여행 플랜이 "내여행"으로 저장되었습니다.',
-                      [
-                        {
-                          text: 'OK',
-                          onPress: () => setIsSaved(true),
-                        },
-                      ]
-                    );
-                  } catch (e) {
-                    alert('저장에 실패했습니다. 다시 시도해 주세요.');
-                  }
-                }}
-              >
+  style={styles.regenerateButton}
+  onPress={async () => {
+    try {
+      console.log('LOG  [save] 내 여행으로 저장 시도');
+
+      // 1) 현재 스케줄 객체 정리 (id 없으면 로컬 uuid 부여) — scheduleData undefined 보호
+      const current =
+        scheduleData?.id
+          ? scheduleData
+          : { ...(scheduleData || {}), id: uuid.v4() }; // 로컬 UUID 유지
+
+      // 2) 숫자형 서버 ID 추출 (serverId/scheduleId/scheduleNo/id 순서)
+      const extractNumericScheduleId = (obj) => {
+        const raw = obj?.serverId ?? obj?.scheduleId ?? obj?.scheduleNo ?? obj?.id;
+        const n = Number(String(raw ?? '').match(/^\d+$/)?.[0]);
+        return Number.isFinite(n) ? n : NaN;
+      };
+
+      // 초기 후보(화면/상태에서 가져온 것)
+      let finalId = extractNumericScheduleId(current);
+
+      // 3) (선택) 서버 저장 시도 → 서버가 숫자 ID를 내려주면 교체
+      try {
+        if (typeof saveSchedule === 'function') {
+          const saved = await saveSchedule(current);
+          const raw = saved?.id ?? saved?.scheduleId ?? saved?.scheduleNo;
+          const parsed = Number(String(raw ?? '').match(/^\d+$/)?.[0]);
+          if (Number.isFinite(parsed)) {
+            finalId = parsed; // 서버가 준 진짜 숫자 ID로 확정
+          }
+          console.log('LOG  [save] serverId =', finalId);
+        }
+      } catch (apiErr) {
+        console.warn('WARN  [save] 서버 저장 실패, 로컬 저장만 유지:', apiErr?.message || apiErr);
+      }
+
+      // 4) 로컬 리스트에도 저장 (serverId를 숫자로 확정해 함께 보존)
+      const forLocal = { ...current };
+      if (Number.isFinite(finalId)) forLocal.serverId = finalId;
+      await saveTripToList(forLocal);
+
+      // 5) 안내 + 이동/유지 처리
+      Alert.alert('저장 완료', '내 여행에 저장되었습니다.', [
+        {
+          text: '확인',
+          onPress: () => {
+            if (Number.isFinite(finalId)) {
+              // ✅ 숫자 ID만 네비게이션으로 전달
+              navigation.replace('PlannerResponse', {
+                scheduleId: finalId,
+                mode: 'read',
+                from: 'PlannerCreate',
+              });
+            } else {
+              // ✅ 서버 ID가 없으면(목/오프라인/실패) 화면 유지
+              console.log('LOG  [save] stay on current screen (no numeric serverId)');
+            }
+          },
+        },
+      ]);
+    } catch (e) {
+      console.warn('저장 실패:', e);
+      Alert.alert('오류', '저장에 실패했습니다.');
+    }
+  }}
+>
                 <Text style={styles.regenerateButtonText}>내 여행으로 저장</Text>
               </TouchableOpacity>
             </View>
           </>
         )}
+
+        {/* 재조회 로딩 스플래시 */}
         <Modal visible={isRegenerating} transparent animationType="fade">
           <SplashScreen />
         </Modal>
@@ -793,262 +1365,54 @@ export default function PlannerResponseHome() {
   );
 }
 
-// ====== StyleSheet(폰트/패딩/마진 normalize 적용) ======
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: '#Fafafa' },
   screen: { flex: 1, backgroundColor: '#FAFAFA' },
   loadingText: { marginTop: normalize(100, 'height'), textAlign: 'center', fontSize: normalize(16) },
- headerLine: {
-    height: 1,
-    backgroundColor: '#B5B5B5',
-    marginTop: normalize(-1),
-  },
-  headerTitle: { fontSize: normalize(18), alignItems: 'center', color: '#000' , marginTop: normalize(-8),},
+  headerTitle: { flex: 1, textAlign: 'left', fontSize: normalize(20), fontWeight: '700', color: '#111827', marginLeft: normalize(10),marginTop: normalize(-10) },
   tripInfo: { backgroundColor: '#FAFAFA', padding: normalize(16), paddingBottom: normalize(4) },
-  tripInfoRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-end',
-  },
-  tripTitle: { fontSize: normalize(20), color: '#1E1E1E' },
-  totalBudgetLabel: { fontSize: normalize(14), color: '#1E1E1E', top: -2 },
-  budget: { color: '#4F46E5', fontSize: normalize(14), marginTop: normalize(4) },
-  budgetUnit: { color: '#4F46E5', fontSize: normalize(14) },
+  tripInfoRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end' },
+  tripTitle: { fontSize: normalize(20),fontWeight:'500', color: '#1E1E1E' },
+  budget: { color: '#4F46E5', fontSize: normalize(16), marginTop: normalize(4),position: 'relative',top: normalize(-10),left: normalize(-20), },
+  budgetUnit: { color: '#4F46E5', fontSize: normalize(16) },
   dateText: { fontSize: normalize(14), color: '#7E7E7E', marginTop: normalize(4), marginBottom: 0 },
-  tabScrollWrapper: {
-    backgroundColor: '#FAFAFA',
-    borderBottomWidth: 1,
-    borderColor: '#E5E7EB',
-  },
+  tabScrollWrapper: { backgroundColor: '#FAFAFA', },
   tabContainer: { flexDirection: 'row', paddingHorizontal: normalize(6), paddingVertical: normalize(6) },
   tabBox: { alignItems: 'center', marginHorizontal: normalize(6), paddingHorizontal: normalize(10) },
   tabText: { fontSize: normalize(18), color: '#9CA3AF' },
   tabTextSelected: { color: '#4F46E5', fontWeight: 'bold' },
-  activeBar: {
-    marginTop: normalize(5),
-    height: normalize(4),
-    width: normalize(80),
-    backgroundColor: '#4F46E5',
-    borderRadius: 2,
-  },
-  container: {
-    paddingHorizontal: normalize(16),
-    marginBottom: -normalize(70),
-    marginTop: normalize(20),
-    backgroundColor: '#FAFAFA',
-  },
-  bottomButtonContainer1: {
-    flexDirection: 'row',
-    backgroundColor: '#fafafa',
-    paddingVertical: normalize(20),
-    paddingHorizontal: normalize(16),
-    borderRadius: normalize(12),
-    marginBottom: -normalize(20)
-  },
-bottomButtonContainer: {
-  flexDirection: 'row',
-  backgroundColor: '#fafafa',
-  paddingVertical: normalize(18),
-  paddingHorizontal: normalize(20),
-  top:normalize(10),
-  borderRadius: normalize(12),
-  paddingBottom: normalize(20), // 👈 이거 추가
-},
-  placeRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginBottom: normalize(32),
-  },
-  timeline: {
-    width: normalize(30),
-    alignItems: 'center',
-    position: 'relative',
-  },
-  dot: {
-    width: normalize(20),
-    height: normalize(20),
-    borderRadius: normalize(10),
-    backgroundColor: '#6366F1',
-    position: 'absolute',
-    top: normalize(40),
-    zIndex: 2,
-  },
-  verticalLine: {
-    position: 'absolute',
-    top: -normalize(20),
-    left: normalize(13),
-    width: normalize(4),
-    height: normalize(330, 'height'),
-    backgroundColor: '#A19CFF',
-  },
+  activeBar: { marginTop: normalize(5), height: normalize(4), width: normalize(80), backgroundColor: '#4F46E5', borderRadius: 2 },
+  container: { paddingHorizontal: normalize(16), marginBottom: -normalize(70), marginTop: normalize(20), backgroundColor: '#FAFAFA' },
+  bottomButtonContainer1: { flexDirection: 'row', backgroundColor: '#fafafa', paddingVertical: normalize(20), paddingHorizontal: normalize(16), borderRadius: normalize(12), marginBottom: -normalize(20) },
+  bottomButtonContainer: { flexDirection: 'row', backgroundColor: '#fafafa', paddingVertical: normalize(18), paddingHorizontal: normalize(20), top: normalize(10), borderRadius: normalize(12), paddingBottom: normalize(20) },
+  placeRow: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: normalize(32) },
+  timeline: { width: normalize(30), alignItems: 'center', position: 'relative' },
+  dot: { width: normalize(20), height: normalize(20), borderRadius: normalize(10), backgroundColor: '#6366F1', position: 'absolute', top: normalize(40), zIndex: 2 },
+  verticalLine: { position: 'absolute', top: -normalize(20), left: normalize(13), width: normalize(4), height: normalize(330, 'height'), backgroundColor: '#A19CFF' },
   placeContent: { flex: 1, marginLeft: normalize(10) },
-  placeCard: {
-    backgroundColor: '#fff',
-    padding: normalize(16),
-    paddingBottom: normalize(10),
-    borderRadius: normalize(20),
-    marginBottom: -normalize(25),
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 5,
-  },
-  placeCard2: {
-    backgroundColor: '#fff',
-    padding: normalize(16),
-    paddingRight: normalize(5),
-    paddingLeft: normalize(12),
-    paddingBottom: normalize(6),
-    borderRadius: normalize(20),
-    marginBottom: -normalize(35),
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 6,
-    elevation: 4,
-    width: '85%',
-    left: -normalize(20),
-  },
-  placeCard3: {
-    backgroundColor: '#fff',
-    padding: normalize(16),
-    paddingRight: normalize(5),
-    paddingLeft: normalize(16),
-    paddingBottom: normalize(6),
-    borderRadius: normalize(20),
-    marginBottom: -normalize(40),
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 6,
-    elevation: 4,
-    width: '88%',
-    left: -normalize(20),
-  },
-  placeHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
+  placeCard: { backgroundColor: '#fff', padding: normalize(16), paddingBottom: normalize(10), borderRadius: normalize(20), marginBottom: -normalize(25), shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 8, elevation: 5 },
+  placeCard2: { backgroundColor: '#fff', padding: normalize(16), paddingRight: normalize(5), paddingLeft: normalize(12), paddingBottom: normalize(6), borderRadius: normalize(20), marginBottom: -normalize(35), shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 6, elevation: 4, width: '85%', left: -normalize(20) },
+  placeCard3: { backgroundColor: '#fff', padding: normalize(16), paddingRight: normalize(5), paddingLeft: normalize(16), paddingBottom: normalize(6), borderRadius: normalize(20), marginBottom: -normalize(40), shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 6, elevation: 4, width: '88%', left: -normalize(20) },
+  placeHeader: { flexDirection: 'row', justifyContent: 'space-between' },
   placeName: { fontSize: normalize(16), marginBottom: normalize(4), color: '#373737' },
-  placeCost: {
-    fontSize: normalize(15),
-    fontWeight: '600',
-    fontStyle: 'Inter',
-    color: '#8B76E8',
-    bottom: -normalize(15),
-  },
-  placeType: { fontSize: normalize(13), color: '#9CA3AF', marginBottom: normalize(4) , top:normalize(2)},
+  placeCost: { fontSize: normalize(15), fontWeight: '600', fontStyle: 'Inter', color: '#353537ff', bottom: -normalize(15) },
+  placeType: { fontSize: normalize(13), color: '#9CA3AF', marginBottom: normalize(4) , top: normalize(2) },
   keywords: { fontSize: normalize(12), color: '#333333', marginBottom: normalize(6) },
-  transportRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: normalize(12),
-    marginBottom: normalize(12),
-  },
-  placeNameInput: {
-    fontSize: normalize(18),
-    marginBottom: normalize(19),
-    color: '#373737',
-    paddingVertical: normalize(4),
-    paddingTop: normalize(18),
-  },
-  transportItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    minWidth: normalize(120),
-    marginLeft: normalize(10),
-    justifyContent: 'center',
-  },
-  transportText: {
-    marginLeft: normalize(6),
-    fontSize: normalize(14),
-    color: '#000',
-  },
-  transportTexts: {
-    marginLeft: normalize(-28),
-    fontSize: normalize(14),
-    color: '#000',
-  },
-  transportTextss: {
-    marginLeft: normalize(14),
-    fontSize: normalize(14),
-    color: '#000',
-  },
-  dragHandle: {
-    position: 'absolute',
-    left: -normalize(45),
-    top: normalize(25),
-    padding: normalize(4),
-    zIndex: 5,
-  },
-  editButton: {
-    flex: 1,
-    height: normalize(45),
-    borderRadius: normalize(12),
-    borderWidth: 1,
-    borderColor: '#4F46E5',
-    backgroundColor: '#fff',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  editButtonText: {
-    fontSize: normalize(16),
-    color: '#4F46E5',
-  },
-  saveButton: {
-    flex: 1,
-    height: normalize(45),
-    borderRadius: normalize(12),
-    borderWidth: 1,
-    borderColor: '#4F46E5',
-    backgroundColor: '#fff',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  saveButtonText: {
-    textAlign: 'center',
-    color: '#4F46E5',
-    fontSize: normalize(16),
-  },
-  regenerateButtonWrapper: {
-    position: 'absolute',
-    bottom: normalize(50),
-    left: normalize(16),
-    right: normalize(16),
-    backgroundColor: '#fafafa',
-    paddingVertical: normalize(5),
-    borderRadius: normalize(12),
-  },
-  regenerateButton: {
-    backgroundColor: '#4F46E5',
-    borderRadius: normalize(10),
-    paddingVertical: normalize(12),
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#4F46E5',
-  },
-  regenerateButtonText: {
-    color: '#fff',
-    fontSize: normalize(16),
-  },
-  fixedDoneButtonWrapper: {
-    position: 'absolute',
-    bottom: normalize(5),
-    left: normalize(20),
-    right: normalize(20),
-    backgroundColor: '#4F46E5',
-    borderRadius: normalize(12),
-    paddingVertical: normalize(14),
-    alignItems: 'center',
-  },
-  fixedDoneButton: {
-    width: '100%',
-    alignItems: 'center',
-  },
-  fixedDoneButtonText: {
-    color: '#fff',
-    fontSize: normalize(18),
-  },
+  transportRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: normalize(12), marginBottom: normalize(12) },
+  placeNameInput: { fontSize: normalize(18), marginBottom: normalize(19), color: '#373737', paddingVertical: normalize(4), paddingTop: normalize(18) },
+  transportItem: { flexDirection: 'row', alignItems: 'center', minWidth: normalize(120), marginLeft: normalize(10), justifyContent: 'center' },
+  transportText: { marginLeft: normalize(6), fontSize: normalize(14), color: '#000' },
+  transportTexts: { marginLeft: normalize(-28), fontSize: normalize(14), color: '#000' },
+  transportTextss: { marginLeft: normalize(14), fontSize: normalize(14), color: '#000' },
+  dragHandle: { position: 'absolute', left: -normalize(45), top: normalize(25), padding: normalize(4), zIndex: 5 },
+  editButton: { flex: 1, height: normalize(45), borderRadius: normalize(12), borderWidth: 1, borderColor: '#4F46E5', backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center' },
+  editButtonText: { fontSize: normalize(16), color: '#4F46E5' },
+  saveButton: { flex: 1, height: normalize(45), borderRadius: normalize(12), borderWidth: 1, borderColor: '#4F46E5', backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center' },
+  saveButtonText: { textAlign: 'center', color: '#4F46E5', fontSize: normalize(16) },
+  regenerateButtonWrapper: { position: 'absolute', bottom: normalize(50), left: normalize(16), right: normalize(16), backgroundColor: '#fafafa', paddingVertical: normalize(5), borderRadius: normalize(12) },
+  regenerateButton: { backgroundColor: '#4F46E5', borderRadius: normalize(10), paddingVertical: normalize(12), alignItems: 'center', borderWidth: 1, borderColor: '#4F46E5' },
+  regenerateButtonText: { color: '#fff', fontSize: normalize(16) },
+  fixedDoneButtonWrapper: { position: 'absolute', bottom: normalize(5), left: normalize(20), right: normalize(20), backgroundColor: '#4F46E5', borderRadius: normalize(12), paddingVertical: normalize(14), alignItems: 'center' },
+  fixedDoneButton: { width: '100%', alignItems: 'center' },
+  fixedDoneButtonText: { color: '#fff', fontSize: normalize(18) },
 });
