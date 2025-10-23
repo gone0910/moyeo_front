@@ -1,7 +1,7 @@
 // /api/getScheduleDetail.js
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { BASE_URL } from './config/api_Config';
+import { BASE_URL } from './config/api_Config'; // apiConfig.js에서 baseUrl 주소 변경
 
 /**
  * 여행 일정 상세 조회

@@ -56,6 +56,49 @@ const [randomTip, setRandomTip] = useState('');
   useEffect(() => {
   setRandomTip(getRandomTip(TRAVEL_TIPS));
 }, []);
+
+//묵데이터
+
+useFocusEffect(
+  useCallback(() => {
+    let isMounted = true;
+
+    const loadLocalFirst = async () => {
+      // ✅ 먼저 빠르게 로컬 trips만 로드
+      const localTripsRaw = await AsyncStorage.getItem('MY_TRIPS');
+      const localTrips = localTripsRaw ? JSON.parse(localTripsRaw) : [];
+      if (isMounted) {
+        setMyTrips(localTrips); // 🔥 빠르게 화면에 표시됨
+      }
+
+      // ✅ 서버 병합은 느리게 따로 처리
+      try {
+        const serverTrips = await fetchPlanList();
+        const merged = [
+          ...localTrips,
+          ...serverTrips.filter(server =>
+            !localTrips.some(local => local.id === server.id)
+          ),
+        ];
+
+        if (isMounted) {
+          setMyTrips(merged);
+          await AsyncStorage.setItem('MY_TRIPS', JSON.stringify(merged));
+        }
+      } catch (e) {
+        console.warn('🛑 여행 플랜 병합 실패:', e);
+      }
+    };
+
+    loadLocalFirst();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [])
+); 
+
+//여기까지
   useFocusEffect(
     useCallback(() => {
       const loadTrips = async () => {

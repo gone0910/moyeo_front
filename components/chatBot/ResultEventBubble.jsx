@@ -32,36 +32,50 @@ const dummyEventList = [
 
 
 function EventCardContent({ name, highlight, period, fee, location }) {
+  // [CHANGED] innerContainer를 cardRoot와 bodyArea로 대체
   return (
-    <View style={styles.innerContainer}>
-      <Text style={styles.title}>{name}</Text>
-
-      <View style={styles.addressRow}>
-        <MaterialIcons name="location-on" size={12} color="#4F46E5" style={{ marginRight: 4 }} />
-        <Text style={styles.address}>{location}</Text>
+    <View style={styles.cardRoot}>
+      {/* [ADDED] Sight/Food Bubble과 동일한 상단 제목 바 스타일 적용 */}
+      <View style={styles.headerBar}>
+        <Text style={styles.headerTitle}>{name}</Text> {/* [CHANGED] title -> headerTitle */}
       </View>
 
-      <View style={styles.infoRow}>
-        {/* <Text style={styles.infoLabel}>주요 행사 :</Text> */}
-        <Text style={styles.infoValueMulti}>{highlight}</Text>
-      </View>
-      <View style={styles.infoRow}>
-        <Text style={styles.infoLabel}>행사 기간 :</Text>
-        <Text style={styles.infoValue}>
-          {
-            typeof period === 'string'
-              ? period.split(/ *[\/,] */).join('\n') // , 포함 줄바꿈.
-              : Array.isArray(period) // 줄바꿈시에 앞에 공백 1칸 방지
-                ? period.join('\n')
-                : period
-          }
+      {/* [ADDED] 본문 영역 스타일 적용 */}
+      <View style={styles.bodyArea}>
+        
+        {/* 주소 */}
+        <View style={styles.addressRow}>
+          <MaterialIcons name="location-on" size={scale(12)} color="#4F46E5" style={{ marginRight: scale(4) }} />
+          <Text style={styles.addressText}>{location}</Text> {/* [CHANGED] address -> addressText */}
+        </View>
+
+        {/* 주요 행사(하이라이트) - 라벨 없음 */}
+        <View style={styles.highlightRow}>
+          {/* [REMOVED] infoLabel: Sight/Food Bubble은 이 위치에 별도 라벨이 있으나, Event는 라벨 없이 단독 텍스트 사용 */}
+          <Text style={styles.highlightText}>{highlight}</Text> {/* [CHANGED] infoValueMulti -> highlightText */}
+        </View>
+        
+        {/* 행사 기간 */}
+        <View style={styles.infoRow}>
+          <Text style={styles.infoLabel}>행사 기간 :</Text>
+          <Text style={styles.infoValue}>
+            {
+              typeof period === 'string'
+                ? period.split(/ *[\/,] */).join('\n')
+                : Array.isArray(period)
+                  ? period.join('\n')
+                  : period
+            }
           </Text>
+        </View>
+        
+        {/* 참가비 */}
+        <View style={styles.infoRow}>
+          <Text style={styles.infoLabel}>참가비 :</Text>
+          <Text style={styles.infoValue}>{fee}</Text>
+        </View>
+        
       </View>
-      <View style={styles.infoRow}>
-        <Text style={styles.infoLabel}>참가비 :</Text>
-        <Text style={styles.infoValue}>{fee}</Text>
-      </View>
-      
     </View>
   );
 }
@@ -71,100 +85,122 @@ export default function ResultEventBubble({ data }) {
   const eventList = data || dummyEventList;
 
   return (
-    <ChatBotCardList
-      data={eventList}
-      renderItem={({ item }) => (
-        <ChatBotCard>
-          <EventCardContent {...item} />
-        </ChatBotCard>
-      )}
-    />
+    // [ADDED] Sight/Food Bubble과 동일한 외부 프레임 적용
+    <View style={styles.resultFrame}>
+      <ChatBotCardList
+        data={eventList}
+        renderItem={({ item }) => (
+          <ChatBotCard>
+            <EventCardContent {...item} />
+          </ChatBotCard>
+        )}
+      />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  innerContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    minHeight: vScale(100),            // 100~140 사이 조정
-    paddingVertical: vScale(6),
+  // [ADDED] Sight/Food Bubble의 외부 프레임 스타일
+  resultFrame: {
+    width: scale(359),
+    minHeight: vScale(208),
+    backgroundColor: '#F1F1F5',
+    alignSelf: 'flex-start',
+    borderRadius: scale(8),
+    paddingVertical: vScale(18),
   },
-  // 1. 타이틀(축제명)
-  title: {
+
+  // [ADDED/CHANGED] Sight/Food Bubble의 카드 루트 스타일 (233x172 내부 레이아웃)
+  cardRoot: {
+    flex: 1,
+    width: '100%',
+    height: '100%',
+  },
+
+  // [ADDED] Sight/Food Bubble의 헤더 바 스타일 (제목 영역)
+  headerBar: {
+    height: vScale(40),
+    backgroundColor: '#BCBAEB',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: scale(10),
+  },
+  headerTitle: { // [CHANGED] title -> headerTitle로 이름 변경 및 스타일 조정
     fontFamily: 'Roboto',
     fontWeight: '400',
-    fontSize: scale(18),
-    lineHeight: scale(24),
+    fontSize: scale(16),
+    lineHeight: scale(25),
     color: '#373737',
-    minWidth: scale(180),
-    marginLeft: scale(8),
-    marginTop: vScale(3),
-    marginBottom: vScale(2),
-    textAlignVertical: 'center',
-    flexWrap: 'wrap',
+    textAlign: 'center',
     flexShrink: 1,
-    // height: scale(25), // 제거!
   },
+
+  // [ADDED] Sight/Food Bubble의 본문 영역 스타일
+  bodyArea: {
+    flex: 1,
+    paddingHorizontal: scale(10),
+    paddingTop: vScale(8),
+    paddingBottom: vScale(10),
+    rowGap: vScale(4), // 요소 간 간격
+  },
+
+  // [CHANGED] 주소 행 스타일 (Sight/Food Bubble과 통일)
+  addressRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    columnGap: scale(4),
+    marginBottom: vScale(6),
+  },
+  // [CHANGED] 주소 텍스트 스타일 (Sight/Food Bubble과 통일)
+  addressText: {
+    fontFamily: 'Roboto',
+    fontWeight: '400',
+    fontSize: scale(10),
+    lineHeight: scale(12),
+    color: '#868686',
+    flex: 1,
+    flexWrap: 'wrap',
+  },
+  
+  // [ADDED] 하이라이트/설명 행 (SightBubble의 descText와 유사)
+  highlightRow: {
+    marginBottom: vScale(6),
+  },
+  highlightText: { // [CHANGED] infoValueMulti -> highlightText로 이름 변경 및 스타일 조정
+    fontFamily: 'Roboto',
+    fontWeight: '400',
+    fontSize: scale(12), // 설명문과 유사한 크기
+    lineHeight: scale(15), 
+    color: '#616161',
+    flexWrap: 'wrap',
+  },
+  
+  // [CHANGED] 정보 행 스타일 (Sight/Food Bubble과 통일)
   infoRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    marginLeft: scale(8),
-    marginBottom: vScale(2),
-    // minHeight: scale(19), // 제거!
-  },
-  infoLabel: {
-    fontFamily: 'Roboto',
-    fontWeight: '400',
-    fontSize: scale(14),
-    lineHeight: scale(18),
-    color: '#333333',
-    minWidth: scale(70),
-    textAlignVertical: 'center',
-    // height: scale(19), // 제거!
-  },
-  infoValueMulti: { // 한줄 설명명
-    fontFamily: 'Roboto',
-    fontWeight: '400',
-    fontSize: scale(13),
-    lineHeight: scale(18),
-    color: '#616161',
-    marginLeft: scale(2),
-    flexShrink: 1,
     flexWrap: 'wrap',
-    // width: scale(123),     // 제거하면 자동 줄바꿈 (너무 좁아질 땐 123 유지)
-    // minHeight: scale(19), // 제거!
-    textAlignVertical: 'center',
-    marginBottom: scale(6),
+    columnGap: scale(4),
+    rowGap: vScale(2),
+    marginBottom: vScale(2),
   },
-  infoValue: {
-    fontFamily: 'Roboto',
-    fontWeight: '400',
-    fontSize: scale(14),
-    lineHeight: scale(18),
-    color: '#616161',
-    marginLeft: scale(2),
-    textAlignVertical: 'center',
-    flexShrink: 1,
-  },
-  addressRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: vScale(7),
-    marginLeft: scale(10),
-    width: scale(212),
-    marginBottom: vScale(6),
-    // height: scale(12), // 제거!
-  },
-  address: {
+  // [CHANGED] 라벨 스타일 (Sight/Food Bubble과 통일)
+  infoLabel: {
+    width: scale(57), // Sight/Food Bubble의 고정폭
     fontFamily: 'Roboto',
     fontWeight: '400',
     fontSize: scale(12),
-    lineHeight: scale(14),
-    color: '#868686',
-    marginLeft: scale(2),
-    minWidth: scale(100),
+    lineHeight: scale(15),
+    color: '#333333',
+  },
+  // [CHANGED] 값 스타일 (Sight/Food Bubble과 통일)
+  infoValue: {
+    fontFamily: 'Roboto',
+    fontWeight: '400',
+    fontSize: scale(12),
+    lineHeight: scale(15),
+    color: '#616161',
+    flex: 1,
     flexWrap: 'wrap',
-    textAlignVertical: 'center',
-    // height: scale(12), // 제거!
   },
 });
