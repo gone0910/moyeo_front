@@ -2,7 +2,7 @@
 import { useRoute, useNavigation, useFocusEffect } from '@react-navigation/native';
 import React, { useEffect, useState, useCallback } from 'react';
 import { MAIN_TAB_ID, defaultTabBarStyle, HIDDEN_TABBAR_STYLE } from '../../navigation/BottomTabNavigator';
-import { View, Text, StyleSheet, TouchableOpacity, Platform, Dimensions, Linking } from 'react-native';
+import { View, Text, StyleSheet,SafeAreaView, TouchableOpacity, Platform, Dimensions, Linking } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { Ionicons } from '@expo/vector-icons';
 
