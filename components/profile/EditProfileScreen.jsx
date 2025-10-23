@@ -99,6 +99,7 @@ export default function EditProfileScreen() {
       mbti: mbti === '' ? null : mbti,
     };
 
+
     if (isMock === 'true') {
       const mockUserData = { ...userData, profileImageUrl: image };
       setUser(mockUserData);
@@ -107,6 +108,7 @@ export default function EditProfileScreen() {
       navigation.goBack();
       return;
     }
+
 
     try {
       let imageForUpload = image;
@@ -412,3 +414,4 @@ const styles = StyleSheet.create({
     letterSpacing: -0.2,
   },
 });
+

@@ -4,6 +4,7 @@
 // - 회원가입은 multipart/form-data 방식 + JSON을 파일처럼 처리
 // - 사용자 정보 조회 및 수정도 포함
 
+
 import * as Linking from 'expo-linking';
 import * as FileSystem from 'expo-file-system/legacy';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -39,15 +40,17 @@ export const registerUserWithFetch = async (userData, image, token) => {
     if (!bearer) throw new Error('JWT 토큰이 없습니다. (AsyncStorage key: jwt)');
     const formData = new FormData();
 
+
     // 1. JSON 데이터 → Blob-like 가짜 파일처럼 첨부
     const jsonString = JSON.stringify(userData);
     const base64Encoded = btoa(unescape(encodeURIComponent(jsonString)));
-    
+   
     formData.append('userInfo', {
       uri: `data:application/json;base64,${base64Encoded}`, // ❗ uri는 여전히 필요함
       type: 'application/json',
       name: 'userInfo.json',
     });
+
 
     if (image) {
       console.log('📸 이미지 정보 확인');
@@ -71,6 +74,7 @@ export const registerUserWithFetch = async (userData, image, token) => {
         name: image.name || 'profile.jpg',
       });
     }
+
 
     // ✅ 디버깅 도구는 여기에 삽입
     // (FormData._parts는 RN 환경에서만 존재. 빌드 환경에 따라 없음)
@@ -96,6 +100,7 @@ export const registerUserWithFetch = async (userData, image, token) => {
       body: formData,
     });
 
+
     if (!response.ok) {
       const errorText = await response.text();
       console.error('❌ [fetch] 응답 오류 상태:', response.status);
@@ -103,15 +108,19 @@ export const registerUserWithFetch = async (userData, image, token) => {
       throw new Error(errorText); // 응답 바디 전체를 Error에
     }
 
+
     const result = await response.json();
     console.log('✅ [fetch] 회원가입 성공 응답:', result);
     return result;
+
 
   } catch (error) {
     console.error('❌ [fetch] 회원가입 실패:', error);
     throw error;
   }
 };
+
+
 
 
 /**
@@ -131,6 +140,7 @@ export const getUserInfoWithFetch = async (token) => {
     },
   });
 
+
   if (!response.ok) {
     if (response.status === 400) {
       console.warn('⚠️ 사용자 정보 없음 (400)');
@@ -141,10 +151,12 @@ export const getUserInfoWithFetch = async (token) => {
     throw new Error(`조회 실패 (${response.status}): ${errText}`);
   }
 
+
   const data = await response.json();
   console.log('✅ 사용자 정보 조회 성공:', data);
   return data;
 };
+
 
 /**
  * 사용자 프로필 수정 요청 (multipart/form-data)
@@ -160,6 +172,7 @@ export const getUserInfoWithFetch = async (token) => {
 export const editUserProfileWithFetch = async (userData, image, token) => {
   const formData = new FormData();
 
+
   // ✅ 사용자 정보 → JSON → Base64 → 파일처럼 전송
   const userInfoJson = JSON.stringify({
     nickname: userData.nickname,
@@ -168,11 +181,13 @@ export const editUserProfileWithFetch = async (userData, image, token) => {
     mbti: userData.mbti,
   });
 
+
   formData.append('userInfo', {
     uri: 'data:application/json;base64,' + btoa(unescape(encodeURIComponent(userInfoJson))),
     type: 'application/json',
     name: 'userInfo.json',
   });
+
 
   // ✅ 새 이미지가 선택된 경우에만 파일 전송
   if (image?.uri) {
@@ -187,6 +202,7 @@ export const editUserProfileWithFetch = async (userData, image, token) => {
       const info = await FileSystem.getInfoAsync(image.uri);
       console.log('📏 [원본 파일 용량] ' + info.size + ' bytes ≈ ' + (info.size / 1024).toFixed(1) + ' KB');
     }
+
 
     formData.append('profileImage', {
       uri: image.uri,
@@ -215,8 +231,10 @@ export const editUserProfileWithFetch = async (userData, image, token) => {
       body: formData,
     });
 
+
     const text = await response.text();
     const data = text ? JSON.parse(text) : {};
+
 
     if (!response.ok) {
       console.error('❌ 프로필 수정 실패:', response.status, text);
@@ -233,6 +251,8 @@ export const editUserProfileWithFetch = async (userData, image, token) => {
     throw error;
   }
 };
+
+
 
 
 // 프로필 편집시, DB에서 받아온 사진 URL을 파일로 바꿔 DB로 다시 전송함
@@ -269,6 +289,7 @@ export async function urlToBase64ProfileImage(url) {
   const base64 = await FileSystem.readAsStringAsync(uri, { encoding: FileSystem.EncodingType.Base64 });
   // console.log('✅ [base64 인코딩 성공] base64 앞 80자:', base64.slice(0, 80));
 
+
   const obj = {
     uri: `data:image/jpeg;base64,${base64}`,
     name: filename,
@@ -276,12 +297,16 @@ export async function urlToBase64ProfileImage(url) {
   };
   // console.log('✅ [최종 변환 파일 객체] :', obj);
 
+
   return obj;
 }
 
 
+
+
 // // 적용 예시 (editUserProfileWithFetch 호출 전에)
 // let imageParam = null;
+
 
 // if (typeof profileImage === 'string') {
 //   // 기존 이미지 URL인 경우
@@ -291,4 +316,8 @@ export async function urlToBase64ProfileImage(url) {
 //   imageParam = profileImage;
 // }
 
+
 // await editUserProfileWithFetch(userData, imageParam, token);
+
+
+

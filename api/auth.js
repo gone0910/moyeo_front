@@ -4,6 +4,7 @@
 // - Axios 기반
 // - JWT 토큰 관리 + FormData 전송 방식 + 딥링크 처리 포함
 
+
 import axios from 'axios';
 import * as Linking from 'expo-linking';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -28,6 +29,7 @@ export const redirectToOAuth = async (provider) => {
   }
 };
 
+
 // ---------------------------------------------------
 // 2. [딥링크 리디렉션 → JWT 저장]
 // ---------------------------------------------------
@@ -35,6 +37,7 @@ export const saveJwtFromRedirect = async (url) => {
   try {
     const parsed = Linking.parse(url);
     const token = parsed.queryParams?.token;
+
 
     if (token) {
       await AsyncStorage.setItem('jwt', token);  // 정식 jwt 저장
@@ -49,6 +52,7 @@ export const saveJwtFromRedirect = async (url) => {
   }
 };
 
+
 // ---------------------------------------------------
 // 3. [회원가입 요청 - FormData 사용]
 // ---------------------------------------------------
@@ -61,7 +65,9 @@ export const registerUser = async (userData, image, token) => {
     console.log('🪪 전달받은 토큰:', token);
     console.log('🖼 이미지 유무:', image ? '있음' : '없음');
 
+
     const formData = new FormData();
+
 
     // 🔁 userInfo 추가
     const userInfoStr = JSON.stringify(userData);
@@ -69,13 +75,14 @@ export const registerUser = async (userData, image, token) => {
     formData.append('userInfo', userInfoStr);
     console.log('✅ userInfo 필드 FormData에 추가 완료');
 
+
     // ✅ key 분해 방식으로 각 필드 개별 전송
     formData.append('nickname', userData.nickname);
     formData.append('gender', userData.gender);
     formData.append('age', userData.age.toString()); // 숫자는 문자열로 변환
     formData.append('mbti', userData.mbti);
     console.log('✅ 유저 정보 필드들 FormData에 개별 추가 완료');
-  
+ 
     // // json을 한덩어리로 보낼때, 이미지 추가 (있을 때만)
     // if (image) {
     //   const imageFile = {
@@ -89,6 +96,7 @@ export const registerUser = async (userData, image, token) => {
     //   console.log(' 이미지가 없어 profileImage 필드는 생략됨');
     // }
 
+
     // 🔁 Axios config 구성
     const config = {
       headers: {
@@ -98,16 +106,20 @@ export const registerUser = async (userData, image, token) => {
       },
     };
 
+
     console.log('🌐 [STEP 2] Axios 요청 준비 완료');
     console.log('🌐 요청 URL:', `${BASE_URL}/auth/signup`);
     console.log('📮 요청 헤더:', config.headers);
     console.log('🧾 FormData 목록:', formData._parts);  // Android에서 필드 확인용
 
+
     // 🔁 API 호출
     const response = await axios.post(`${BASE_URL}/auth/signup`, formData, config);
 
+
     console.log('✅ [STEP 3] 회원가입 요청 성공:', response.data);
     return response.data;
+
 
   } catch (error) {
     console.error('❌ [STEP 4] 회원가입 요청 실패');
@@ -116,9 +128,13 @@ export const registerUser = async (userData, image, token) => {
     console.error('📥 응답 상태:', error.response?.status);
     console.error('🧩 Axios 스택:', error.stack);
 
+
     throw error;
   }
 };
+
+
+
 
 
 
@@ -162,13 +178,15 @@ export const registerUser = async (userData, image, token) => {
 // ---------------------------------------------------
 export const getUserInfo = async (token) => {
 
+
   if (await isMockMode()) {  // 테스트용 mock 전용 함수.
     console.log('🧪 [MockMode] getUserInfo 실행됨 - 로컬 유저 반환');
     const localUser = await AsyncStorage.getItem('user');
     return JSON.parse(localUser);
   }
 
-  
+
+ 
   try {
     const response = await axios.get(`${BASE_URL}/user/profile`, {
       headers: {
@@ -184,6 +202,7 @@ export const getUserInfo = async (token) => {
     throw error;
   }
 };
+
 
 // 테스트용 로그인
 // export const loginMockUser = async (setUser) => {
