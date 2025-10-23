@@ -10,8 +10,8 @@ const scale = (size) => (SCREEN_WIDTH / BASE_WIDTH) * size;
 const vScale = (size) => (SCREEN_HEIGHT / BASE_HEIGHT) * size;
 
 export default function ChatBotCard({ children, style, height, noPadding, noShadow  }) {
+  // [CHANGED] 기본은 그림자 없이 (피그마는 라인/보더 중심)
   if (noShadow) {
-    // 그림자 없이 바로 카드 컨테이너만
     return (
       <View
         style={[
@@ -25,10 +25,11 @@ export default function ChatBotCard({ children, style, height, noPadding, noShad
       </View>
     );
   }
+  // [CHANGED] shadowWrapper 유지하되 기본 elevation 낮춤 (옵션성)
   return (
     <View
       style={[
-        styles.shadowWrapper, // 그림자 랩퍼
+        styles.shadowWrapper,
         height ? { height } : {},
       ]}
     >
@@ -45,44 +46,43 @@ export default function ChatBotCard({ children, style, height, noPadding, noShad
   );
 }
 
-
 const styles = StyleSheet.create({
-  shadowWrapper: {         // 아이폰 전용 그림자
+  shadowWrapper: {
+    // [CHANGED] 그림자 강도 완화
     ...Platform.select({
       ios: {
         shadowColor: '#000',
-        shadowOffset: { width: 2, height: 2 },
-        shadowOpacity: 0.16,
-        shadowRadius: 8,
+        shadowOffset: { width: 1, height: 1 },
+        shadowOpacity: 0.08,
+        shadowRadius: 3,
       },
       android: {
-        elevation: 4,
+        elevation: 1,
       },
     }),
     borderRadius: scale(9),
-    marginLeft: scale(20),
-    marginRight: scale(8),
-    marginTop: vScale(15),
-    marginBottom: vScale(15),
+    marginLeft: scale(0),   // [CHANGED] 리스트에서 간격 제어
+    marginRight: scale(0),
+    marginTop: vScale(0),
+    marginBottom: vScale(0),
   },
 
   cardContainer: {
-    width: scale(270),//253
+    // [CHANGED] 피그마 사이즈 반영
+    width: scale(233),
+    //height: vScale(172),
+    minHeight: vScale(205),
+
+    // [CHANGED] 피그마 보더/라운드
     borderRadius: scale(9),
-    backgroundColor: '#fff',
-    marginLeft: scale(20),
-    marginRight: scale(8),
-    marginTop: vScale(15),
-    marginBottom: vScale(15),
-    minHeight: vScale(186),
-    overflow: 'hidden',  // 넘치는 요소를 자를 수는 있지만 아이폰 그림자 제거
-    shadowColor: '#000',
-    shadowOffset: { width: scale(2), height: vScale(2) },
-    shadowOpacity: 0.2,
-    shadowRadius: scale(4),
-    elevation: 4,
-    justifyContent: 'center',
-    // paddingVertical: vScale(10),
-    // paddingHorizontal: scale(12),
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#D9D7FF',
+
+    // [CHANGED] 여백/정렬
+    overflow: 'hidden',
+    justifyContent: 'flex-start',
+
+    // [REMOVED] 기존 margin/shadow -> 리스트/부모가 담당
   },
 });

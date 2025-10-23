@@ -33,37 +33,51 @@ const dummyHotelList = [
 
 
 function HotelCardContent({ name, address, priceRange, phone, checkIn, checkOut }) {
+  // [CHANGED] innerContainer를 cardRoot와 bodyArea로 대체
   return (
-    <View style={styles.innerContainer}>
-      <Text style={styles.title}>{name}</Text>
-
-      <View style={styles.addressRow}>
-        <MaterialIcons name="location-on" size={12} color="#4F46E5" style={{ marginRight: 4 }} />
-        <Text style={styles.address}>{address}</Text>
+    <View style={styles.cardRoot}>
+      {/* [ADDED] Sight/Food/Event Bubble과 동일한 상단 제목 바 스타일 적용 */}
+      <View style={styles.headerBar}>
+        <Text style={styles.headerTitle}>{name}</Text> {/* [CHANGED] title -> headerTitle */}
       </View>
 
-      <View style={styles.infoRow}>
-        <Text style={styles.infoLabel}>숙박비 :</Text>
-        <Text style={styles.infoValue}>{priceRange}</Text>
-      </View>
-      <View style={styles.infoRow}>
-        <Text style={styles.infoLabel}>연락처 :</Text>
-        <Text style={styles.infoValue}>{phone || '-'}</Text>
-      </View>
-      <View style={styles.checkContainer}>
-        <View style={styles.checkColumn}>
-          <Text style={styles.checkInLabel}>Check In</Text>
-          <Text style={styles.checkTime}>{checkIn}</Text>
+      {/* [ADDED] 본문 영역 스타일 적용 */}
+      <View style={styles.bodyArea}>
+        
+        {/* 주소 */}
+        <View style={styles.addressRow}>
+          <MaterialIcons name="location-on" size={scale(12)} color="#4F46E5" style={{ marginRight: scale(4) }} />
+          <Text style={styles.addressText}>{address}</Text> {/* [CHANGED] address -> addressText */}
         </View>
-        <View style={styles.checkDivider}>
-          <View style={styles.verticalLine} />
+
+        {/* 숙박비 */}
+        <View style={styles.infoRow}>
+          <Text style={styles.infoLabel}>숙박비 :</Text>
+          <Text style={styles.infoValue}>{priceRange}</Text>
         </View>
-        <View style={styles.checkColumn}>
-          <Text style={styles.checkOutLabel}>Check Out</Text>
-          <Text style={styles.checkTime}>{checkOut}</Text>
+        
+        {/* 연락처 */}
+        <View style={styles.infoRow}>
+          <Text style={styles.infoLabel}>연락처 :</Text>
+          <Text style={styles.infoValue}>{phone || '-'}</Text>
         </View>
+
+        {/* [PRESERVED] 체크인/체크아웃 컨테이너 - 기존 레이아웃을 보존 */}
+        <View style={styles.checkContainer}>
+          <View style={styles.checkColumn}>
+            <Text style={styles.checkInLabel}>Check In</Text>
+            <Text style={styles.checkTime}>{checkIn}</Text>
+          </View>
+          <View style={styles.checkDivider}>
+            <View style={styles.verticalLine} />
+          </View>
+          <View style={styles.checkColumn}>
+            <Text style={styles.checkOutLabel}>Check Out</Text>
+            <Text style={styles.checkTime}>{checkOut}</Text>
+          </View>
+        </View>
+        
       </View>
-      
     </View>
   );
 }
@@ -72,98 +86,129 @@ export default function ResultHotelBubble({ data }) {
   const hotelList = data || dummyHotelList;
 
   return (
-    <ChatBotCardList
-      data={hotelList}
-      renderItem={({ item }) => (
-        <ChatBotCard>
-          <HotelCardContent {...item} />
-        </ChatBotCard>
-      )}
-    />
+    // [ADDED] Sight/Food/Event Bubble과 동일한 외부 프레임 적용
+    <View style={styles.resultFrame}>
+      <ChatBotCardList
+        data={hotelList}
+        renderItem={({ item }) => (
+          <ChatBotCard>
+            <HotelCardContent {...item} />
+          </ChatBotCard>
+        )}
+      />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  innerContainer: {
+  // [ADDED] Sight/Food/Event Bubble의 외부 프레임 스타일
+  resultFrame: {
+    width: scale(359),
+    minHeight: vScale(208),
+    backgroundColor: '#F1F1F5',
+    alignSelf: 'flex-start',
+    borderRadius: scale(8),
+    paddingVertical: vScale(18),
+  },
+
+  // [ADDED/CHANGED] Sight/Food/Event Bubble의 카드 루트 스타일 (233x172 내부 레이아웃)
+  cardRoot: {
     flex: 1,
+    width: '100%',
+    height: '100%',
+  },
+
+  // [ADDED] Sight/Food/Event Bubble의 헤더 바 스타일 (제목 영역)
+  headerBar: {
+    height: vScale(40),
+    backgroundColor: '#BCBAEB',
     justifyContent: 'center',
-    minHeight: vScale(110),         // 줄어들어도 카드 세로 최소 보장
-    paddingVertical: vScale(8),
+    alignItems: 'center',
+    paddingHorizontal: scale(10),
   },
-  title: {
+  headerTitle: { // [CHANGED] title -> headerTitle로 이름 변경 및 스타일 조정
     fontFamily: 'Roboto',
     fontWeight: '400',
-    fontSize: scale(18),
-    lineHeight: scale(24),
+    fontSize: scale(16),
+    lineHeight: scale(25),
     color: '#373737',
-    minWidth: scale(100),
-    marginLeft: scale(9),
-    marginTop: vScale(1),
-    marginBottom: vScale(8),
-    flexWrap: 'wrap',
+    textAlign: 'center',
     flexShrink: 1,
-    // height: scale(25), // 제거!
   },
-  infoRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',      // 여러 줄 대응
-    marginLeft: scale(9),
-    marginBottom: vScale(2),
+
+  // [ADDED] Sight/Food/Event Bubble의 본문 영역 스타일
+  bodyArea: {
+    flex: 1,
+    paddingHorizontal: scale(10),
+    paddingTop: vScale(8),
+    paddingBottom: vScale(10),
+    rowGap: vScale(4), // 요소 간 간격
   },
-  infoLabel: {
-    fontFamily: 'Roboto',
-    fontWeight: '400',
-    fontSize: scale(14),
-    lineHeight: scale(18),
-    color: '#333333',
-    width: scale(57),
-    // height: scale(19), // 제거!
-    textAlignVertical: 'center',
-  },
-  infoValue: {
-    fontFamily: 'Roboto',
-    fontWeight: '400',
-    fontSize: scale(14),
-    lineHeight: scale(18),
-    color: '#616161',
-    marginLeft: scale(2),
-    flexShrink: 1,
-    flexWrap: 'wrap',
-  },
+
+  // [CHANGED] 주소 행 스타일 (Sight/Food/Event Bubble과 통일)
   addressRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    marginLeft: scale(7),
-    marginTop: vScale(2),
-    marginBottom: vScale(10),
-    width: scale(212),
-    // height: scale(12), // 제거!
+    alignItems: 'flex-start',
+    columnGap: scale(4),
+    marginBottom: vScale(6), // Sight/Food/Event Bubble과 통일
+    marginLeft: scale(0),    // 기존 마진 제거
+    width: 'auto',           // 기존 고정 너비 제거
   },
-  address: {
+  // [CHANGED] 주소 텍스트 스타일 (Sight/Food/Event Bubble과 통일)
+  addressText: {
+    fontFamily: 'Roboto',
+    fontWeight: '400',
+    fontSize: scale(10),
+    lineHeight: scale(12),
+    color: '#868686',
+    flex: 1,
+    flexWrap: 'wrap',
+  },
+  
+  // [CHANGED] 정보 행 스타일 (Sight/Food/Event Bubble과 통일)
+  infoRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    flexWrap: 'wrap',
+    columnGap: scale(4),
+    rowGap: vScale(2),
+    marginBottom: vScale(2),
+    marginLeft: scale(0), // 기존 마진 제거
+  },
+  // [CHANGED] 라벨 스타일 (Sight/Food/Event Bubble과 통일)
+  infoLabel: {
+    width: scale(57), // 고정폭
     fontFamily: 'Roboto',
     fontWeight: '400',
     fontSize: scale(12),
-    lineHeight: scale(16),
-    color: '#868686',
-    marginLeft: scale(2),
-    minWidth: scale(100),
-    // height: scale(12), // 제거!
-    flexWrap: 'wrap',
-    textAlignVertical: 'center',
+    lineHeight: scale(15), // Sight/Food/Event Bubble과 통일
+    color: '#333333',
   },
+  // [CHANGED] 값 스타일 (Sight/Food/Event Bubble과 통일)
+  infoValue: {
+    fontFamily: 'Roboto',
+    fontWeight: '400',
+    fontSize: scale(12),
+    lineHeight: scale(15), // Sight/Food/Event Bubble과 통일
+    color: '#616161',
+    flex: 1,
+    flexWrap: 'wrap',
+  },
+
+  // --- 체크인/체크아웃 영역 (스타일 보존) ---
   checkContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: vScale(14),
-    marginLeft: scale(33),
-    marginRight: scale(33),
-    height: vScale(42),
+    marginTop: vScale(10), // 마진 조정
+    marginLeft: scale(15),
+    marginRight: scale(15),
+    height: vScale(42), // 높이 유지
   },
   checkColumn: {
     alignItems: 'center',
     flex: 1,
-    marginBottom: vScale(20),
+    // [REMOVED] marginBottom: vScale(20) 제거 (bodyArea의 flex와 충돌 방지)
   },
   checkInLabel: {
     fontFamily: 'Roboto',
@@ -199,6 +244,6 @@ const styles = StyleSheet.create({
     height: vScale(36),
     backgroundColor: '#999999',
     alignSelf: 'center',
-    marginBottom: vScale(16),
+    // [REMOVED] marginBottom: vScale(16) 제거 (bodyArea의 flex와 충돌 방지)
   },
 });
