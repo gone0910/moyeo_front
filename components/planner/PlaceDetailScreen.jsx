@@ -1,14 +1,16 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Platform, Dimensions,SafeAreaView } from 'react-native';
-import { useRoute, useNavigation } from '@react-navigation/native';
+// components/planner/PlaceDetailScreen.jsx
+import { useRoute, useNavigation, useFocusEffect } from '@react-navigation/native';
+import React, { useEffect, useState, useCallback } from 'react';
+import { MAIN_TAB_ID, defaultTabBarStyle, HIDDEN_TABBAR_STYLE } from '../../navigation/BottomTabNavigator';
+import { View, Text, StyleSheet, TouchableOpacity, Platform, Dimensions, Linking } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { Ionicons } from '@expo/vector-icons';
 
 import { saveCacheData, getCacheData, CACHE_KEYS } from '../../caching/cacheService';
 import { KAKAO_REST_API_KEY, KAKAO_JS_KEY } from '@env';
-import { Linking } from 'react-native';
+import { getScheduleDetail } from '../../api/planner_detail';
 
-// === 반응형 유틸 함수 ===
+// 반응형 유틸
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const BASE_WIDTH = 390; // iPhone 13 기준
 const BASE_HEIGHT = 844;
@@ -21,56 +23,119 @@ const CARD_RATIO = 0.25;
 const CARD_HEIGHT = SCREEN_HEIGHT * CARD_RATIO;
 const MAP_HEIGHT = SCREEN_HEIGHT * (1 - CARD_RATIO);
 
+// Kakao 보강용 헬퍼
+async function enrichFromKakao(keyword, KAKAO_KEY) {
+  const r = await fetch(
+    `https://dapi.kakao.com/v2/local/search/keyword.json?query=${encodeURIComponent(keyword)}`,
+    { headers: { Authorization: `KakaoAK ${KAKAO_KEY}` } }
+  );
+  const data = await r.json();
+  const d = data?.documents?.[0];
+  if (!d) throw new Error('NO_KAKAO_RESULT');
+  const lat = Number(d.y), lng = Number(d.x);
+  const addr = d.road_address_name || d.address_name || '';
+  return {
+    name: d.place_name || keyword,
+    type: d.category_group_name || '장소',
+    estimatedCost: 0,
+    lat, lng,
+    description: d.category_name || '',
+    address: addr,
+    kakaoPlaceUrl: d.place_url,
+  };
+}
+
 export default function PlaceDetailScreen() {
   const route = useRoute();
   const navigation = useNavigation();
-  const { place } = route.params;
 
-  const {
-    name,
-    type,
-    estimatedCost,
-    gptOriginalName,
-    lat,
-    lng,
-    description,
-    region,
-    address,
-  } = place;
+ useFocusEffect(
+   useCallback(() => {
+     const tabNav =
+       navigation.getParent?.(MAIN_TAB_ID) ||
+       navigation.getParent?.()?.getParent?.();
+     console.log('[PlaceDetail] hide tabbar');
+     tabNav?.setOptions({ tabBarStyle: HIDDEN_TABBAR_STYLE });
+     return () => tabNav?.setOptions({ tabBarStyle: defaultTabBarStyle });
+   }, [navigation])
+ );
 
-  const defaultLat = lat || 33.450701;
-  const defaultLng = lng || 126.570667;
-  const [resolvedAddress, setResolvedAddress] = useState(address);
+  const place = route?.params?.place ?? {};
 
-  // 카카오맵으로 이동하는 함수
-  
+  // 표시용 상태 (서버 상세 응답으로 보완)
+  const [display, setDisplay] = useState({
+    name: place?.name ?? '',
+    type: place?.type ?? '',
+    estimatedCost: Number.isFinite(place?.estimatedCost) ? Number(place?.estimatedCost) : 0,
+    lat: typeof place?.lat === 'number' ? place.lat : undefined,
+    lng: typeof place?.lng === 'number' ? place.lng : undefined,
+    description: place?.description ?? '',
+    address: place?.address ?? '',
+  });
 
+  const [resolvedAddress, setResolvedAddress] = useState(place?.address ?? '');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  // 상세 API 호출: 최초 1회
   useEffect(() => {
-    const fetchAddressFromCoords = async () => {
+    let mounted = true;
+    (async () => {
       try {
-        if (!address || address.length < 10) {
-          const res = await fetch(
-            `https://dapi.kakao.com/v2/local/geo/coord2address.json?x=${lng}&y=${lat}`,
-            {
-              headers: {
-                Authorization: KAKAO_REST_API_KEY,
-              },
-            }
-          );
-          const data = await res.json();
-          const fullAddr =
-            data.documents?.[0]?.road_address?.address_name ||
-            data.documents?.[0]?.address?.address_name;
-          if (fullAddr) setResolvedAddress(fullAddr);
-        }
+        setLoading(true);
+        setError(null);
+
+        const detail = await getScheduleDetail({
+          placeId: place?.placeId, // 있으면 서버 우선 조회
+          name: place?.name ?? '',
+          type: place?.type ?? '',
+          estimatedCost: Number.isFinite(place?.estimatedCost) ? Number(place?.estimatedCost) : 0,
+        });
+
+        if (!mounted) return;
+
+        setDisplay(prev => ({
+          name: detail?.name ?? prev.name,
+          type: detail?.type ?? prev.type,
+          estimatedCost: Number.isFinite(detail?.estimatedCost) ? Number(detail.estimatedCost) : prev.estimatedCost,
+          lat: typeof detail?.lat === 'number' ? detail.lat : prev.lat,
+          lng: typeof detail?.lng === 'number' ? detail.lng : prev.lng,
+          description: detail?.description ?? prev.description,
+          address: detail?.address ?? prev.address,
+        }));
+
+        saveCacheData(CACHE_KEYS.PLAN_DETAIL, { ...place, ...detail });
       } catch (e) {
-        console.warn('📛 주소 변환 실패:', e);
+        console.warn('📛 일정 상세 조회 실패:', e);
+        // 404면 카카오로 보강
+        if (e?.status === 404) {
+          try {
+            const keyword = (place?.name || '').trim();
+            if (keyword) {
+              const k = await enrichFromKakao(keyword, KAKAO_REST_API_KEY);
+              if (!mounted) return;
+              setDisplay(prev => ({ ...prev, ...k }));
+              saveCacheData(CACHE_KEYS.PLAN_DETAIL, { ...place, ...k });
+              setError(null);
+            } else {
+              setError('공식 상세가 없어 지도만 표시합니다.');
+            }
+          } catch (kerr) {
+            console.warn('📛 Kakao 보강 실패:', kerr);
+            setError('상세 정보가 없어 지도만 표시합니다.');
+          }
+        } else {
+          setError(e?.message || '상세 조회 실패');
+        }
+      } finally {
+        setLoading(false);
       }
-    };
-    fetchAddressFromCoords();
+    })();
+
+    return () => { mounted = false; };
   }, []);
 
-  useEffect(() => { saveCacheData(CACHE_KEYS.PLAN_DETAIL, place); }, [place]);
+  // 디버그용 캐시 확인(선택)
   useEffect(() => {
     (async () => {
       const detail = await getCacheData(CACHE_KEYS.PLAN_DETAIL);
@@ -78,84 +143,101 @@ export default function PlaceDetailScreen() {
     })();
   }, []);
 
-  const openKakaoPlaceDetail = async () => {
-  try {
-    // 카카오 장소검색 API 요청
-    const res = await fetch(
-      `https://dapi.kakao.com/v2/local/search/keyword.json?query=${encodeURIComponent(name)}`,
-      {
-        headers: {
-          Authorization: `KakaoAK ${KAKAO_REST_API_KEY}`,
-        },
+  // 좌표 → 주소 역변환 (카카오)
+  useEffect(() => {
+    const fetchAddressFromCoords = async () => {
+      try {
+        const addrCandidate = resolvedAddress || display.address;
+        if (!addrCandidate || String(addrCandidate).length < 10) {
+          const x = display?.lng ?? place?.lng;
+          const y = display?.lat ?? place?.lat;
+          if (typeof x !== 'number' || typeof y !== 'number') return;
+
+          const res = await fetch(
+            `https://dapi.kakao.com/v2/local/geo/coord2address.json?x=${x}&y=${y}`,
+            { headers: { Authorization: `KakaoAK ${KAKAO_REST_API_KEY}` } }
+          );
+          const data = await res.json();
+          const fullAddr =
+            data?.documents?.[0]?.road_address?.address_name ||
+            data?.documents?.[0]?.address?.address_name;
+
+          if (fullAddr) {
+            setResolvedAddress(fullAddr);
+            setDisplay(prev => ({ ...prev, address: fullAddr }));
+          }
+        }
+      } catch (e) {
+        console.warn('📛 주소 변환 실패:', e);
       }
-    );
-    const data = await res.json();
-    const placeId = data.documents?.[0]?.id;
-    if (placeId) {
-      // 상세페이지로 이동
-      Linking.openURL(`https://place.map.kakao.com/${placeId}`);
-    } else {
-      // 검색 결과로 이동
-      Linking.openURL(`https://map.kakao.com/?q=${encodeURIComponent(name)}`);
+    };
+    fetchAddressFromCoords();
+  }, [display.lat, display.lng]);
+
+  // 카카오 장소 상세(웹) 열기
+  const openKakaoPlaceDetail = async () => {
+    try {
+      const keyword = display.name || place?.name || '';
+      const res = await fetch(
+        `https://dapi.kakao.com/v2/local/search/keyword.json?query=${encodeURIComponent(keyword)}`,
+        { headers: { Authorization: `KakaoAK ${KAKAO_REST_API_KEY}` } }
+      );
+      const data = await res.json();
+      const placeId = data?.documents?.[0]?.id;
+
+      if (placeId) Linking.openURL(`https://place.map.kakao.com/${placeId}`);
+      else Linking.openURL(`https://map.kakao.com/?q=${encodeURIComponent(keyword)}`);
+    } catch {
+      const keywordFallback = display.name || place?.name || '';
+      Linking.openURL(`https://map.kakao.com/?q=${encodeURIComponent(keywordFallback)}`);
     }
-  } catch (e) {
-    // 오류 시 검색 결과로 이동
-    Linking.openURL(`https://map.kakao.com/?q=${encodeURIComponent(name)}`);
-  }
-};
+  };
+
+  const defaultLat =
+    typeof display.lat === 'number' ? display.lat :
+    (typeof place?.lat === 'number' ? place.lat : 33.450701);
+
+  const defaultLng =
+    typeof display.lng === 'number' ? display.lng :
+    (typeof place?.lng === 'number' ? place.lng : 126.570667);
 
   const mapHtml = `
   <!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes" />
-  <style>
-    html, body, #map {
-      margin: 0;
-      padding: 0;
-      width: 100vw;
-      height: 100vh;
-      overflow: hidden;
-    }
-  </style>
-  <script>
-    function initKakaoMap() {
-      if (typeof kakao === 'undefined') {
-        alert('❌ Kakao SDK 로드 실패');
-        return;
+  <html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes" />
+    <style>
+      html, body, #map { margin:0; padding:0; width:100vw; height:100vh; overflow:hidden; }
+    </style>
+    <script>
+      function initKakaoMap() {
+        if (typeof kakao === 'undefined') {
+          alert('❌ Kakao SDK 로드 실패');
+          return;
+        }
+        var map = new kakao.maps.Map(document.getElementById('map'), {
+          center: new kakao.maps.LatLng(${defaultLat}, ${defaultLng}),
+          level: 3
+        });
+        var marker = new kakao.maps.Marker({
+          position: new kakao.maps.LatLng(${defaultLat}, ${defaultLng})
+        });
+        marker.setMap(map);
+
+        kakao.maps.event.addListener(marker, 'click', function() {
+          window.ReactNativeWebView && window.ReactNativeWebView.postMessage('open_kakao_map');
+        });
+        kakao.maps.event.addListener(map, 'click', function() {
+          console.log('지도 클릭됨: 이동 방지');
+        });
       }
-
-      var map = new kakao.maps.Map(document.getElementById('map'), {
-        center: new kakao.maps.LatLng(${defaultLat}, ${defaultLng}),
-        level: 3
-      });
-
-      var marker = new kakao.maps.Marker({
-        position: new kakao.maps.LatLng(${defaultLat}, ${defaultLng})
-      });
-
-      marker.setMap(map);
-
-      // ✅ 마커 클릭 시에만 'open_kakao_map' 메시지 전달
-      kakao.maps.event.addListener(marker, 'click', function() {
-        window.ReactNativeWebView.postMessage('open_kakao_map');
-      });
-
-      // ✅ 지도 클릭 이벤트 추가 - 지도 클릭 시 카카오맵 이동 방지
-      kakao.maps.event.addListener(map, 'click', function() {
-        console.log('지도 클릭됨: 이동 방지');
-      });
-    }
-  </script>
-  <script src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=${KAKAO_JS_KEY}&autoload=false" onload="kakao.maps.load(initKakaoMap)"></script>
-</head>
-<body>
-  <div id="map"></div>
-</body>
-</html>
-`;
-
+    </script>
+    <script src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=${KAKAO_JS_KEY}&autoload=false" onload="kakao.maps.load(initKakaoMap)"></script>
+  </head>
+  <body><div id="map"></div></body>
+  </html>
+  `;
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#F4F6FB' }}>
@@ -163,59 +245,66 @@ export default function PlaceDetailScreen() {
         {/* 지도 */}
         <View style={[styles.mapBox, { height: MAP_HEIGHT }]}>
           <WebView
-  originWhitelist={['*']}
-  source={{ html: mapHtml }}
-  style={styles.map}
-  javaScriptEnabled
-  domStorageEnabled
-  mixedContentMode="always"
-  allowFileAccess
-  allowUniversalAccessFromFileURLs
-  useWebKit
-  scrollEnabled={true}
-  scalesPageToFit={true}
-  onMessage={(event) => {
-    if (event.nativeEvent.data === 'open_kakao_map') {
-      openKakaoPlaceDetail();  // ✅ 마커 클릭 시에만 카카오맵으로 이동
-    }
-  }}
-/>
-</View>
-          {/* 뒤로가기 버튼 (지도 위에 고정) */}
-          <TouchableOpacity
-            onPress={() => navigation.goBack()}
-            style={styles.backButton}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="chevron-back" size={normalize(24)} color="#fff" />
-          </TouchableOpacity>
+            originWhitelist={['*']}
+            source={{ html: mapHtml }}
+            style={styles.map}
+            javaScriptEnabled
+            domStorageEnabled
+            mixedContentMode="always"
+            allowFileAccess
+            allowUniversalAccessFromFileURLs
+            useWebKit
+            scrollEnabled={true}
+            scalesPageToFit={true}
+            onMessage={(event) => {
+              if (event?.nativeEvent?.data === 'open_kakao_map') {
+                openKakaoPlaceDetail();
+              }
+            }}
+          />
+        </View>
+
+        {/* 뒤로가기 버튼 */}
+        <TouchableOpacity
+          onPress={() => navigation.goBack()}
+          style={styles.backButton}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="chevron-back" size={normalize(24)} color="#4F46E5" />
+        </TouchableOpacity>
 
         {/* 카드 */}
-        
-        <View style={[styles.infoCard, { height: CARD_HEIGHT , marginBottom: normalize(30)}]}>
+        <View style={[styles.infoCard, { height: CARD_HEIGHT, marginBottom: normalize(30) }]}>
+          {loading ? <Text style={{ color: '#666', marginBottom: normalize(6) }}>불러오는 중...</Text> : null}
+          {error ? (
+            <Text style={{ color: '#888', marginBottom: normalize(6) }}>
+              {String(error)}
+            </Text>
+          ) : null}
+
           {/* 상단: 장소명/카테고리/가격 */}
           <View style={styles.row}>
             <View style={{ flexDirection: 'row', alignItems: 'center', flexShrink: 1 }}>
-              <Text style={styles.placeName}>{name}</Text>
-              {type && (
-                <Text style={styles.type}>{type}</Text>
-              )}
+              <Text style={styles.placeName}>{display.name}</Text>
+              {display.type ? <Text style={styles.type}>{display.type}</Text> : null}
             </View>
-            {estimatedCost === 0 ? (
-              <Text style={styles.cost}>무료</Text>
-            ) : estimatedCost ? (
-              <Text style={styles.cost}>{estimatedCost.toLocaleString()}원</Text>
-            ) : null}
+            {Number.isFinite(display.estimatedCost)
+              ? (Number(display.estimatedCost) === 0
+                  ? <Text style={styles.cost}>무료</Text>
+                  : <Text style={styles.cost}>{Number(display.estimatedCost).toLocaleString()}원</Text>)
+              : null}
           </View>
+
           {/* 설명 */}
-          {description ? (
-            <Text style={styles.description}>{description}</Text>
+          {display.description ? (
+            <Text style={styles.description}>{display.description}</Text>
           ) : null}
+
           {/* 하단 주소 */}
-          {resolvedAddress ? (
+          {(resolvedAddress || display.address) ? (
             <View style={styles.addressRow}>
               <Ionicons name="location-outline" size={normalize(17)} color="#4F46E5" style={{ marginRight: normalize(3) }} />
-              <Text style={styles.address}>{resolvedAddress}</Text>
+              <Text style={styles.address}>{resolvedAddress || display.address}</Text>
             </View>
           ) : null}
         </View>
@@ -223,8 +312,6 @@ export default function PlaceDetailScreen() {
     </SafeAreaView>
   );
 }
-
-const CARD_RADIUS = 18;
 
 const styles = StyleSheet.create({
   screen: {
@@ -255,7 +342,7 @@ const styles = StyleSheet.create({
     width: normalize(38),
     height: normalize(38),
     borderRadius: normalize(19),
-    backgroundColor: '#4F46E5',
+    backgroundColor: '#ffffff',
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#869FCF',
