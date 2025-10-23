@@ -15,7 +15,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons'; // 아이콘 1
 import Feather from 'react-native-vector-icons/Feather'; // 아이콘 2
 import { View, Text, StyleSheet } from 'react-native';
-
+import { getFocusedRouteNameFromRoute } from '@react-navigation/native';
 // 각 탭에서 연결될 화면 컴포넌트들
 import HomeNavigator from './HomeNavigator'; 
 import MyTripsScreen from '../components/trip/MyTripsScreen';
@@ -30,19 +30,6 @@ export default function BottomTabNavigator() {  //하단탭이 홈화면 및 라
     <Tab.Navigator
       screenOptions={({ route }) => ({
         headerShown: false,
-        tabBarStyle: {
-          height: 70,
-          paddingBottom: 6,
-          paddingTop: 6,
-          backgroundColor: '#FFFFFF',
-          borderTopWidth: 0,
-
-          // ✅ 상단 둥글게 처리
-          borderTopLeftRadius: 20,
-          borderTopRightRadius: 20,
-
-
-        },
         tabBarLabel: ({ focused, color }) => {
           const labels = {
             Home: '홈 화면',
@@ -95,21 +82,45 @@ export default function BottomTabNavigator() {  //하단탭이 홈화면 및 라
       })}
     >
       <Tab.Screen
-  name="Home"
-  component={HomeNavigator}
-  listeners={({ navigation }) => ({
-    tabPress: e => {
-      // 기본 동작 막기 (탭만 누르면 스택이 남을 수 있으므로)
-      e.preventDefault();
-      navigation.reset({
-        index: 0,
-        routes: [{ name: 'Home' }], // HomeStack의 루트로 리셋!
-      });
-    },
-  })}
-/>
+        name="Home"
+        component={HomeNavigator}
+        // ✅ 여기에서만 PlannerResponse 진입 시 tabBar 숨기기
+        options={({ route }) => {
+          const routeName = getFocusedRouteNameFromRoute(route) ?? '';
+          const shouldHideTabBar = routeName === 'PlannerResponse';
+
+          return {
+            tabBarStyle: {
+              height: shouldHideTabBar ? 0 : 70,
+              display: shouldHideTabBar ? 'none' : 'flex',
+              paddingBottom: shouldHideTabBar ? 0 : 6,
+              paddingTop: shouldHideTabBar ? 0 : 6,
+              backgroundColor: '#FFFFFF',
+              borderTopWidth: 0,
+
+              // ✅ 상단 둥글게 처리
+              borderTopLeftRadius: 20,
+              borderTopRightRadius: 20,
+            },
+          };
+        }}
+        listeners={({ navigation }) => ({
+          tabPress: e => {
+            // 기본 동작 막기 (탭만 누르면 스택이 남을 수 있으므로)
+            e.preventDefault();
+            navigation.reset({
+              index: 0,
+              routes: [{ name: 'Home' }], // HomeStack의 루트로 리셋!
+            });
+          },
+        })}
+      />
+
       <Tab.Screen name="MyTrips" component={MyTripsScreen} />
-      <Tab.Screen name="Chat" component={ChatNavigator} 
+
+      <Tab.Screen
+        name="Chat"
+        component={ChatNavigator}
         listeners={({ navigation }) => ({
           tabPress: (e) => {
             // 탭을 누를 때 항상 ChatList로 이동
@@ -120,13 +131,20 @@ export default function BottomTabNavigator() {  //하단탭이 홈화면 및 라
           },
         })}
       />
+
       <Tab.Screen name="Community" component={CommunityStackNavigator} />
     </Tab.Navigator>
   );
 }
 
 const styles = StyleSheet.create({
-
-
-
+  iconShadowContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  textShadowStyle: {
+    textShadowColor: '#ccc',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 1,
+  },
 });
