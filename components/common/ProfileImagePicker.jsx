@@ -71,13 +71,13 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   image: {
-    width: 200,
-    height: 200,
+    width: 86,
+    height: 86,
     borderRadius: 120,
   },
   placeholder: {
-    width: 200,
-    height: 200,
+    width: 86,
+    height: 86,
     borderRadius: 120,
     backgroundColor: '#E5E7EB',
     alignItems: 'center',

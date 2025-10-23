@@ -65,69 +65,28 @@ const vScale = (size) => (SCREEN_HEIGHT / BASE_HEIGHT) * size;
 
 
 // 1. mock/postId 설정
- const isMock = false; // true면 mock, false면 api 연동
-// const isMock = true; //목데이터
-/*
-const mockPostList = {
-  1: {
-    id: 1,
-    title: "서울 강남 맛집 추천드려요!",
-    nickname: "여행러버123",
-    userProfileImage: "https://via.placeholder.com/36x36.png",
-    createdDate: "2025.07.09 15:30",
-    destination: "서울",
-    postImages: ["https://source.unsplash.com/800x600/?korea,food"],
-    content: "강남구에서 발견한 숨은 맛집 공유해요! 가격도 괜찮고 분위기 좋았어요~",
-    userId: 101,
-  },
-  2: {
-    id: 2,
-    title: "제주도 한달살기 후기 공유합니다",
-    nickname: "오지여행자",
-    userProfileImage: "https://via.placeholder.com/36x36.png",
-    createdDate: "2025.07.08 11:10",
-    destination: "제주",
-    postImages: ["https://source.unsplash.com/800x600/?jeju,island"],
-    content: "제주에 살아보니 알게 된 현실 정보들! 렌트카 팁도 있어요.",
-    userId: 102,
-  },
+const isMock = false; // true면 mock, false면 api 연동
+const mockPost = {
+  id: 1,
+  title: "일본식 정통카레의 끝장판",
+  nickname: "카레홀릭",
+  userProfileImage: "https://placehold.co/36x36.png",
+  createdDate: "2025.06.03 14:05",
+  destination: "춘천",
+  postImages: [
+    
+  ],
+  content: `노란 간판부터 일본식 감성 제대로.
+혼밥하기 좋은 바 좌석도 있어서
+점심에 조용히 혼자 먹기에도 딱 좋은 곳이에요.
+카레는 기본 매운맛 조절 가능!`,
+  userId: 7
 };
-
-const mockCommentList = {
-  1: [
-    {
-      id: 101,
-      nickname: '도리',
-      content: '돌아버린거냐 저건 카레가 아니잖아',
-      profileUrl: 'https://placehold.co/36x36',
-      createdDate: '15분 전',
-      isMine: false,
-    },
-    {
-      id: 102,
-      nickname: '카레홀릭',
-      content: '맛있어요~',
-      profileUrl: 'https://placehold.co/36x36',
-      createdDate: '8분 전',
-      isMine: true,
-    },
-  ],
-  2: [
-    {
-      id: 103,
-      nickname: '오지여행자',
-      content: '좋은 정보 감사합니다!',
-      profileUrl: 'https://placehold.co/36x36',
-      createdDate: '1시간 전',
-      isMine: false,
-    },
-  ],
-}; */
 
 
 export default function PostDetailScreen({ route, navigation }) {
   const [token, setToken] = useState(null);
-  const [post, setPost] = useState(isMock ? mockPostList : null);
+  const [post, setPost] = useState(isMock ? mockPost : null);
   const [loading, setLoading] = useState(!isMock);
   const [myNickname, setMyNickname] = useState('');
   const [refreshing, setRefreshing] = useState(false);
@@ -244,18 +203,6 @@ export default function PostDetailScreen({ route, navigation }) {
 
 
   // 3. 게시글 상세 API 호출 (토큰/ID 모두 준비된 후)
-  //목데이터
-  /*
-  useEffect(() => {
-  if (!isMock && token && postId) {
-    getPostDetail(postId, token);
-  } else if (isMock) {
-    const selected = mockPostList[postId];
-    setPost(selected || null);
-  }
-}, [isMock, token, postId]);
-*/
-//여기까지
   useEffect(() => {
   if (!isMock && token && postId) { // token이 있을 때만 호출
     setLoading(true);
@@ -270,7 +217,7 @@ export default function PostDetailScreen({ route, navigation }) {
       })
       .finally(() => setLoading(false));
   }
-}, [isMock, token, postId]); 
+}, [isMock, token, postId]);
 
 
   if (!post) return <Text>게시글을 불러올 수 없습니다.</Text>; // 최소 로딩 표시
@@ -366,24 +313,13 @@ export default function PostDetailScreen({ route, navigation }) {
 
   // 입력창 + 댓글 작성 영역 (Footer)
   const renderFooter = () => (
-    //목데이터
-    /*
-    <CommentSection
-  postId={postId}
-  myNickname={post?.nickname}
-  comments={mockCommentList[postId]}
-  setComments={undefined}
-  /> 
-  */
- //여기까지
-    
   <CommentSection
     postId={post.postId}
     myNickname={myNickname}
     // comments={comments}
     // setComments={setComments}
-  /> 
-); 
+  />
+);
 
   if (!post) return <Text>게시글을 불러올 수 없습니다.</Text>;
  
@@ -394,11 +330,6 @@ export default function PostDetailScreen({ route, navigation }) {
     //  behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     //  keyboardVerticalOffset={Platform.OS === 'ios' ? 60 : 0}
     //>
-    <KeyboardAvoidingView
-    behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-    style={{ flex: 1 }}
-    keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0} // 헤더 높이에 따라 조절
-  >
       <SafeAreaView style={{ flex: 1, backgroundColor: '#FAFAFA' }}>
         <PostHeader
           title={post.title}
@@ -407,15 +338,25 @@ export default function PostDetailScreen({ route, navigation }) {
           onBack={() => navigation.navigate('CommunityMain')}
           onEdit={() => navigation.navigate('EditPost', { postId: post.postId, post })}
         />
-        <ScrollView
-      contentContainerStyle={{ paddingBottom: 30 }}
-      keyboardShouldPersistTaps="handled"
-    >
-      {renderHeader()}
-      {renderFooter()}
-    </ScrollView>
+        <FlatList
+          data={[]}                 // ① 빈 배열!
+          renderItem={null}         // ② 없음!
+          keyExtractor={() => null} // ③ 키 없음!
+          ListHeaderComponent={renderHeader}
+          ListFooterComponent={renderFooter}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              colors={['#4F46E5']}
+              tintColor="#4F46E5"
+            />
+          }
+          contentContainerStyle={{ paddingBottom: 30 }}
+          keyboardShouldPersistTaps="handled"
+        />
       </SafeAreaView>
-    /</KeyboardAvoidingView>
+    //</KeyboardAvoidingView>
   );
 }
 

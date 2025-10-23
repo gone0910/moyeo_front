@@ -8,23 +8,27 @@ import HeaderBar from '../../components/common/HeaderBar';
 
 const PlanImage = require('../../assets/images/Plan_image_new.png');
 
-// 기준 width (iPhone 13)
-const BASE_WIDTH = 390;
-const BASE_HEIGHT = 844;
+// 현재 기기의 화면 너비 / 높이 가져오기
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
-// ✅ 소수점 normalize (반올림 제거)
-function normalize(size, based = 'width') {
-  const scale = based === 'height' ? SCREEN_HEIGHT / BASE_HEIGHT : SCREEN_WIDTH / BASE_WIDTH;
-  return PixelRatio.roundToNearestPixel(size * scale); // 소수점 유지
-}
-
 export default function PlannerScreen() {
-  const navigation = useNavigation();
-  const { user } = useContext(UserContext);
-  const [fontsLoaded] = useFonts({ KaushanScript: KaushanScript_400Regular });
+  const navigation = useNavigation();                 // 화면 전환 기능
+  const { user } = useContext(UserContext);           // 사용자 정보 가져오기
+  const [fontsLoaded] = useFonts({                    // 폰트 비동기 로드
+    KaushanScript: KaushanScript_400Regular,
+  });
 
-  if (!fontsLoaded) return null;
+  if (!fontsLoaded) return null;                      // 폰트 로딩되기 전까지 렌더 중지
+
+  // ✅ 반응형 포인트 설정 (기기 비율 기반 + 최대/최소값 제한)
+  const titleFontSize = clamp(SCREEN_HEIGHT * 0.033, 20, 32);       // 메인 제목 폰트
+  const subtitleGap = clamp(SCREEN_HEIGHT * 0.0047, 2, 8);          // 서브제목 간격
+  const descFontSize = clamp(SCREEN_HEIGHT * 0.0213, 14, 22);       // 설명문구 폰트
+  const descGap = clamp(SCREEN_HEIGHT * 0.0166, 10, 24);            // 설명문구 간격
+  const imageSize = clamp(SCREEN_WIDTH * 0.75, 200, 300);           // 일러스트 이미지 크기
+  const buttonWidth = clamp(SCREEN_WIDTH * 0.9, 280, 360);          // 버튼 너비
+  const buttonPadding = clamp(SCREEN_HEIGHT * 0.021, 14, 24);       // 버튼 상하 여백
+  const buttonFontSize = clamp(SCREEN_HEIGHT * 0.0213, 14, 22);     // 버튼 글자 크기
 
   return (
     <View style={styles.container}>
@@ -60,47 +64,7 @@ export default function PlannerScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FAFAFA',
-  },
-  centerWrapper: {
-    flex: 1,
-    alignItems: 'center',
-    paddingHorizontal: normalize(24),
-    paddingTop: normalize(28, 'height'),     // 상단 여백
-  },
-  headerWrapper: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: normalize(21.5),
-    marginBottom: normalize(3.5),
-  },
-  logotext: {
-    color: '#4F46E5',
-    letterSpacing: 0.0,
-  },
-  profileImage: {
-    width: normalize(43.5),
-    height: normalize(43.5),
-    borderRadius: normalize(21.75),
-    backgroundColor: '#EEE',
-  },
-  profilePlaceholder: {
-    width: normalize(43.5),
-    height: normalize(43.5),
-    borderRadius: normalize(21.75),
-    backgroundColor: '#D1D5DB',
-  },
-  headerLine: {
-    height: normalize(1.0, 'height'),
-    backgroundColor: '#D1D5DB',
-    marginTop: normalize(5.5),
-    marginBottom: 0,
-    marginHorizontal: normalize(9.5),
-  },
-  title: {
-    fontSize: normalize(24.5),
-    color: '#111827',
+
     textAlign: 'center',
     fontFamily: 'Pretendard',
     fontWeight:500,
@@ -116,9 +80,6 @@ const styles = StyleSheet.create({
     fontWeight:400,
     color: '#6B7280',
     textAlign: 'center',
-    fontFamily: 'Pretendard',
-    marginTop: normalize(8, 'height'),
-    lineHeight: normalize(21, 'height'),
   },
   PlanImage: {
       width: normalize(264.5),              
@@ -128,16 +89,6 @@ const styles = StyleSheet.create({
     },
   illustrationWrapper: {
     alignItems: 'center',
-    marginTop: normalize(49.5),
-    marginBottom: normalize(23.5),
-  },
-  ctaButton: {
-    marginTop: normalize(28, 'height'),
-    width: normalize(188.5),
-    height:normalize(50.5),
-    justifyContent: 'center',
-    borderRadius: normalize(12),
-    backgroundColor: '#4F46E5',
     alignItems: 'center',
     // 그림자
     shadowColor: '#000',
@@ -146,11 +97,5 @@ const styles = StyleSheet.create({
     shadowRadius: 12,
     elevation: 6,
   },
-  ctaText: {
-    color: '#FFFFFF',
-    fontSize: normalize(16.5),
-    fontFamily: 'Pretendard',
-    fontWeight: 600,
-    textAlign: 'center',
   },
 });

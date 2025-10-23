@@ -3,7 +3,7 @@
 
 import React, { useRef, useEffect, useState } from 'react';
 import { ScrollView, View, StyleSheet, Text, TouchableOpacity, Dimensions } from 'react-native';
-import { MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import ChatBotIcon from '../icons/ChatBotIcon';
 import { useNavigation } from '@react-navigation/native';
 import { REGION_MAP } from '../common/regionMap';
@@ -16,6 +16,8 @@ import ResultEventBubble from './ResultEventBubble';
 import ResultWeatherBubble from './ResultWeatherBubble';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { queryByDestination, queryByGPS, recreateByDestination, recreateByGPS } from '../../api/chatBot';
+import LottieLoader from '../common/LottieLoader';
+import { SafeAreaView } from "react-native-safe-area-context"; // ✅ 추가됨
 
 
 const { width } = Dimensions.get('window');
@@ -489,40 +491,70 @@ setMessages(newMessages);
       </View>
       {children}
       {showButtons && (
-        <View style={[styles.interactionBtnRow, { opacity: isActive ? 1 : 0 }]}>
-
-          {/* 처음으로 */}
-          <View style={{ opacity: (!isActive || !enableToFirst) ? 0 : 1 }}>
+        // [ADDED] 세그먼트 전체 컨테이너 (Figma: 269 x 28, 가운데 정렬)
+        <View style={styles.segmentRow}>
+          {/* 처음으로 (Left) */}
           <TouchableOpacity
-          style={[styles.interactionBtn, (!isActive || !enableToFirst) && styles.disabledButton]}
-  onPress={isActive && enableToFirst ? handleToFirst : undefined}
-  disabled={!isActive || !enableToFirst}
-        >
-          <Text style={[styles.interactionBtnText, (!isActive || !enableToFirst) && styles.disabledButtonText]}>처음으로</Text>
-        </TouchableOpacity>
-        </View>
+            style={[
+              styles.segBtnBase,
+              styles.segLeft,
+              (!isActive || !enableToFirst) && styles.segDisabled, // [ADDED] 비활성 Border 처리
+            ]}
+            onPress={isActive && enableToFirst ? handleToFirst : undefined}
+            disabled={!isActive || !enableToFirst}
+            activeOpacity={0.8}
+          >
+            <Text
+              style={[
+                styles.segText,
+                (!isActive || !enableToFirst) && styles.segTextDisabled, // [ADDED] 비활성 텍스트 처리
+              ]}
+            >
+              처음으로
+            </Text>
+          </TouchableOpacity>
 
-        {/* 카테고리 변경 */}
-        <View style={{ opacity: (!isActive || !enableToCategory) ? 0 : 1 }}>
-        <TouchableOpacity
-          style={[styles.interactionBtn, (!isActive || !enableToCategory) && styles.disabledButton]}
-    onPress={isActive && enableToCategory ? handleToCategory : undefined}
-    disabled={!isActive || !enableToCategory}
-        >
-          <Text style={[styles.interactionBtnText, (!isActive || !enableToCategory) && styles.disabledButtonText]}>카테고리 변경</Text>
-        </TouchableOpacity>
-        </View>
+          {/* 카테고리 변경 (Middle) */}
+          <TouchableOpacity
+            style={[
+              styles.segBtnBase,
+              styles.segMiddle,
+              (!isActive || !enableToCategory) && styles.segDisabled,
+            ]}
+            onPress={isActive && enableToCategory ? handleToCategory : undefined}
+            disabled={!isActive || !enableToCategory}
+            activeOpacity={0.8}
+          >
+            <Text
+              style={[
+                styles.segText,
+                (!isActive || !enableToCategory) && styles.segTextDisabled,
+              ]}
+            >
+              카테고리 변경
+            </Text>
+          </TouchableOpacity>
 
-        {/* 리스트 재조회 */}
-        <View style={{ opacity: (!isActive || !enableListReload) ? 0 : 1 }}>
-        <TouchableOpacity
-          style={[styles.interactionBtn, (!isActive || !enableListReload) && styles.disabledButton]}
-    onPress={isActive && enableListReload ? handleListReload : undefined}
-    disabled={!isActive || !enableListReload}
-        >
-          <Text style={[styles.interactionBtnText, (!isActive || !enableListReload) && styles.disabledButtonText]}>리스트 재조회</Text>
-        </TouchableOpacity>
-        </View>
+          {/* 리스트 재조회 (Right) */}
+          <TouchableOpacity
+            style={[
+              styles.segBtnBase,
+              styles.segRight,
+              (!isActive || !enableListReload) && styles.segDisabled,
+            ]}
+            onPress={isActive && enableListReload ? handleListReload : undefined}
+            disabled={!isActive || !enableListReload}
+            activeOpacity={0.8}
+          >
+            <Text
+              style={[
+                styles.segText,
+                (!isActive || !enableListReload) && styles.segTextDisabled,
+              ]}
+            >
+              리스트 재조회
+            </Text>
+          </TouchableOpacity>
         </View>
       )}
     </View>
@@ -536,18 +568,39 @@ setMessages(newMessages);
 
       <View style={[styles.categoryBubble, !messages[key]?.isActive && styles.disabledBubble,
                                               { opacity: messages[key]?.isActive ? 1 : 0.5 }]}>
-        <Text style={styles.categoryTitle}>정보 제공을 원하시는 카테고리를 선택해 주세요.</Text>
+        <Text style={styles.categoryTitle}>
+            정보 제공을 원하시는 
+            <Text style={{ color: '#4F46E5', fontWeight: 'bold' }}> 카테고리</Text>
+            를 선택해 주세요.
+        </Text>
         <View style={styles.categoryBtnWrap}>
-          {CATEGORY_LIST.map((cat, idx) => (
-            <TouchableOpacity
-              key={cat.value}
-              style={[styles.categoryButton, !messages[key]?.isActive && styles.disabledButton]}
-              onPress={() => handleButton(cat.value, cat.label)}
-              disabled={!messages[key]?.isActive}
-            >
-              <Text style={[styles.categoryButtonText, !messages[key]?.isActive && styles.disabledButtonText]}>{cat.label}</Text>
-            </TouchableOpacity>
-          ))}
+          {CATEGORY_LIST.map((cat, idx) => {
+            const isFullWidth = cat.value === 'WEATHER'; // 날씨만 1열 전체 너비 사용
+
+            const btnStyle = isFullWidth ? styles.categoryButtonFull : styles.categoryButton;
+            const textStyle = isFullWidth ? styles.categoryButtonTextFull : styles.categoryButtonText;
+
+            return (
+              <TouchableOpacity
+                key={cat.value}
+                style={[
+                  btnStyle, 
+                  !messages[key]?.isActive && styles.disabledButton
+                ]}
+                onPress={() => handleButton(cat.value, cat.label)}
+                disabled={!messages[key]?.isActive}
+              >
+                <Text 
+                  style={[
+                    textStyle, 
+                    !messages[key]?.isActive && styles.disabledButtonText
+                  ]}
+                >
+                  {cat.label}
+                </Text>
+              </TouchableOpacity>
+            )
+          })}
         </View>
       </View>
     </BotMessageBlock>
@@ -575,7 +628,7 @@ setMessages(newMessages);
             {msg.province || msg.city
               ? `${msg.province ? msg.province : ''}${msg.city ? ' ' + msg.city : ''}의 `
               : '내 주변의 '}
-            <Text style={{ color: '#4F46E5', fontWeight: 'bold' }}>{msg.catLabel}</Text> 정보입니다.
+            <Text style={{ color: '#4F46E5', fontWeight: 'bold' }}>{msg.catLabel}</Text> 추천 정보입니다.
           </Text>
         </View>
         {/* 카드리스트(Bubble) */}
@@ -587,16 +640,21 @@ setMessages(newMessages);
 
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}> {/* ✅ SafeAreaView 적용 */}
       {/* 상단 헤더 */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.canGoBack() ? navigation.goBack() : navigation.navigate('BottomTab')} style={styles.sideButton}>
-          <MaterialIcons name="chevron-left" size={28} color="#4F46E5" />
+        <TouchableOpacity 
+          onPress={() => navigation.canGoBack() ? navigation.goBack() : navigation.navigate('BottomTab')} 
+          style={styles.sideButton} 
+          accessibilityLabel="뒤로가기"
+        >
+          {/* Ionicons 아이콘 사용 (EditProfileScreen과 통일) */}
+          <Ionicons name="chevron-back" size={scale(24)} color="#111111" />
         </TouchableOpacity>
-        <View style={styles.centerWrapper}>
-          <Text style={styles.headerTitle}>챗봇</Text>
-        </View>
-        <View style={styles.sideButton} />
+        {/* [CHANGED] centerWrapper 없이, 버튼과 붙도록 왼쪽에서 시작 */}
+        <Text style={styles.headerTitle}>챗봇</Text>
+        {/* 우측 빈 공간 처리 (공간 확보 목적) */}
+        <View style={styles.sideButton} /> 
       </View>
       <View style={styles.headerLine} />
       <ScrollView style={styles.chatArea} ref={scrollRef} contentContainerStyle={{ paddingBottom: 120 }}
@@ -622,6 +680,11 @@ setMessages(newMessages);
                   <ChatBotIcon width={28} height={28} />
                 </View>
                 <View style={[styles.botBubble, !msg.isActive && styles.disabledBubble,isLoading && styles.loadingBubble]}>
+                  {isLoading && (
+                    <View style={{ marginBottom: 8 }}>
+                      <LottieLoader />
+                    </View>
+                  )} {/* ✅ Lottie 삽입 */}
                   <Text style={{ fontSize: 14, lineHeight: 22 }}>
                     {msg.text.split(/(목적지 선택|현재 위치 기반)/g).map((part, idx) =>
                       part === '목적지 선택' || part === '현재 위치 기반'
@@ -657,46 +720,54 @@ setMessages(newMessages);
           }
         })}
       </ScrollView>
-    </View>
+    </SafeAreaView> // ✅ SafeAreaView 적용
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F9F9FF',
+    // [CHANGED] 배경색을 흰색으로 통일 (헤더와 내용 일관성 위해)
+    backgroundColor: '#FFFFFF',
   },
-  header: {
-    height: scale(97),              
+header: {
+    height: scale(56),              
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingTop: scale(45),          
-    paddingHorizontal: scale(16),   
-    backgroundColor: '#F9F9FF',  // 피드백 figma 컬러
+    // [CHANGED] 좌측 정렬 유지 (아이콘과 제목이 붙음)
+    justifyContent: 'flex-start',
+    paddingTop: 0,          
+    paddingHorizontal: scale(20), // 좌우 패딩 20px
+    backgroundColor: '#FFFFFF', 
     position: 'relative',
+    // [REMOVED] centerWrapper 스타일 제거
   },
-  centerWrapper: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+  // [REMOVED] centerWrapper 스타일 제거
+
   headerTitle: {
-    fontSize: scale(16),            
+    fontSize: scale(20),            
     fontFamily: 'Roboto',
-    fontWeight: '400',
-    color: '#000000',
-    maxWidth: scale(120),           
-    textAlign: 'center',
+    fontWeight: '500',
+    color: '#111111',
+    letterSpacing: -0.3,
+    // [CHANGED] 뒤로가기 버튼과의 좌측 마진 8px만 적용
+    marginLeft: scale(8), 
+    // [REMOVED] position: 'absolute', left: 0, right: 0, textAlign: 'center'
+    //          -> 아이콘 옆에 붙어 보이게 함
   },
   sideButton: {
-    width: scale(32),               
+    width: scale(24),
+    height: scale(24),
+    justifyContent: 'center',
+    alignItems: 'center',
+    // [CHANGED] 우측의 빈 sideButton이 화면 가장 오른쪽으로 가지 않도록 zIndex 및 width 유지
     zIndex: 1,
   },
+  // [CHANGED] 헤더 라인은 제거하거나, EditProfile의 #E5E5EC로 변경 가능
   headerLine: {
     height: scale(1),               
-    backgroundColor: '#999999',
-    marginHorizontal: scale(16),    
+    backgroundColor: '#FFFFFF', // EditProfile 스타일 통일
+    marginHorizontal: 0, // [CHANGED] 헤더 너비 전체를 따라가도록 마진 제거
   },
   chatArea: {
     flex: 1,
@@ -762,17 +833,19 @@ const styles = StyleSheet.create({
     width: scale(70),  // 도값 버튼 가로 길이이
     height: scale(28),
     borderRadius: scale(5),
-    backgroundColor: '#9893EB',
+    backgroundColor: '#fff',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: scale(9),
     marginBottom: scale(10),
+    borderWidth: scale(1),         // 테두리 두께
+    borderColor: '#9893EB',
   },
   provinceButtonText: {
     fontFamily: 'Roboto',
     fontWeight: '400',
     fontSize: scale(14),
-    color: '#fff',
+    color: '#9893EB',
     textAlign: 'center',
   },
   prevButtonFull: {
@@ -808,7 +881,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   userBubble: {
-    backgroundColor: '#7E7E7E',
+    backgroundColor: '#fff',
     borderTopLeftRadius: scale(14),
     borderBottomRightRadius: scale(14),
     borderBottomLeftRadius: scale(14),
@@ -818,9 +891,11 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-end',
     maxWidth: '80%',
     marginTop: scale(20),
+    borderWidth: scale(3),         // 테두리 두께
+    borderColor: '#7E7E7E',
   },
   userText: {
-    color: '#fff',
+    color: '#7E7E7E',
     fontSize: scale(14),
     textAlign: 'center',
   },
@@ -846,17 +921,19 @@ const styles = StyleSheet.create({
     width: scale(70),
     height: scale(28),
     borderRadius: scale(5),
-    backgroundColor: '#948FE0',
+    backgroundColor: '#fff',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: scale(9),
     marginBottom: scale(10),
+    borderWidth: scale(1),         // 테두리 두께
+    borderColor: '#9893EB',
   },
   cityButtonText: {
     fontFamily: 'Roboto',
     fontWeight: '400',
     fontSize: scale(14),
-    color: '#fff',
+    color: '#948FE0',
     textAlign: 'center',
   },
   categoryTitle: {
@@ -871,23 +948,52 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
   },
   categoryBtnWrap: {
+    flexDirection: 'row', 
+    flexWrap: 'wrap',
+    justifyContent: 'space-between', // [CHANGED] 버튼들을 양쪽 끝으로 밀착시켜 간격을 균등하게
     marginTop: scale(12),
+    // [ADDED] 버튼 사이의 수직 간격
+    rowGap: scale(10), 
+    // [ADDED] 컨테이너 폭을 버튼 영역(226px)에 맞춰 좁힘 (기존 221px보다 넓음)
+    width: scale(226), 
+    alignSelf: 'center', // categoryBubble 내에서 중앙 정렬
   },
   categoryButton: {
-    width: scale(221),
+    width: scale(108.5), 
     height: scale(28),
     borderRadius: scale(6),
-    backgroundColor: '#4F46E5',
+    backgroundColor: '#F9F9FF', // [CHANGED] Figma: 배경 흰색에 가까운 F9F9FF
+    borderWidth: scale(1),       // [CHANGED] Figma: 테두리 1px
+    borderColor: '#4F46E5',     // [CHANGED] Figma: 테두리 보라색
     justifyContent: 'center',
     alignItems: 'center',
-    alignSelf: 'center',
-    marginBottom: scale(12),
+    borderWidth: scale(1),         // 테두리 두께
+    borderColor: '#4F46E5',
   },
+  categoryButtonFull: {
+    width: '100%', // 226px 전체 사용
+    height: scale(28),
+    borderRadius: scale(6),
+    backgroundColor: '#F9F9FF', // [CHANGED] Figma: 날씨 버튼은 배경 보라색
+    borderWidth: scale(1),
+    borderColor: '#4F46E5',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  categoryButtonTextFull: {
+    fontFamily: 'Roboto',
+    fontWeight: '400',
+    fontSize: scale(14),
+    lineHeight: scale(25), 
+    color: '#4F46E5', // <--- 이 부분을 검정색(#111111)으로 변경
+    textAlign: 'center',
+},
   categoryButtonText: {
     fontFamily: 'Roboto',
     fontWeight: '400',
     fontSize: scale(14),
-    color: '#fff',
+    lineHeight: scale(25), // Figma: 25px
+    color: '#4F46E5',      // [CHANGED] 기본 텍스트 색상
     textAlign: 'center',
   },
   resultBubble: {
@@ -897,7 +1003,7 @@ const styles = StyleSheet.create({
     borderTopRightRadius: scale(20),
     borderBottomRightRadius: scale(20),
     borderBottomLeftRadius: scale(20),
-    backgroundColor: '#CAC7FF',
+    backgroundColor: '',
     marginLeft: scale(19),
     marginTop: scale(24),
     justifyContent: 'center',
@@ -907,6 +1013,8 @@ const styles = StyleSheet.create({
     borderWidth: 0,
     alignSelf: 'flex-start',
     flexShrink: 1,            // 👈 반드시 추가!
+    borderWidth: scale(3),         // 테두리 두께
+    borderColor: '#CAC7FF',
   },
   resultText: {
     fontFamily: 'Roboto',
@@ -949,5 +1057,64 @@ const styles = StyleSheet.create({
     width: undefined,               // 혹시 width 고정값 있으면 무시
     alignSelf: 'flex-start',
   },
+  segmentRow: {
+  // Figma: 269 x 28, 가운데 정렬
+  width: scale(269),
+  height: scale(28),
+  flexDirection: 'row',
+  justifyContent: 'center',
+  alignItems: 'center',
+  // Bot bubble 아래 여백(기존과 톤 맞춤, 필요 시 조정)
+  marginTop: scale(10),
+  marginLeft: scale(16),
+},
+segBtnBase: {
+  height: scale(28),
+  backgroundColor: '#F9F9FF',     // Figma: 배경
+  justifyContent: 'center',
+  alignItems: 'center',
+},
+segLeft: {
+  width: scale(87),                // Figma: 87
+  borderColor: '#4F46E5',
+  borderWidth: 1,
+  borderRightWidth: 1,            // 좌측 버튼 테두리
+  borderRadius: scale(7),
+  borderTopRightRadius: scale(2), // Figma: radius 7 2 2 7
+  borderBottomRightRadius: scale(2),
+  marginRight: 0,                 // 버튼 사이 간격 없음(세그먼트 연결)
+},
+segMiddle: {
+  width: scale(88),                // Figma: 88
+  borderColor: '#4F46E5',
+  borderTopWidth: 1,              // Figma: border-width 1 0
+  borderBottomWidth: 1,
+  borderLeftWidth: 0,
+  borderRightWidth: 0,
+  borderRadius: scale(2),         // Figma: 2px
+},
+segRight: {
+  width: scale(87),                // Figma: 87
+  borderColor: '#4F46E5',
+  borderWidth: 1,
+  borderLeftWidth: 1,
+  borderRadius: scale(7),
+  borderTopLeftRadius: scale(2),  // Figma: radius 2 7 7 2
+  borderBottomLeftRadius: scale(2),
+  marginLeft: 0,
+},
+segText: {
+  fontFamily: 'Roboto',
+  fontWeight: '400',
+  fontSize: scale(12),
+  lineHeight: scale(25),
+  color: '#4F46E5',               // Figma: 텍스트 보라
+  textAlign: 'center',
+},
+segDisabled: {
+  borderColor: '#BDBDBD',         // 기존 비활성 톤과 맞춤
+},
+segTextDisabled: {
+  color: '#B0B0B0',
+},
 });
-

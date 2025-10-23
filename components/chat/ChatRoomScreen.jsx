@@ -1,9 +1,10 @@
 // components/chat/ChatRoomScreen.jsx
 // ✅ 채팅방 화면 - 백엔드 명세서 기반 리팩토링 (더미 데이터 기준)
-import React, { useContext, useState, useRef, useEffect, useCallback } from 'react';
-import {  View,  Text,  TextInput,  FlatList,  TouchableOpacity,  StyleSheet,  SafeAreaView,  Image,
+import React, { useContext, useState, useRef, useEffect, useCallback } from 'react'; // ⬅️ useRef, useCallback 추가
+import {  View,  Text,  TextInput,  FlatList,  TouchableOpacity,  StyleSheet,  Image,
   KeyboardAvoidingView, Platform ,Modal, Alert, Dimensions, RefreshControl
 } from 'react-native';
+import { SafeAreaView } from "react-native-safe-area-context";
 import { MaterialIcons } from '@expo/vector-icons';
 import { UserContext } from '../../contexts/UserContext';
 import { exitChatRoom,getChatHistory, markAsRead } from '../../api/chat'; // chat.js api 연결
@@ -52,15 +53,19 @@ function formatDestination(province, cities = []) {
 const ChatRoomScreen = ({ route, navigation }) => {
   const params = route.params?.params || route.params || {}; // 중첩구조 예상해서
   const { roomId, nickname, origin } = params;  // 중첩구조 예상해서 디버깅용 파라미터
-  const { user } = useContext(UserContext); // 하단탭 이동시 disconnect (하단탭 삭제시 userFOcusEffect문 삭제)
+  const { user } = useContext(UserContext); // ⬅️ 토큰 외의 정보(id, nickname)를 위해 유지
   const [refreshing, setRefreshing] = useState(false);
+  const authTokenRef = useRef(null); // ⬅️ 동기 클린업에서 사용할 토큰 저장소
 
-  // 새로고침 추가
+  // 새로고침 추가 (AsyncStorage 사용)
   const handleRefresh = async () => {
   setRefreshing(true);
   try {
     console.log('📜 [새로고침] 메시지 다시 로딩...');
-    const history = await getChatHistory(roomId, user.token);
+    const token = await AsyncStorage.getItem('jwt'); // ⬅️ [수정] AsyncStorage에서 가져오기
+    if (!token) throw new Error('토큰이 없습니다.');
+
+    const history = await getChatHistory(roomId, token); // ⬅️ [수정]
     setMessages(history);
     console.log('📜 [새로고침] 완료');
   } catch (err) {
@@ -75,11 +80,12 @@ const ChatRoomScreen = ({ route, navigation }) => {
     useFocusEffect(
     useCallback(() => {
       return () => {
-        if (user?.token) {
-          disconnectStompClient(user.token);
+        // ⬇️ [수정] 동기 함수이므로 ref에서 토큰을 읽음
+        if (authTokenRef.current) {
+          disconnectStompClient(authTokenRef.current);
         }
       };
-    }, [user?.token])
+    }, []) // ⬅️ 의존성 없음
   );
 
   // 모달 관련 상태
@@ -117,8 +123,8 @@ const ChatRoomScreen = ({ route, navigation }) => {
     // 닉네임 버튼 클릭 시: 상대방 정보 fetch & 모달 open
   const handleProfilePress = async () => {
     try {
-      const token = await AsyncStorage.getItem('jwt');
-      const detail = await getUserMatchingDetail(route.params.nickname, token);
+      const token = await AsyncStorage.getItem('jwt'); //
+      const detail = await getUserMatchingDetail(route.params.nickname, token); //
       setProfileData(detail);
       setProfileModalVisible(true);
     } catch (error) {
@@ -129,8 +135,8 @@ const ChatRoomScreen = ({ route, navigation }) => {
 
   const flatListRef = useRef();
   // mock 분기 추가 필요요
-  // 수정 후: 메시지 받자마자 실시간으로 읽음 처리 호출!
-  const handleReceiveMessage = (msg) => {
+  // 수정 후: 메시지 받자마자 실시간으로 읽음 처리 호출! (useCallback으로 메모이제이션)
+  const handleReceiveMessage = useCallback(async (msg) => {
     if (!msg.sender || !msg.message || !msg.timestamp) {
       console.warn('❗ 누락된 필드가 있는 메시지 수신됨:', msg);
       return;
@@ -141,24 +147,33 @@ const ChatRoomScreen = ({ route, navigation }) => {
       flatListRef.current?.scrollToEnd({ animated: true });
     }, 100);
 
-    // [실시간 읽음 처리] 추가!
-    // markAsRead(roomId, user.token)
-    //   .then(() => {
-    //     console.log('[실시간 읽음 처리] markAsRead 호출 완료');
-    //   })
-    //   .catch(err => {
-    //     console.error('[실시간 읽음 처리] markAsRead 에러', err);
-    //   });
-  };
+    // [실시간 읽음 처리] (주석 해제 및 AsyncStorage 사용)
+    try {
+      const token = await AsyncStorage.getItem('jwt'); // ⬅️ [수정]
+      if (token) {
+        await markAsRead(roomId, token);
+        console.log('[실시간 읽음 처리] markAsRead 호출 완료');
+      }
+    } catch (err) {
+      console.error('[실시간 읽음 처리] markAsRead 에러', err);
+    }
+  }, [roomId]); // ⬅️ roomId에 의존
 
     useEffect(() => {
-      getChatHistory(roomId, user.token).then(res => {
-        console.log('🧾 응답 메시지', res);
-        console.log('✔️ 첫 메시지 읽은 인원 수:', res[0]?.unReadUserCount);
-      });
+      // (기존의 중복된 getChatHistory 호출 제거 또는 수정)
+      // 예: 디버깅용 로그로만 남기기
+      (async () => {
+        const token = await AsyncStorage.getItem('jwt');
+        if (token) {
+          getChatHistory(roomId, token).then(res => {
+            console.log('🧾 응답 메시지 (초기 로그)', res ? res.length : 0);
+          });
+        }
+      })();
+      
       const init = async () => {
         console.log('📌 [ChatRoom INIT] 채팅방 초기화 시작');
-        console.log('👤 사용자 정보:', user);
+        // console.log('👤 사용자 정보:', user); // ⬅️ 토큰은 더 이상 여기서 참조 안 함
 
         // 1. Mock 모드 확인
         const isMock = await AsyncStorage.getItem('mock');
@@ -167,11 +182,13 @@ const ChatRoomScreen = ({ route, navigation }) => {
           return;
         }
 
-        // 2. 유저 토큰 확인
-        if (!user || !user.token) {
-          console.warn('🚫 [중단] JWT 토큰 없음 → STOMP 연결 불가');
+        // 2. 유저 토큰 확인 (AsyncStorage 사용)
+        const token = await AsyncStorage.getItem('jwt'); // ⬅️ [수정]
+        if (!token) { 
+          console.warn('🚫 [중단] JWT 토큰 없음 (AsyncStorage) → STOMP 연결 불가');
           return;
         }
+        authTokenRef.current = token; // ⬅️ [추가] 클린업 함수를 위해 ref에 저장
 
         // 3. route 파라미터 확인
         const params = route.params?.params || route.params || {};
@@ -188,7 +205,7 @@ const ChatRoomScreen = ({ route, navigation }) => {
         }
 
         // 4. STOMP 연결
-        connectStompClient(roomId, handleReceiveMessage, user.token, async () => {
+        connectStompClient(roomId, handleReceiveMessage, token, async () => {
           console.log('✅ [STOMP 연결 성공]');
           setIsConnected(true); // 전송 허용 상태 설정
 
@@ -217,9 +234,9 @@ const ChatRoomScreen = ({ route, navigation }) => {
         // 5. 읽음 처리 후 이전 메시지 불러오기 (여기만 남겨두기)
         try {
           console.log('✅ [읽음 처리 요청]');
-          await markAsRead(roomId, user.token);      // ✅ 먼저 읽음 처리!
+          await markAsRead(roomId, token); // ⬅️ [수정]
           console.log('📜 [이전 메시지] 로딩 시작...');
-          const history = await getChatHistory(roomId, user.token);  // ✅ 이후 메시지 조회
+          const history = await getChatHistory(roomId, token); // ⬅️ [수정]
           console.log('[getChatHistory 응답]', JSON.stringify(history, null, 2));
 
           setMessages(history);
@@ -231,18 +248,24 @@ const ChatRoomScreen = ({ route, navigation }) => {
 
       init();
 
-      // ✅ beforeRemove 이벤트 리스너 등록
+      // ✅ beforeRemove 이벤트 리스너 등록 (Ref 사용)
       const removeListener = navigation.addListener('beforeRemove', () => {
         console.log('[beforeRemove] disconnect 실행!');
-        disconnectStompClient(user.token);
+        // ⬇️ [수정] 동기 함수이므로 ref에서 토큰을 읽음
+        if (authTokenRef.current) {
+          disconnectStompClient(authTokenRef.current);
+        }
       });
 
       return () => {
         console.log('📴 [STOMP 연결 종료]');
-        disconnectStompClient(user.token);
+        // ⬇️ [수정] 동기 함수이므로 ref에서 토큰을 읽음
+        if (authTokenRef.current) {
+          disconnectStompClient(authTokenRef.current);
+        }
         removeListener();
       };
-    }, [user]);
+    }, [roomId, navigation, handleReceiveMessage]); // ⬅️ [수정] 의존성 배열 업데이트
 
   
   const handleSend = () => {
@@ -270,7 +293,7 @@ const ChatRoomScreen = ({ route, navigation }) => {
     }, 100);
   };
 
-    //  채팅방 나가기 경고 팝업
+    //  채팅방 나가기 경고 팝업 (AsyncStorage 사용)
   const confirmExitRoom = () => {
     Alert.alert(
       '채팅방 나가기',
@@ -281,13 +304,16 @@ const ChatRoomScreen = ({ route, navigation }) => {
           text: '나가기',
           onPress: async () => {
             try {
+              const token = await AsyncStorage.getItem('jwt'); // ⬅️ [수정]
+              if (!token) throw new Error('토큰이 없습니다.');
+
               console.log('채팅방 나가기 요청 →', {
                 roomId,
-                token: user.token,
+                token: token, // ⬅️ [수정]
               });
-              await exitChatRoom(roomId, user.token); // 백엔드에 나가기 요청
-              disconnectStompClient(user.token);                  // WebSocket 연결 종료
-              navigation.goBack();                      // 화면 뒤로가기
+              await exitChatRoom(roomId, token); // ⬅️ [수정]
+              disconnectStompClient(token);      // ⬅️ [수정]
+              navigation.goBack();                      
               
               
             } catch (err) {
@@ -701,20 +727,17 @@ const styles = StyleSheet.create({
     width: '90%',
     maxWidth: scale(400),
     backgroundColor: '#FFF',
-    borderRadius: scale(20),
-    padding: scale(26),
+    borderRadius: scale(18), // 변경: scale(20) -> scale(18)
+    paddingVertical: vScale(12), // 변경: scale(26) -> vScale(12)
+    paddingHorizontal: scale(16), // 변경: scale(26) -> scale(16)
     alignItems: 'center',
-    shadowColor: '#888',
-    shadowOffset: { width: 0, height: vScale(10) },
-    shadowOpacity: 0.14,
-    shadowRadius: scale(22),
-    elevation: 9,
+    // 그림자 속성 제거됨
     position: 'relative',
   },
   modalProfileImageUpdated: {
-    width: scale(86),
-    height: scale(86),
-    borderRadius: scale(14),
+    width: scale(68), // 변경: scale(86) -> scale(68)
+    height: scale(68), // 변경: scale(86) -> scale(68)
+    borderRadius: scale(21), // 변경: scale(14) -> scale(21)
     backgroundColor: '#ECECEC',
     borderWidth: 2,
     borderColor: '#E0E7FF',
@@ -738,15 +761,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   modalUserName: {
-    fontSize: scale(22),
-    fontWeight: 'bold',
-    color: '#4F46E5',
+    fontSize: scale(20), // 변경: scale(22) -> scale(20)
+    fontWeight: '400', // 변경: bold -> 400
+    color: '#111111', // 변경: #4F46E5 -> #111111
     marginLeft: scale(20),
   },
   modalDate: {
-    fontSize: scale(15),
-    color: '#888',
-    marginTop: vScale(6),
+    fontSize: scale(18), // 변경: scale(15) -> scale(18)
+    color: '#7E7E7E', // 변경: #888 -> #7E7E7E
+    marginTop: vScale(0), // 변경: vScale(6) -> vScale(0)
     marginLeft: scale(20),
   },
   infoRow: {
@@ -775,57 +798,57 @@ const styles = StyleSheet.create({
   },
   infoTag1: {
     MaxWidth: scale(69),
-    height: scale(30),
+    height: scale(29), // 변경: scale(30) -> scale(29)
     marginLeft: scale(10),
     borderRadius: scale(8),
     backgroundColor: '#ADB3DD',
     color: '#fff',
-    fontSize: scale(16),
+    fontSize: scale(14), // 변경: scale(16) -> scale(14)
     textAlign: 'center',
     textAlignVertical: 'center',
-    lineHeight: scale(30),
+    lineHeight: scale(29), // 변경: scale(30) -> scale(29)
     paddingHorizontal: scale(8),
   },
   infoTag2: {
     minWidth: scale(63),
-    height: scale(30),
+    height: scale(29), // 변경: scale(30) -> scale(29)
     marginLeft: scale(10),
     borderRadius: scale(8),
     backgroundColor: '#B3A4F7',
     color: '#fff',
-    fontSize: scale(16),
+    fontSize: scale(14), // 변경: scale(16) -> scale(14)
     textAlign: 'center',
     textAlignVertical: 'center',
-    lineHeight: scale(30),
+    lineHeight: scale(29), // 변경: scale(30) -> scale(29)
     paddingHorizontal: scale(8),
     marginBottom: scale(5),
   },
   infoTag3: {
     MaxWidth: scale(98),
-    height: scale(30),
+    height: scale(29), 
     marginLeft: scale(10),
     borderRadius: scale(8),
     backgroundColor: '#B3A4F7',
     color: '#fff',
-    fontSize: scale(16),
+    fontSize: scale(14), 
     textAlign: 'center',
     textAlignVertical: 'center',
-    lineHeight: scale(30),
+    lineHeight: scale(29), 
     paddingHorizontal: scale(11),
   },
   infoTag4: {
     width: scale(83),
-  height: scale(30),
-  marginLeft: scale(10),
-  borderRadius: scale(8),
-  backgroundColor: '#FAF4FF',
-  color: '#7E7E7E',
-  fontSize: scale(16),
-  borderWidth: 1,
-  borderColor: '#D6C9DF',
-  textAlign: 'center',
-  textAlignVertical: 'center',
-  lineHeight: scale(30),
+    height: scale(29), 
+    marginLeft: scale(10),
+    borderRadius: scale(8),
+    backgroundColor: '#FAF4FF',
+    color: '#7E7E7E',
+    fontSize: scale(14), 
+    borderWidth: 1,
+    borderColor: '#D6C9DF',
+    textAlign: 'center',
+    textAlignVertical: 'center',
+    lineHeight: scale(29), 
   },
 });
 
