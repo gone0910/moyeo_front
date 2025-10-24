@@ -11,17 +11,15 @@ import {
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import TravelCard from '../common/TravelCard';
+import { useNavigation } from '@react-navigation/native';
 
 // ==== 반응형 유틸 함수 (iPhone 13 기준) ====
-// (원본 유지)
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const BASE_WIDTH = 390;
 const BASE_HEIGHT = 844;
 function normalize(size, based = 'width') {
   const scale =
-    based === 'height'
-      ? SCREEN_HEIGHT / BASE_HEIGHT
-      : SCREEN_WIDTH / BASE_WIDTH;
+    based === 'height' ? SCREEN_HEIGHT / BASE_HEIGHT : SCREEN_WIDTH / BASE_WIDTH;
   const newSize = size * scale;
   if (Platform.OS === 'ios') {
     return Math.round(PixelRatio.roundToNearestPixel(newSize));
@@ -35,14 +33,34 @@ function normalize(size, based = 'width') {
  */
 export default function TravelSection({ travelList = [], onPressCreate, onPressCard }) {
   const safeList = Array.isArray(travelList) ? travelList : [];
-  console.log('📦 onPressCard:', onPressCard);
+  const navigation = useNavigation();
 
-  const isEmpty = (safeList?.length ?? 0) === 0;
+  // [FIX] isEmpty 정의
+  const isEmpty = safeList.length === 0;
+
+  // ✅ 통일: plan 객체를 인자로 받는다.
+  const handlePress = (plan) => {
+    if (!plan) return;
+
+    // [FIX] 부모 핸들러가 있으면 부모에게만 위임하고 종료
+    if (typeof onPressCard === 'function') {
+      onPressCard(plan);
+      return;
+    }
+
+    // 부모 핸들러가 없으면 기본 동작: PlannerResponse로 이동 (읽기 모드)
+    navigation.navigate('PlannerResponse', {
+      scheduleId: String(plan.id), // ✅ 키도 scheduleId로 통일
+      from: 'Home',
+      mode: 'read',                // ✅ 읽기 모드
+      mock: false,                 // ✅ 저장본 기준
+    });
+  };
 
   return (
     <View style={styles.container}>
       {isEmpty ? (
-        // [UPDATED] 빈 상태: 점선 박스 + 내부 중앙 보라 CTA (onPress는 기존 그대로)
+        // 빈 상태: 점선 박스 + 내부 중앙 보라 CTA
         <View style={styles.emptyCard}>
           <View style={styles.emptyTextWrap}>
             <Text style={styles.emptyTitle}>아직 여행 플랜이 없어요</Text>
@@ -57,36 +75,28 @@ export default function TravelSection({ travelList = [], onPressCreate, onPressC
           </TouchableOpacity>
         </View>
       ) : (
-        safeList.map(plan => (
+        safeList.map((plan, idx) => (
           <TravelCard
-            key={plan.id}
-            title={plan.title}
+            key={String(plan?.id ?? `plan-${idx}`)}
+            title={plan?.title}
             period={
-              plan.startDate && plan.endDate
-                ? `${plan.startDate.replace(/-/g, '.')} ~ ${plan.endDate.replace(/-/g, '.')}`
-                : plan.period || ''
+              plan?.startDate && plan?.endDate
+                ? `${String(plan.startDate).replace(/-/g, '.')} ~ ${String(plan.endDate).replace(/-/g, '.')}`
+                : plan?.period || ''
             }
-            dDay={plan.dDay || plan.dday || ''}
-            route={Array.isArray(plan.route) ? plan.route : []}
-            onPress={() => {
-              console.log('✅ TravelCard 클릭됨! plan.id:', plan.id);
-              onPressCard?.(plan.id);
-            }}
+            dDay={plan?.dDay || plan?.dday || ''}
+            route={Array.isArray(plan?.route) ? plan.route : []}
+            onPress={() => handlePress(plan)}
           />
         ))
       )}
 
-      {/* [UPDATED] 시안에서는 빈 상태일 때 내부 CTA만 보임.
-          기존 '항상 하단 버튼'은 유지 가능하지만, 시안과 맞추기 위해
-          빈 상태가 아닐 때만 하단 버튼을 노출하도록 처리 (기능 동일). */}
-      {!isEmpty && (
-        <TouchableOpacity style={styles.createBtn} onPress={onPressCreate}>
-          <View style={styles.plusCircle}>
-            <MaterialIcons name="add" size={normalize(20)} color="#FFFFFF" />
-          </View>
-          <Text style={styles.createText}>여행 플랜 만들러 가기</Text>
-        </TouchableOpacity>
-      )}
+      <TouchableOpacity style={styles.createBtn} onPress={onPressCreate}>
+        <View style={styles.plusCircle}>
+          <MaterialIcons name="add" size={normalize(36)} color="#FFFFFF" />
+        </View>
+        <Text style={styles.createText}>여행 플랜 만들러 가기</Text>
+      </TouchableOpacity>
     </View>
   );
 }
@@ -94,12 +104,11 @@ export default function TravelSection({ travelList = [], onPressCreate, onPressC
 const styles = StyleSheet.create({
   container: {
     marginTop: normalize(0, 'height'),
-    paddingHorizontal: normalize(20), // [UPDATED] 좌우 20 기준
+    paddingHorizontal: normalize(20),
   },
 
-  // ===== Empty State (시안 적용) =====
+  // ===== Empty State =====
   emptyCard: {
-    // [UPDATED] dashed 1px #D3D3DE, radius 12, paddingV 32, 가운데 정렬
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: '#D3D3DE',
@@ -116,7 +125,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   emptyTitle: {
-    // 16/500/#141414 center
     fontSize: normalize(16),
     fontFamily: 'Inter_600SemiBold',
     color: '#141414',
@@ -124,7 +132,6 @@ const styles = StyleSheet.create({
     letterSpacing: normalize(-0.4),
   },
   emptySub: {
-    // 14/400/#767676 center
     fontSize: normalize(14),
     fontFamily: 'Inter_400Regular',
     color: '#767676',
@@ -132,7 +139,6 @@ const styles = StyleSheet.create({
     letterSpacing: normalize(-0.35),
   },
   ctaButton: {
-    // [NEW] 내부 보라 CTA 141x40, radius 12, 가로 중앙
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -150,14 +156,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   ctaLabel: {
-    // 14/500/#FFFFFF
     fontSize: normalize(14),
     fontFamily: 'Inter_600SemiBold',
     color: '#FFFFFF',
     letterSpacing: normalize(-0.35),
   },
 
-  // ===== 기존 리스트 하단 CTA (빈 상태 아닐 때) =====
+  // ===== 기존 리스트 하단 CTA =====
   createBtn: {
     width: '100%',
     height: normalize(48, 'height'),

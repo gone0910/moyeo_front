@@ -33,6 +33,7 @@ function normalize(size, based = 'width') {
   }
 }
 
+
 export default function ProfileHomeScreen({ route }) {
   const navigation = useNavigation();
   const { user, setUser } = useContext(UserContext);
@@ -50,6 +51,7 @@ export default function ProfileHomeScreen({ route }) {
       console.error('로그아웃 오류:', error);
     }
   };
+
 
   const confirmLogout = () => {
     Alert.alert(
@@ -136,6 +138,7 @@ export default function ProfileHomeScreen({ route }) {
     </SafeAreaView>
   );
 }
+
 
 // ======= 반응형 스타일 =======
 const styles = StyleSheet.create({

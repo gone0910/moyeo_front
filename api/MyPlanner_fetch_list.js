@@ -1,7 +1,7 @@
+// api/fetchPlanList.js (파일명 유지 OK)
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { BASE_URL } from './config/api_Config'; // apiConfig.js에서 baseUrl 주소 변경
-import api from './AxiosInstance';
+import { BASE_URL } from './config/api_Config';
 
 /**
  * 플랜(여행 일정) 리스트 조회 API
@@ -10,23 +10,27 @@ import api from './AxiosInstance';
  */
 export const fetchPlanList = async () => {
   try {
-    // [REMOVED] 수동 토큰 조회 및 Authorization 부착 (전부 인터셉터가 처리)
-    // const token = await AsyncStorage.getItem('jwt');
-    // if (!token) throw new Error('JWT 토큰이 없습니다. 로그인이 필요합니다.');
+    const token = await AsyncStorage.getItem('jwt');
+    if (!token) throw new Error('JWT 토큰이 없습니다. 로그인이 필요합니다.');
 
-    // [UPDATED] 전역 api 인스턴스로 호출 → 401이면 AxiosInstance에서 자동 재발급 후 재시도
-    const response = await api.get('/schedule/list');
+    const url = `${BASE_URL}/schedule/list`;
+    const response = await axios.get(url, {
+      headers: { Authorization: `Bearer ${token}` },
+      timeout: 15000,
+    });
 
-    if (response.status === 200) {
-      console.log('✅ 플랜 리스트 조회 성공:', response.data);
+    if (response.status === 200 && Array.isArray(response.data)) {
+      console.log('✅ 플랜 리스트 조회 성공:', response.data.length, '건');
       return response.data;
-    } else {
-      console.warn('⚠️ 플랜 리스트 조회 실패:', response.status);
-      return [];
     }
+    console.warn('⚠️ 플랜 리스트 조회 비정상 응답:', response.status, response.data);
+    return [];
   } catch (error) {
-    console.error('❌ 플랜 리스트 조회 예외:', error.response?.data || error.message);
+    console.error('❌ 플랜 리스트 조회 오류:', {
+      status: error?.response?.status,
+      data: error?.response?.data,
+      message: error?.message,
+    });
     return [];
   }
 };
-

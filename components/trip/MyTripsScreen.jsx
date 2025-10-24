@@ -18,8 +18,22 @@ import { useFocusEffect } from '@react-navigation/native';
 import { fetchPlanList } from '../../api/MyPlanner_fetch_list';
 import { deleteSchedule } from '../../api/planner_delete_request';
 
+/** ======================
+ *  🔌 목/실서버 전환 스위치
+ *  ====================== */
+// const USE_MOCK = true; // ← true면 목데이터 사용, false면 실제 API 사용
+// ✅ 현재는 mock 비활성화(주석). 서버 전용으로 동작합니다.
+
+/** ======================
+ *  🧪 목데이터
+ *  ====================== */
+// const MOCK_TRIPS = [
+//   { id: 'mock-1', title: '제주 3박4일 힐링', startDate: '2025-10-02', endDate: '2025-10-05' },
+//   { id: 'mock-2', title: '부산 먹방 투어',     startDate: '2025-09-28', endDate: '2025-09-29' },
+//   { id: 'mock-3', title: '강릉 바다 드라이브', startDate: '2025-11-12', endDate: '2025-11-13' },
+// ];
+
 // ==== 반응형 유틸 함수 ====
-// 기준: iPhone 13 (390 x 844)
 const BASE_WIDTH = 390;
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 function normalize(size) {
@@ -27,91 +41,114 @@ function normalize(size) {
   return Math.round(PixelRatio.roundToNearestPixel(size * scale));
 }
 
+/* =========================
+ * ✅ 안전 유틸 (에러 원인 제거)
+ * ========================= */
+function safeDateString(val) {
+  // 문자열(YYYY-MM-DD)이면 그대로 사용, 아니면 '' 반환
+  return typeof val === 'string' ? val : '';
+}
+function safeDotDate(val) {
+  const s = safeDateString(val);
+  return s ? s.replace(/-/g, '.') : '';
+}
+function safeCalculateDday(startDate) {
+  const s = safeDateString(startDate);
+  if (!s) return ''; // 시작일 없으면 D-day 표시 생략
+  const target = new Date(s);
+  if (isNaN(target.getTime())) return '';
+  const today = new Date();
+  const t0 = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const d0 = new Date(target.getFullYear(), target.getMonth(), target.getDate());
+  const diff = Math.ceil((d0 - t0) / (1000 * 60 * 60 * 24));
+  return diff >= 0 ? `D-${diff}` : `D+${Math.abs(diff)}`;
+}
+
+function normalizeTripShape(item, index = 0) {
+  const start =
+    item?.startDate ?? item?.start_date ?? item?.start ?? item?.beginDate ?? '';
+  const end =
+    item?.endDate ?? item?.end_date ?? item?.end ?? item?.finishDate ?? '';
+
+  // 서버에서 내려오거나 저장 시 보존한 serverId(숫자)를 최우선 사용
+  const rawServerId =
+    item?.serverId ?? item?.server_id ?? item?.scheduleId ?? item?.schedule_id;
+  const numericServerId = Number(String(rawServerId ?? '').match(/^\d+$/)?.[0]);
+  const chosenId = Number.isFinite(numericServerId)
+    ? String(numericServerId)                // 🔹 숫자형이면 이 값을 id로 사용
+    : String(item?.id ?? `local-${index}`);  // 🔹 아니면 기존 id 유지
+
+  return {
+    id: chosenId,
+    serverId: Number.isFinite(numericServerId) ? numericServerId : undefined, // 🔹 보존
+    title: String(item?.title ?? item?.name ?? '여행'),
+    startDate: safeDateString(start),
+    endDate: safeDateString(end),
+    dDay: typeof item?.dDay === 'string' ? item.dDay : undefined,
+  };
+}
 
 const TRAVEL_TIPS = [
   '여행에서는 목적지만큼 그 여정도 소중합니다. 빠르게 이동하는 것보다 한 번쯤은 걸음을 늦추고 주변을 돌아보세요. 사진을 남기기보다는 마음에 기억하세요!',
   '여행 준비물 체크리스트를 만들어 꼭 필요한 물건만 챙기세요. 가장 좋은 여행 일정은 여유가 있는 일정입니다. 무리하지 마세요. 새로운 사람과의 인연도 여행의 큰 선물입니다!',
-  '여행 일정은 넉넉하게, 예기치 않은 상황도 즐길 수 있도록! 비상연락처와 여권 사본은 따로 보관해두면 좋아요.비상연락처와 여권 사본은 따로 보관해두면 좋아요.',
-  '걷다가 쉬었다가, 여행지의 하늘도 한 번 올려다보세요.가끔은 지도 없이 길을 잃어보는 것도 여행의 묘미! 여행지의 작은 카페에서만 느낄 수 있는 현지 감성을 경험해보세요.'
+  '여행 일정은 넉넉하게, 예기치 않은 상황도 즐길 수 있도록! 비상연락처와 여권 사본은 따로 보관해두면 좋아요.',
+  '걷다가 쉬었다가, 여행지의 하늘도 한 번 올려다보세요. 가끔은 지도 없이 길을 잃어보는 것도 여행의 묘미!',
 ];
 
 function getRandomTip(arr) {
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
-const calculateDday = (startDate) => {
-  const today = new Date();
-  const target = new Date(startDate);
-  const diff = Math.ceil((target - today) / (1000 * 60 * 60 * 24));
-  return diff >= 0 ? `D-${diff}` : `D+${Math.abs(diff)}`;
-};
-
 export default function MyTripsScreen() {
   const navigation = useNavigation();
   const { width } = useWindowDimensions();
-const [randomTip, setRandomTip] = useState('');
+  const [randomTip, setRandomTip] = useState('');
   const [isEditing, setIsEditing] = useState(false);
   const [myTrips, setMyTrips] = useState([]);
 
   useEffect(() => {
-  setRandomTip(getRandomTip(TRAVEL_TIPS));
-}, []);
+    setRandomTip(getRandomTip(TRAVEL_TIPS));
+  }, []);
 
-//묵데이터
-
-useFocusEffect(
-  useCallback(() => {
-    let isMounted = true;
-
-    const loadLocalFirst = async () => {
-      // ✅ 먼저 빠르게 로컬 trips만 로드
-      const localTripsRaw = await AsyncStorage.getItem('MY_TRIPS');
-      const localTrips = localTripsRaw ? JSON.parse(localTripsRaw) : [];
-      if (isMounted) {
-        setMyTrips(localTrips); // 🔥 빠르게 화면에 표시됨
-      }
-
-      // ✅ 서버 병합은 느리게 따로 처리
-      try {
-        const serverTrips = await fetchPlanList();
-        const merged = [
-          ...localTrips,
-          ...serverTrips.filter(server =>
-            !localTrips.some(local => local.id === server.id)
-          ),
-        ];
-
-        if (isMounted) {
-          setMyTrips(merged);
-          await AsyncStorage.setItem('MY_TRIPS', JSON.stringify(merged));
-        }
-      } catch (e) {
-        console.warn('🛑 여행 플랜 병합 실패:', e);
-      }
-    };
-
-    loadLocalFirst();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [])
-); 
-
-//여기까지
   useFocusEffect(
     useCallback(() => {
       const loadTrips = async () => {
-        const serverTrips = await fetchPlanList();
-        setMyTrips(serverTrips);
-        await AsyncStorage.setItem('MY_TRIPS', JSON.stringify(serverTrips));
+        try {
+          // ✅ 서버 데이터만 사용 (mock 분기/데이터는 주석 처리)
+          const serverTrips = await fetchPlanList(); // 서버 배열
+          const normalized = Array.isArray(serverTrips)
+            ? serverTrips.map((t, i) => normalizeTripShape(t, i))
+            : [];
+          setMyTrips(normalized);
+          await AsyncStorage.setItem('MY_TRIPS', JSON.stringify(normalized));
+
+          // 🔽 (참고용) mock 분기 주석
+          // if (USE_MOCK) {
+          //   const stored = await AsyncStorage.getItem('MY_TRIPS');
+          //   const raw = stored ? JSON.parse(stored) : MOCK_TRIPS;
+          //   const normalized = Array.isArray(raw)
+          //     ? raw.map((t, i) => normalizeTripShape(t, i))
+          //     : [];
+          //   setMyTrips(normalized);
+          //   await AsyncStorage.setItem('MY_TRIPS', JSON.stringify(normalized));
+          // } else {
+          //   ...
+          // }
+        } catch (e) {
+          console.error('[MyTripsScreen] 여행 리스트 불러오기 실패:', e);
+          Alert.alert('불러오기 실패', '여행 데이터를 가져오지 못했습니다.');
+
+          // 🔽 (참고용) mock 폴백 주석
+          // const fallback = MOCK_TRIPS.map((t, i) => normalizeTripShape(t, i));
+          // setMyTrips(fallback);
+          // await AsyncStorage.setItem('MY_TRIPS', JSON.stringify(fallback));
+        }
       };
       loadTrips();
     }, [])
   );
 
-  const containerWidth = Math.min(width * 0.99, normalize(600)); // normalize 추가
-
+  const containerWidth = Math.min(width * 0.99, normalize(600));
   const toggleEditMode = () => setIsEditing(!isEditing);
 
   const handleDeleteTrip = (index) => {
@@ -125,14 +162,38 @@ useFocusEffect(
           style: 'destructive',
           onPress: async () => {
             try {
-              const scheduleId = myTrips[index].id;
-              await deleteSchedule(scheduleId);
+              // ✅ 서버 삭제만 사용
+              const t = myTrips[index];
+              const numeric =
+                Number.isFinite(t?.serverId)
+                  ? t.serverId
+                  : Number(String(t?.id ?? '').match(/^\d+$/)?.[0]);
+              if (!Number.isFinite(numeric)) {
+                Alert.alert('삭제 오류', '유효하지 않은 서버 ID입니다.');
+                return;
+              }
+              await deleteSchedule(numeric);
+
               setMyTrips((prev) => {
                 const updated = prev.filter((_, i) => i !== index);
                 AsyncStorage.setItem('MY_TRIPS', JSON.stringify(updated));
                 return updated;
               });
-            } catch (err) {}
+
+              // 🔽 (참고용) mock 삭제 분기 주석
+              // if (USE_MOCK) {
+              //   setMyTrips((prev) => {
+              //     const updated = prev.filter((_, i) => i !== index);
+              //     AsyncStorage.setItem('MY_TRIPS', JSON.stringify(updated));
+              //     return updated;
+              //   });
+              // } else {
+              //   ...
+              // }
+            } catch (err) {
+              console.error('[deleteTrip] failed:', err);
+              Alert.alert('삭제 실패', '잠시 후 다시 시도해주세요.');
+            }
           },
         },
       ],
@@ -147,16 +208,16 @@ useFocusEffect(
     <View style={styles.screen}>
       <HeaderBar />
       <View
-  style={[
-    styles.tipContainer,
-    { alignSelf: 'center', width: containerWidth },
-  ]}
->
-  <Text style={styles.tipTitle}>
-    오늘의 여행 <Text style={{ fontStyle: 'italic' }}>TIP</Text>
-  </Text>
-  <Text style={styles.tipText}>{randomTip}</Text>
-</View>
+        style={[
+          styles.tipContainer,
+          { alignSelf: 'center', width: containerWidth },
+        ]}
+      >
+        <Text style={styles.tipTitle}>
+          오늘의 여행 <Text style={{ fontStyle: 'italic' }}>TIP</Text>
+        </Text>
+        <Text style={styles.tipText}>{randomTip}</Text>
+      </View>
 
       <View
         style={[
@@ -196,9 +257,7 @@ useFocusEffect(
                     { flexDirection: 'column', alignItems: 'center' },
                   ]}
                 >
-                  <Text style={styles.tripTitle}>
-                    제작된 여행 플랜이 없어요
-                  </Text>
+                  <Text style={styles.tripTitle}>제작된 여행 플랜이 없어요</Text>
                   <Text style={[styles.tripDate, { marginTop: normalize(8) }]}>
                     나에게 맞춘 여행계획을 세워볼까요?
                   </Text>
@@ -207,7 +266,10 @@ useFocusEffect(
             </View>
           ) : (
             myTrips.map((trip, index) => (
-              <View key={index} style={[styles.tripRow, isEditing && { overflow: 'visible' }]}>
+              <View
+                key={String(trip.id ?? index)}
+                style={[styles.tripRow, isEditing && { overflow: 'visible' }]}
+              >
                 <TouchableOpacity
                   style={[
                     styles.tripBox,
@@ -219,23 +281,47 @@ useFocusEffect(
                     },
                   ]}
                   activeOpacity={0.3}
-                  disabled={isEditing} // 편집 모드에서는 이동 안 되게
+                  disabled={isEditing}
                   onPress={() => {
+                    // 숫자 serverId가 있으면 그걸 전달, 없으면 id에서 숫자만 추출 시도
+                    const fallbackNum =
+                      Number(String(trip?.id ?? '').match(/^\d+$/)?.[0]);
+                    const scheduleId =
+                      Number.isFinite(trip?.serverId)
+                        ? trip.serverId
+                        : (Number.isFinite(fallbackNum) ? fallbackNum : undefined);
+
+                    if (!Number.isFinite(scheduleId)) {
+                      Alert.alert('잘못된 일정', '유효한 서버 일정 ID가 없습니다.');
+                      return;
+                    }
+
                     navigation.navigate('Home', {
                       screen: 'PlannerResponse',
-                      params: { scheduleId: trip.id, mode: 'read' }
+                      params: { scheduleId, mode: 'read' },
                     });
+
+                    // 🔽 (참고용) mock 이동 주석
+                    // if (USE_MOCK) {
+                    //   navigation.navigate('Home', {
+                    //     screen: 'PlannerResponse',
+                    //     params: { scheduleId: trip.id, mock: true },
+                    //   });
+                    // }
                   }}
                 >
                   <View style={styles.tripContent}>
                     <View>
-                      <Text style={styles.tripTitle}>{trip.title}</Text>
+                      <Text style={styles.tripTitle}>
+                        {trip.title ?? '여행'}
+                      </Text>
                       <Text style={styles.tripDate}>
-                        {trip.startDate.replace(/-/g, '.')} ~ {trip.endDate.replace(/-/g, '.')}
+                        {safeDotDate(trip.startDate)}{' '}
+                        {trip.endDate ? `~ ${safeDotDate(trip.endDate)}` : ''}
                       </Text>
                     </View>
                     <Text style={styles.dDayText}>
-                      {trip.dDay ?? calculateDday(trip.startDate)}
+                      {trip.dDay ?? safeCalculateDday(trip.startDate)}
                     </Text>
                   </View>
                 </TouchableOpacity>
@@ -320,12 +406,8 @@ useFocusEffect(
   );
 }
 
-// ==== 기존 스타일 그대로, 단 값만 모두 normalize로 변경 ====
 const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-    backgroundColor: '#fafafa',
-  },
+  screen: { flex: 1, backgroundColor: '#fafafa' },
   tipContainer: {
     backgroundColor: '#DFDDFF',
     alignSelf: 'center',
@@ -367,26 +449,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: normalize(16),
   },
-  sectionTitle: {
-    fontSize: normalize(22),
-    fontWeight: '400',
-    color: '#1E1E1E',
-  },
+  sectionTitle: { fontSize: normalize(22), fontWeight: '400', color: '#1E1E1E' },
   editButton: {
     fontSize: normalize(15),
     color: '#F97575',
     marginRight: normalize(15),
     marginBottom: normalize(-4),
   },
-  scrollContent: {
-    paddingBottom: normalize(40),
-  },
-  tripRow: {
-    flexDirection: 'row',
-    alignItems: 'stretch',
-    marginBottom: normalize(12),
-    overflow: 'visible',
-  },
+  scrollContent: { paddingBottom: normalize(40) },
+  tripRow: { flexDirection: 'row', alignItems: 'stretch', marginBottom: normalize(12), overflow: 'visible' },
   tripBox: {
     flex: 1,
     backgroundColor: '#fff',
@@ -400,58 +471,30 @@ const styles = StyleSheet.create({
     shadowRadius: normalize(2),
     elevation: 2,
   },
-  tripContent: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  tripTitle: {
-    fontSize: normalize(16),
-    fontWeight: '400',
-    color: '#373737',
-    marginBottom: normalize(8),
-  },
-  tripDate: {
-    fontSize: normalize(14),
-    color: '#7E7E7E',
-    marginTop: normalize(4),
-  },
-  dDayText: {
-    fontSize: normalize(26),
-    fontWeight: '700',
-    color: '#4F46E5',
-  },
+  tripContent: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  tripTitle: { fontSize: normalize(16), fontWeight: '400', color: '#373737', marginBottom: normalize(8) },
+  tripDate: { fontSize: normalize(14), color: '#7E7E7E', marginTop: normalize(4) },
+  dDayText: { fontSize: normalize(26), fontWeight: '700', color: '#4F46E5' },
   deleteButtonPill: {
-  width: normalize(68),
-  backgroundColor: '#F97575',
-  justifyContent: 'center',
-  alignItems: 'center',
-  borderTopLeftRadius: 0,
-  borderBottomLeftRadius: 0,
-  borderTopRightRadius: normalize(20),
-  borderBottomRightRadius: normalize(20),
-  borderLeftWidth: 0,
-  marginBottom: 0, // 이거 주의!
-  alignSelf: 'stretch', // tripBox와 높이 맞춤 (핵심)
-  shadowColor: '#000',
+    width: normalize(68),
+    backgroundColor: '#F97575',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderTopLeftRadius: 0,
+    borderBottomLeftRadius: 0,
+    borderTopRightRadius: normalize(20),
+    borderBottomRightRadius: normalize(20),
+    borderLeftWidth: 0,
+    marginBottom: 0,
+    alignSelf: 'stretch',
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: normalize(4, 'height') },
     shadowOpacity: 0.15,
     shadowRadius: normalize(8),
     elevation: 2,
-},
-  deleteButtonText: {
-    color: '#fff',
-    fontSize: normalize(16),
-    fontWeight: '400',
-    fontStyle: 'Roboto',
   },
-  createBtn: {
-    height: normalize(48),
-    backgroundColor: '#FFFFFF',
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: normalize(36),
-  },
+  deleteButtonText: { color: '#fff', fontSize: normalize(16), fontWeight: '400', fontStyle: 'Roboto' },
+  createBtn: { height: normalize(48), backgroundColor: '#FFFFFF', flexDirection: 'row', alignItems: 'center', paddingHorizontal: normalize(36) },
   plusCircle: {
     width: normalize(36),
     height: normalize(36),

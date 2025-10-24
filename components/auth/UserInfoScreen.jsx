@@ -41,6 +41,7 @@ export default function UserInfoScreen() {
   const navigation = useNavigation();
   const { setUser } = useContext(UserContext);
 
+
   const [image, setImage] = useState(null);
   const [nickname, setNickname] = useState('');
   const [age, setAge] = useState('');
@@ -89,10 +90,12 @@ export default function UserInfoScreen() {
     handleInitialLink();
   }, []);
 
+
   // 가입 시작하기 (회원가입 요청)
   const handleSubmit = async () => {
     const token = await AsyncStorage.getItem('jwt');
     const isMock = await AsyncStorage.getItem('mock');
+
 
     const userData = {
       nickname,
@@ -100,6 +103,7 @@ export default function UserInfoScreen() {
       age: parseInt(age),
       mbti: mbti === '' ? null : mbti,
     };
+
 
     if (isMock === 'true') {
       const mockUser = {
@@ -111,6 +115,7 @@ export default function UserInfoScreen() {
       navigation.replace('BottomTab');
       return;
     }
+
 
     try {
       const result = await registerUserWithFetch(userData, image, token);
@@ -140,6 +145,7 @@ export default function UserInfoScreen() {
       Alert.alert('오류', errorMessage);
     }
   };
+
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -458,3 +464,6 @@ const styles = StyleSheet.create({
     letterSpacing: -0.2,
   },
 });
+
+
+
