@@ -9,7 +9,6 @@ import {
   Dimensions,
   PixelRatio,
   Platform,
-  SafeAreaView,
   Modal,
   Animated,
   Easing,
@@ -19,6 +18,10 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useIsFocused } from '@react-navigation/native';
 import { Calendar } from 'react-native-calendars';
+import { submitMatchingProfile } from '../../api/matching';
+import { convertMatchingInputToDto } from './utils/matchingUtils';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { SafeAreaView } from "react-native-safe-area-context";
 
 const USE_MOCK = true;
 
@@ -34,91 +37,6 @@ function normalize(size, based = 'width') {
     : Math.round(PixelRatio.roundToNearestPixel(newSize)) - 1;
 }
 
-/* ---------------- 변환 유틸 ---------------- */
-// 사용자의 입력값을 백엔드 DTO 형식으로 변환해주는 함수
-// 목적: React Native의 한글 입력값을 백엔드 ENUM + null 처리 기준에 맞게 변환
-export const convertMatchingInputToDto = (input) => {
-  // 🔹 한글 → ENUM 변환용 맵
-  const groupTypeMap = {
-    '단둘이': 'ALONE',
-    '여럿이': 'GROUP',
-    '선택없음': 'NONE',
-  };
-
-  // 🔹 성별 한글 → 영문 ENUM
-  const genderMap = {
-    '남성': 'MALE',
-    '여성': 'FEMALE',
-    '선택없음': 'NONE',
-  };
-
-  // 🔹 연령대 한글 → 숫자
-  const ageMap = {
-    '10대': 10,
-    '20대': 20,
-    '30대': 30,
-    '40대': 40,
-    '50대': 50,
-    '60대 이상': 60,
-  };
-
-  // 🔹 여행 스타일 한글 → 영문 ENUM
-  const styleMap = {
-    '힐링': 'HEALING',
-    '맛집': 'FOOD',
-    '문화/관광': 'CULTURE',
-    '액티비티': 'ACTIVITY',
-    '자연': 'NATURE',
-    '도심': 'CITY',
-    '선택없음': 'NONE',
-  };
-
-  // 🟡 변환 전 입력 로그 출력
-  console.log('📝 [MatchingInput] 원본 입력값:', input);
-
-  const dto = {
-    startDate: input.startDate, // YYYY-MM-DD
-    endDate: input.endDate,     // YYYY-MM-DD
-    province: (input.province === '선택없음' || input.province === 'NONE') ? 'NONE' : input.province,
-
-    cities:
-      !input.selectedCities || input.selectedCities.length === 0
-        ? ['NONE']
-        : input.selectedCities,
-    groupType: groupTypeMap[input.groupType] ?? 'NONE',
-    // 연령대(한글 → 숫자/서버 포맷)
-    ageRange: ageMap[input.ageRange] ?? null,
-    // 여행스타일(한글 → ENUM 배열), '선택없음'이면 ['NONE']
-    travelStyles:
-      !input.travelStyles ||
-      input.travelStyles.length === 0 ||
-      input.travelStyles.includes('선택없음')
-        ? ['NONE']
-        : input.travelStyles.map((s) => styleMap[s] || 'NONE'),
-    // 성별(한글 → ENUM)
-    preferenceGender: genderMap[input.preferenceGender] ?? 'NONE',
-  };
-
-  // 🟢 변환 후 DTO 로그 출력
-  console.log('📦 [MatchingInput] 변환된 DTO:', dto);
-  return dto;
-};
-
-// 🔄 ENUM → 한글 역변환 (모달 등에서 사용)
-export const GENDER_ENUM_TO_KOR = {
-  MALE: '남성',
-  FEMALE: '여성',
-  NONE: '선택없음',
-};
-export const STYLE_ENUM_TO_KOR = {
-  HEALING: '힐링',
-  FOOD: '맛집',
-  CULTURE: '문화/관광',
-  ACTIVITY: '액티비티',
-  NATURE: '자연',
-  CITY: '도심',
-  NONE: '선택없음',
-};
 
 /* ---------------- Enums (화면 표기 ↔ 서버 ENUM) ---------------- */
 // 도(광역)
@@ -356,6 +274,8 @@ function formatDotList(arr, max = 2) {
 export default function MatchingInfoMockScreen() {
   const navigation = useNavigation();
   const isFocused = useIsFocused();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  
 
   // 이 화면에서만 탭바 숨김
   useEffect(() => {
@@ -522,108 +442,50 @@ const styleLabel = useMemo(() => {
   };
 
   /* ---------- 제출 ---------- */
-  const buildDtoInput = () => {
-    return {
-      startDate: selected.periodStart,
-      endDate: selected.periodEnd,
-      province: Province[selected.province] ?? '선택없음',
-      selectedCities:
-        selected.cities.length === 0 ? [] : selected.cities.map((kor) => City[kor]).filter(Boolean),
-      groupType: selected.group,
-      travelStyles: selected.style.length ? selected.style : ['선택없음'],
-      preferenceGender: selected.gender === '선택없음' ? '선택없음' : selected.gender,
-      ageRange: selected.ageRange, // 변환 함수에서 숫자/NULL로 바뀜
-    };
-  };
-
-  // ✅ mock 응답
-  const requestMock = async (dto) => {
-    console.log('🧪 [MOCK] 요청 DTO:', dto);
-    const mock = {
-      matches: [
-        {
-          name: '민재',
-          date: `${dto.startDate} ~ ${dto.endDate}`,
-          tags: dto.travelStyles?.filter((t) => t !== 'NONE') || [],
-          image: 'https://placehold.co/100x100',
-          gender: dto.preferenceGender || 'NONE',
-          travelStyle: dto.travelStyles,
-          destination: dto.province, // 서버 ENUM 기준으로 올 수 있음
-          mbti: 'ENTP',
-        },
-      ],
-      attached: false,
-    };
-    console.log('🧪 [MOCK] 응답:', mock);
-    return mock;
-  };
-
-  // ✅ 실제 서버 요청 (필요 시 BASE_URL/MATCHING_ENDPOINT/토큰 설정)
-  const requestReal = async (dto) => {
-    try {
-      const url = `${BASE_URL}${MATCHING_ENDPOINT}`;
-
-      if (!attachedFile) {
-        const res = await fetch(url, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            // Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify(dto),
-        });
-        if (!res.ok) {
-          const text = await res.text();
-          throw new Error(`HTTP ${res.status} - ${text}`);
-        }
-        const data = await res.json();
-        Alert.alert('전송 완료', '서버에서 매칭 결과를 받았어요.');
-        console.log('✅ [REAL] 응답(JSON):', data);
-        return data;
-      } else {
-        const form = new FormData();
-        form.append('dto', JSON.stringify(dto));
-        form.append('file', {
-          uri: attachedFile.uri,
-          name: attachedFile.name,
-          type: attachedFile.type,
-        });
-
-        const res = await fetch(url, {
-          method: 'POST',
-          headers: {
-            // Authorization: `Bearer ${token}`,
-          },
-          body: form,
-        });
-        if (!res.ok) {
-          const text = await res.text();
-          throw new Error(`HTTP ${res.status} - ${text}`);
-        }
-        const data = await res.json();
-        Alert.alert('전송 완료', '파일과 함께 전송했어요.');
-        console.log('✅ [REAL] 응답(MULTIPART):', data);
-        return data;
-      }
-    } catch (e) {
-      console.error('❌ [REAL] 요청 실패:', e);
-      Alert.alert('요청 실패', e.message?.toString() ?? '네트워크 오류');
-      throw e;
-    }
-  };
-
   const onSubmit = async () => {
-    if (!canSubmit) return;
+    // canSubmit(날짜 필수) 체크 및 중복 제출 방지
+    if (!canSubmit || isSubmitting) return;
 
-    // DTO 유틸 입력값 만들기(유틸의 기대 스키마대로)
-    const inputForDto = buildDtoInput();
-    const payload = convertMatchingInputToDto(inputForDto);
-
-    console.log('[MatchingInfo] submit payload:', payload);
+    setIsSubmitting(true);
     try {
-      const result = USE_MOCK ? await requestMock(payload) : await requestReal(payload);
-      navigation.navigate('MatchingList', { result });
-    } catch (e) {}
+      const token = await AsyncStorage.getItem('jwt');
+
+      // 1. rawInput 생성: 신규 버전(selected)의 상태를 matchingUtils가 기대하는 형식으로 조립
+      const rawInput = {
+        startDate: selected.periodStart, //
+        endDate: selected.periodEnd, //
+
+        // province: "서울" -> "SEOUL" (파일 내장 Province 맵 사용)
+        province: Province[selected.province] || 'NONE', //
+
+        // cities: ["강남구"] -> ["GANGNAM_GU"] (파일 내장 City 맵 사용)
+        selectedCities: selected.cities.length
+          ? selected.cities.map(c => City[c]).filter(Boolean) //
+          : ['NONE'],
+
+        // 나머지: 한글 라벨 그대로 전달 (DTO 유틸이 변환)
+        groupType: selected.group || '선택없음', //
+        ageRange: selected.ageRange || '선택없음', //
+        travelStyles: selected.style?.length ? selected.style : ['선택없음'], //
+        preferenceGender: selected.gender || '선택없음', //
+      };
+
+      // 2. DTO 변환: 외부 유틸(matchingUtils.js) 사용
+      const dto = convertMatchingInputToDto(rawInput); //
+      console.log('📦 백엔드 전송 DTO:', dto);
+
+      // 3. API 전송: 실제 API 함수(matching.js) 호출
+      await submitMatchingProfile(dto, token); //
+      
+      console.log('✅ 백엔드 응답 성공');
+      navigation.navigate('MatchingList'); //
+
+    } catch (error) {
+      console.error('❌ 매칭 정보 전송 실패:', error); //
+      Alert.alert('오류', '매칭 조건 전송에 실패했습니다.'); //
+    } finally {
+      setIsSubmitting(false); //
+    }
   };
 
   return (
@@ -666,8 +528,9 @@ const styleLabel = useMemo(() => {
         <View style={styles.ctaWrap}>
           <TouchableOpacity
             activeOpacity={0.9}
-            disabled={!canSubmit}
-            style={[styles.ctaBtn, !canSubmit && { opacity: 0.5 }]}
+            // [수정] !canSubmit 뒤에 || isSubmitting 조건 추가
+            disabled={!canSubmit || isSubmitting}
+            style={[styles.ctaBtn, (!canSubmit || isSubmitting) && { opacity: 0.5 }]}
             onPress={onSubmit}
           >
             <Text style={styles.ctaText}>함께할 여행자 찾아보기</Text>
