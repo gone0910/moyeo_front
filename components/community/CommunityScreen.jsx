@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, TextInput, Image, FlatList,
-  Dimensions, Platform, PixelRatio, Keyboard, TouchableWithoutFeedback,
-  Alert 
+  Dimensions, Platform, PixelRatio, Keyboard, TouchableWithoutFeedback
 } from 'react-native';
 import HeaderBar from '../../components/common/HeaderBar';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
@@ -11,8 +10,6 @@ import { useNavigation } from '@react-navigation/native';
 import { fetchCommunityPosts } from '../../api/community_list';
 import { fetchFilteredPostList } from '../../api/community_filter';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-
-
 
 // === 반응형 유틸 함수 ===
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -26,28 +23,7 @@ function normalize(size) {
     return Math.round(PixelRatio.roundToNearestPixel(newSize)) - 1;
   }
 }
-//목데이터
 
-const MOCK_POSTS = [
-  {
-    id: 1,
-    nickname: '여행러버123',
-    title: '서울 강남 맛집 추천드려요!',
-    countComment: 2,
-    createdAt: '2025-07-09T15:30:00',
-    firstImage: 'https://source.unsplash.com/80x80/?korea,food',
-  },
-  {
-    id: 2,
-    nickname: '오지여행자',
-    title: '제주도 한달살기 후기 공유합니다',
-    countComment: 1,
-    createdAt: '2025-07-08T11:10:00',
-    firstImage: 'https://source.unsplash.com/80x80/?jeju,island',
-  },
-  
-  //여기까지
-]; 
 // 도/시 ENUM 변환 
 const Province = {
   '선택안함': 'NONE',
@@ -221,13 +197,12 @@ const CommunityScreen = () => {
   const navigation = useNavigation();
   const [selectedRegion, setSelectedRegion] = useState('선택안함');
   const [selectedCity, setSelectedCity] = useState('');
-  // const [posts, setPosts] = useState([]); // api부분
+  const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(false);
   const [searchTitle, setSearchTitle] = useState('');
   const [page, setPage] = useState(0);
   const [hasNextPage, setHasNextPage] = useState(false);
   const [isPressed, setIsPressed] = useState(false);
-   const [posts, setPosts] = useState(MOCK_POSTS); //목데이터
 
 
   useEffect(() => {
@@ -238,27 +213,6 @@ const CommunityScreen = () => {
   const loadPosts = async (_page = 0) => {
   if (loading) return;
   setLoading(true);
-  
-  //목데이터
-  
-  try {
-    // 테스트 중일 때
-    const useMock = true;
-    if (useMock) {
-      setPosts(MOCK_POSTS);
-      setLoading(false);
-      return;
-    }
-
-    // 실제 API 호출...
-  } catch (err) {
-    setPosts([]);
-  }
-  setLoading(false);
-}; 
-
-//여기까지
-/*
   try {
     const token = await AsyncStorage.getItem('jwt');
     const province = Province[selectedRegion] || 'NONE';
@@ -284,20 +238,17 @@ const CommunityScreen = () => {
         page: _page,
         size: 10,
         token,
-      }); 
+      });
     }
 
     setPosts(_page === 0 ? data.postListResDtos : (prev) => [...prev, ...data.postListResDtos]);
     setPage(data.nowPage);
     setHasNextPage(data.hasNextPage);
-    
   } catch (err) {
     setPosts([]);
   }
-  setLoading(false); 
-  
+  setLoading(false);
 };
-*/
 
   useEffect(() => {
     loadPosts(0);

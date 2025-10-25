@@ -267,7 +267,10 @@ export default function UserInfoScreen() {
                     ].map((v) => (typeof v === 'string' ? { label: v, value: v } : v))}
                   />
                 </View>
-                <Ionicons name="chevron-down" size={normalize(20)} color="#999999" />
+                {/* 수정된 부분: iOS가 아닐 때만 아이콘 표시 */}
+                {Platform.OS !== 'ios' && (
+                  <Ionicons name="chevron-down" size={normalize(20)} color="#999999" />
+                )}
               </View>
             </View>
           </View>
