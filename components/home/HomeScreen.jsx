@@ -48,51 +48,44 @@ export default function HomeScreen() {
   const { user, setUser } = useContext(UserContext);
   const nickname = user?.nickname || '사용자';
   const isLong = nickname.length > 4;
-  const USE_MOCK = true; // ← 목 플로우면 true
+  const USE_MOCK = false; // 서버 사용
   const [showSplash, setShowSplash] = useState(false);
   const [myTrips, setMyTrips] = useState([]); // 여행 플랜 리스트 관리
+  const [serverDown, setServerDown] = useState(false); // [ADDED] 서버 5xx/오프라인 배너용
   
 
   useEffect(() => {
     if (!user) navigation.replace('Login');
   }, [user]);
 
-  // 여행 플랜 불러오기 (마운트/포커스 시)
-  useFocusEffect(
+  // 여행 플랜 불러오기 (마운트/포커스 시) - 단일 블록
+ useFocusEffect(
     React.useCallback(() => {
-      const fetchTrips = async () => {
+      let mounted = true;
+      (async () => {
         try {
-          const trips = await fetchPlanList(); // 여기서 AxiosInstance 사용하는지 확인
-          setMyTrips(trips);
+          if (USE_MOCK) {
+            const raw = await AsyncStorage.getItem('MY_TRIPS');
+            if (!mounted) return;
+            setMyTrips(raw ? JSON.parse(raw) : []);
+            setServerDown(false);
+            return;
+          }
+          const { items, status } = await fetchPlanList();
+          if (!mounted) return;
+          setMyTrips(Array.isArray(items) ? items : []);
+          setServerDown(status === null || status >= 500);
         } catch (err) {
-          setMyTrips([]);
+          // 네트워크 예외 시 로컬 폴백
+          const raw = await AsyncStorage.getItem('MY_TRIPS');
+          if (!mounted) return;
+          setMyTrips(raw ? JSON.parse(raw) : []);
+          setServerDown(true);
         }
-      };
-      fetchTrips();
+      })();
+      return () => { mounted = false; };
     }, [])
   );
-
-  useFocusEffect(
-  React.useCallback(() => {
-    const fetchTrips = async () => {
-      try {
-       if (USE_MOCK) {
-         const raw = await AsyncStorage.getItem('MY_TRIPS');
-         setMyTrips(raw ? JSON.parse(raw) : []);
-         return;
-       }
-       const res = await fetchPlanList();
-       // 서버가 페이지네이션이면 content 사용
-       setMyTrips(Array.isArray(res) ? res : (res?.content ?? []));
-      } catch (err) {
-       // 서버 실패 시에도 로컬 폴백
-       const raw = await AsyncStorage.getItem('MY_TRIPS');
-       setMyTrips(raw ? JSON.parse(raw) : []);
-      }
-    };
-    fetchTrips();
-  }, [])
-);
 
   return (
     <View style={styles.container}>
