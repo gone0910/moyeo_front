@@ -43,7 +43,6 @@ export default function PlannerScreen() {
   const imageWidth = clamp(SCREEN_WIDTH * 0.75, 220, 320);
   const imageHeight = clamp(SCREEN_HEIGHT * 0.39, 260, 360);
   const ctaHeight = clamp(SCREEN_HEIGHT * 0.065, 48, 60);
-  const ctaFontSize = clamp(SCREEN_HEIGHT * 0.0213, 16, 22);
 
   return (
     <View style={styles.container}>
@@ -56,8 +55,7 @@ export default function PlannerScreen() {
         </Text>
 
         <Text style={[styles.desc, { fontSize: descFontSize }]}>
-          내 취향에 맞춘 {'\n'}
-          여행 계획을 세워보세요
+          내 스타일에 딱 맞는 여행 계획을 세워보세요
         </Text>
 
         <Image
@@ -74,7 +72,7 @@ export default function PlannerScreen() {
           onPress={() => navigation.navigate('PlannerInfo')}
           activeOpacity={0.85}
         >
-          <Text style={[styles.ctaText, { fontSize: ctaFontSize }]}>
+          <Text style={[styles.ctaText]}>
             여행 플랜 만들러 가기
           </Text>
         </TouchableOpacity>
@@ -93,7 +91,7 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     paddingHorizontal: normalize(20),
-    paddingTop: normalize(24, 'height'),
+    paddingTop: normalize(50, 'height'),
   },
 
   title: {
@@ -115,9 +113,23 @@ const styles = StyleSheet.create({
     lineHeight: normalize(28, 'height'),
   },
 
-  planImage: {
-    borderRadius: normalize(16),
-    marginTop: normalize(22, 'height'),
+  // 메인 이미지
+    planImage: {
+      width: normalize(264.5),              
+      height: normalize(327.5, 'height'),
+      borderRadius: normalize(16),
+      marginTop: normalize(22, 'height'),
+    },
+
+  // CTA 버튼
+  ctaButton: {
+    marginTop: normalize(28, 'height'),
+    width: normalize(188.5),
+    height:normalize(50.5),
+    justifyContent: 'center',
+    borderRadius: normalize(12),
+    backgroundColor: '#4F46E5',
+    alignItems: 'center',
     // 그림자
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 8 },
@@ -126,17 +138,10 @@ const styles = StyleSheet.create({
     elevation: 6,
   },
 
-  ctaButton: {
-    width: clamp(SCREEN_WIDTH * 0.9, 280, 360),
-    borderRadius: normalize(12),
-    backgroundColor: '#4F46E5',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: normalize(24, 'height'),
-  },
-
   ctaText: {
     color: '#FFFFFF',
-    fontWeight: '700',
+    fontWeight: '600',
+    fontFamily: 'Pretendard',
+    fontSize: normalize(18),
   },
 });

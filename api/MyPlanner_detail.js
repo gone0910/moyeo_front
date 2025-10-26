@@ -11,7 +11,6 @@ import { BASE_URL } from './config/api_Config';
  * @returns {Promise<Object>} 백엔드에서 반환한 일정 데이터
  */
 export async function getScheduleDetail(scheduleId) {
-  // 🔐 토큰 키 혼재 대응
   const token =
     (await AsyncStorage.getItem('accessToken')) ||
     (await AsyncStorage.getItem('access')) ||
@@ -23,26 +22,38 @@ export async function getScheduleDetail(scheduleId) {
     throw e;
   }
 
-  // 🆔 숫자만 추출
   const idNum = Number(String(scheduleId ?? '').match(/^\d+$/)?.[0]);
   if (!Number.isFinite(idNum)) {
     throw new Error(`유효하지 않은 scheduleId: ${scheduleId}`);
   }
 
-  // 📡 상세 조회 요청
   const url = `${BASE_URL}/schedule/full/${idNum}`;
-  console.log('LOG  [getScheduleDetail] 요청 URL:', url);
+ const cacheBuster = Date.now(); // 캐시 무력화용
+  console.log('🌐 [getScheduleDetail] 요청 URL:', url);
 
   try {
     const res = await axios.get(url, {
-      headers: { Authorization: `Bearer ${token}` },
+     headers: {
+       Authorization: `Bearer ${token}`,
+       'Cache-Control': 'no-cache',
+       Pragma: 'no-cache',
+     },
+     params: { t: cacheBuster }, // URL에 ?t= 타임스탬프
+   });
+
+    // 여기서 반환 데이터 길이와 주요 키를 로깅
+    const data = res.data;
+    console.log('✅ [getScheduleDetail] 성공:', {
+      status: res.status,
+      keys: Object.keys(data || {}),
+      daysCount: data?.days?.length,
+      totalEstimatedCost: data?.totalEstimatedCost,
     });
-    console.log('LOG  ✅ [getScheduleDetail] 성공:', res.status);
-    return res.data;
+    return data;
   } catch (err) {
     const status = err?.response?.status;
     const message = err?.message || '알 수 없는 오류';
-    console.warn('WARN  [getScheduleDetail] 실패:', { status, message });
+    console.warn('❌ [getScheduleDetail] 실패:', { status, message });
     throw err;
   }
 }
