@@ -115,8 +115,9 @@ export default function MyTripsScreen() {
       const loadTrips = async () => {
         try {
           // ✅ 서버 데이터만 사용 (mock 분기/데이터는 주석 처리)
-          const serverTrips = await fetchPlanList(); // 서버 배열
-          const normalized = Array.isArray(serverTrips)
+          const { items, status } = await fetchPlanList(); // {items, status}
+          const serverTrips = Array.isArray(items) ? items : [];
+          const normalized = serverTrips
             ? serverTrips.map((t, i) => normalizeTripShape(t, i))
             : [];
           setMyTrips(normalized);
