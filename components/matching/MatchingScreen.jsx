@@ -123,7 +123,7 @@ const styles = StyleSheet.create({
   },
   ctaText: {
     color: '#FFFFFF',
-    fontSize: normalize(16.5),
+    fontSize: normalize(18),
     fontFamily: 'Pretendard',
     fontWeight: 600,
     textAlign: 'center',

@@ -117,7 +117,6 @@ export default function PlannerResponseHome() {
     });
 
     console.log('[diag][transport] 총 place 수:', total);
-    console.log('[diag][transport] fromPrevious 있는 곳:', withFP, '| 없는 곳:', withoutFP);
   } catch (e) {
     console.log('[diag][transport] 진단 중 오류:', e?.message);
   }
@@ -177,7 +176,31 @@ export default function PlannerResponseHome() {
     (from === 'Home' && !isMock) ||
     (isReadOnly && !isMock) ||
     isSaved;
-  const [isRegenerating, setIsRegenerating] = useState(false);
+  // (기존)
+const [isRegenerating, setIsRegenerating] = useState(false);
+
+// [ADDED] 저장 전용 스플래시 상태 + 타이머 (무한 로딩 방지)
+const [isSaving, setIsSaving] = useState(false);
+const savingTimerRef = useRef(null);
+
+const openSaving = (timeoutMs = 15000) => {
+  try { if (savingTimerRef.current) clearTimeout(savingTimerRef.current); } catch {}
+  setIsSaving(true);
+  savingTimerRef.current = setTimeout(() => {
+    setIsSaving(false);
+    Alert.alert('네트워크 지연', '저장이 지연됩니다. 잠시 후 다시 시도해주세요.');
+  }, timeoutMs);
+};
+
+const closeSaving = () => {
+  try { if (savingTimerRef.current) clearTimeout(savingTimerRef.current); } catch {}
+  setIsSaving(false);
+};
+
+// 언마운트 시 타이머 정리
+useEffect(() => () => {
+  try { if (savingTimerRef.current) clearTimeout(savingTimerRef.current); } catch {}
+}, []);
   const scrollRef = useRef();
   const listRef = useRef(null);
   const [newlyAddedIndex, setNewlyAddedIndex] = useState(-1);
@@ -186,7 +209,25 @@ export default function PlannerResponseHome() {
   const inputRefs = useRef({});
   const placeRefs = useRef({});
   const cardRefs  = useRef({});
+  const [scheduleData, setScheduleData] = useState(null);
+const [draftMerged, setDraftMerged] = useState(null);
+const [version, setVersion] = useState(0);
 const latestScheduleRef = useRef(null);
+const [listVersion, setListVersion] = useState(0); // [ADDED] 리스트 강제 리렌더 키
+
+const onPressSave = () => {
+  console.log('[EditDone] pressed');
+  handleEditDone();
+};
+
+useEffect(() => {
+  if (!newlyAddedPlaceId) return;
+  requestAnimationFrame(() => {
+    const input = inputRefs.current[newlyAddedPlaceId];
+    input?.focus?.();
+  });
+}, [newlyAddedPlaceId]);
+
 useEffect(() => { latestScheduleRef.current = scheduleData; }, [scheduleData]);
 
   const resolveScheduleId = () => {
@@ -235,8 +276,6 @@ useEffect(() => { latestScheduleRef.current = scheduleData; }, [scheduleData]);
       input?.focus?.();
     });
   };
-
-  const [scheduleData, setScheduleData] = useState(null);
 
   async function loadDetail(scheduleIdRaw) {
    const parsedId = coerceNumericScheduleId(scheduleIdRaw);
@@ -461,6 +500,9 @@ const parsedId = coerceNumericScheduleId(rawId);
   fetchDetail();
 }, [route.params?.scheduleId]);
 
+const dayIdxRef = useRef(selectedDayIndex);
+useEffect(() => { dayIdxRef.current = selectedDayIndex; }, [selectedDayIndex]);
+
   // [PATCH] 해시태그(gptOriginalName) / 교통정보(fromPrevious) 누락 보정
 useEffect(() => {
   if (!scheduleData?.days?.length) return;
@@ -524,10 +566,13 @@ useEffect(() => {
   }
 
   // 편집모드면 임시본에서, 아니면 원본에서 읽어옴
-  const selectedDay = isEditing
-    ? editDraft?.days[selectedDayIndex]
-    : scheduleData.days[selectedDayIndex];
-  const places = selectedDay?.places ?? [];
+const selectedDay = isEditing
+  ? editDraft?.days[selectedDayIndex]
+  : scheduleData.days[selectedDayIndex];
+const places = selectedDay?.places ?? [];
+console.log('[RENDER][day=%d][editing=%s] places(%d): %o',
+  selectedDayIndex, isEditing, places.length, places.map(p => p?.name));
+
 
   // 수정모드 진입
   const enterEditMode = () => {
@@ -560,304 +605,341 @@ useEffect(() => {
     }
   };
 
-  // 드래그 결과 임시본 반영
   const handleDragEnd = ({ data }) => {
-    setEditDraft(prev => {
-      const updatedDays = prev.days.map((day, idx) =>
-        idx === selectedDayIndex ? { ...day, places: [...data] } : day
-      );
-      return { ...prev, days: updatedDays };
-    });
-  };
+    console.log('[DRAG][before] len=%d order=%o', places.length, places.map(p=>p.id));
+   setEditDraft(prev => {
+     const updatedDays = prev.days.map((day, idx) =>
+       idx === selectedDayIndex ? { ...day, places: [...data] } : day
+     );
+     return { ...prev, days: updatedDays };
+   });
+   setListVersion(v => v + 1);
+   console.log('[DRAG][after]  len=%d order=%o', data.length, data.map(p=>p.id));
+ };
+
 
   // 장소 추가
-  const handleAddPlace = (insertIndex) => {
-    if (newlyAddedPlaceId) return;
-    setEditDraft(prev => {
-      const currentPlaces = [...prev.days[selectedDayIndex].places];
-      const newPlaceId = uuid.v4();
-      const newPlace = {
-        id: newPlaceId,
-        name: '',
-        type: '',
-        estimatedCost: 0,
-        gptOriginalName: '', // ← 변경: 기본 빈 값
-        fromPrevious: { car: 0, publicTransport: 0, walk: 0 }, // ← 변경: 0,0,0 시작
-      };
-      const updatedPlaces = [
-        ...currentPlaces.slice(0, insertIndex + 1),
-        newPlace,
-        ...currentPlaces.slice(insertIndex + 1),
-      ];
-      const updatedDays = prev.days.map((day, i) =>
-        i === selectedDayIndex ? { ...day, places: updatedPlaces } : day
-      );
-      setNewlyAddedPlaceId(newPlaceId);
-      setNewlyAddedIndex(insertIndex + 1);
-      setEditedPlaceId(newPlaceId);
-      setEditedPlaces(p => ({ ...p, [newPlaceId]: '' }));
-      return { ...prev, days: updatedDays };
-    });
-  };
+const handleAddPlace = (insertIndex) => {
+  if (newlyAddedPlaceId) return;
+  setEditDraft(prev => {
+    const currentPlaces = [...prev.days[selectedDayIndex].places];
+    const newPlaceId = uuid.v4();
+    const newPlace = {
+      id: newPlaceId,
+      name: '',
+      type: '',
+      estimatedCost: 0,
+      gptOriginalName: '',
+      fromPrevious: { car: 0, publicTransport: 0, walk: 0 },
+    };
+    const updatedPlaces = [
+  ...currentPlaces.slice(0, insertIndex + 1),
+  newPlace,
+  ...currentPlaces.slice(insertIndex + 1),
+];
+console.log('[ADD] day=%d insertAt=%d -> before=%d after=%d newId=%s',
+     selectedDayIndex, insertIndex + 1, currentPlaces.length, updatedPlaces.length, newPlaceId);
+    const updatedDays = prev.days.map((day, i) =>
+      i === selectedDayIndex ? { ...day, places: updatedPlaces } : day
+    );
+    setNewlyAddedPlaceId(newPlaceId);
+    setNewlyAddedIndex(insertIndex + 1);
+    setEditedPlaceId(newPlaceId);
+    setEditedPlaces(p => ({ ...p, [newPlaceId]: '' }));
+    return { ...prev, days: updatedDays };
+  });
+  setListVersion(v => v + 1); // [ADDED]
+  console.log('[ADD][post] places(len) =',
+   (isEditing ? editDraft : scheduleData)?.days?.[selectedDayIndex]?.places?.length);
+};
 
   // 삭제
-  const handleDeletePlace = (placeId) => {
-    setEditDraft(prev => {
-      const currentPlaces = [...prev.days[selectedDayIndex].places];
-      const updatedPlaces = currentPlaces.filter((p) => p.id !== placeId);
-      const updatedDays = prev.days.map((day, i) =>
-        i === selectedDayIndex ? { ...day, places: updatedPlaces } : day
-      );
-      return { ...prev, days: updatedDays };
-    });
-    if (newlyAddedPlaceId === placeId) setNewlyAddedPlaceId(null);
-    setEditedPlaces((prev) => {
-      const updated = { ...prev };
-      delete updated[placeId];
-      return updated;
-    });
-  };
+const handleDeletePlace = (placeId) => {
+  setEditDraft(prev => {
+    const currentPlaces = [...prev.days[selectedDayIndex].places];
+    const updatedPlaces = currentPlaces.filter((p) => p.id !== placeId);
+    console.log('[DEL] day=%d placeId=%s -> before=%d after=%d',
+     selectedDayIndex, placeId, currentPlaces.length, updatedPlaces.length);
+    const updatedDays = prev.days.map((day, i) =>
+      i === selectedDayIndex ? { ...day, places: updatedPlaces } : day
+    );
+    return { ...prev, days: updatedDays };
+  });
+  if (newlyAddedPlaceId === placeId) setNewlyAddedPlaceId(null);
+  setEditedPlaces((prev) => {
+    const updated = { ...prev };
+    delete updated[placeId];
+    return updated;
+  });
+  setListVersion(v => v + 1); // [ADDED]
+  console.log('[DEL][post] places(len) =',
+   (isEditing ? editDraft : scheduleData)?.days?.[selectedDayIndex]?.places?.length);
+};
 
   // 인풋 편집 완료 (이름만 갱신 + 서버 반영 + 필수 필드 보강)
-  const handleEndEditing = async (placeId) => {
-    const newName = (editedPlaces[placeId] ?? '').trim();
-    if (!newName) {
-      Alert.alert('입력 필요', '장소명을 입력해주세요.');
-      return;
-    }
+const handleEndEditing = async (placeId) => {
+  // 0) 입력값 읽기
+  const newName = (editedPlaces[placeId] ?? '').trim();
+  if (!newName) {
+    Alert.alert('입력 필요', '장소명을 입력해주세요.');
+    return;
+  }
 
-    // 1) 로컬 편집본에 '이름만' 반영 (다른 필드는 유지)
-    setEditDraft(prev => {
-      const currentPlaces = [...prev.days[selectedDayIndex].places];
-      const updatedPlaces = currentPlaces.map((p) =>
-        p.id === placeId ? { ...p, name: newName } : p
+  // 1) "현재 화면 상태"를 기준으로 즉시 로컬 반영 + API에 쓸 draft를 동기 생성
+  //    (setState 비동기성으로 인한 레이스 방지)
+  const idx = dayIdxRef.current; // 🔒 고정
+  const base = editDraft ?? scheduleData;
+  const draft = JSON.parse(JSON.stringify(base));
+
+  // 화면 기준(editedPlaces 오버레이 포함)으로 places 갱신본 만들기
+  const effectivePlaces = draft.days[idx].places.map((p) => {
+    if (p.id === placeId) return { ...p, name: newName };
+    // 아직 입력창에 남아있는 값이 있으면 그걸 우선
+    const overlay = editedPlaces[p.id];
+    return overlay != null ? { ...p, name: overlay } : p;
+  });
+
+  draft.days[idx].places = effectivePlaces; // 로컬 적용본
+
+  // 즉시 화면 반영(사용자 체감용)
+  setEditDraft(draft);
+  setScheduleData(draft);
+
+  // 2) 서버 요청용 이름 배열 (빈 문자열 제외)
+  const placeNames = effectivePlaces
+    .map((p) => (p?.name ?? '').trim())
+    .filter(Boolean);
+
+  // 이름이 하나도 없으면 서버 호출 무의미 → 여기서 종료
+  if (placeNames.length === 0) {
+    setEditedPlaces(prev => { const n = { ...prev }; delete n[placeId]; return n; });
+    setListVersion(v => v + 1);
+    return;
+  }
+
+  // 3) 서버 호출
+  const numericId = getNumericScheduleId();
+  const sid = numericId ?? resolveScheduleId();
+
+  console.log('[editSchedule][REQ]', JSON.stringify({
+    scheduleId: sid, dayIndex: idx, namesCount: placeNames.length, names: placeNames
+  }));
+
+  try {
+    const result = await editSchedule(placeNames, { scheduleId: sid, dayIndex: idx });
+    console.log('[editSchedule][RES:ok]', { keys: Object.keys(result || {}) });
+
+    // 4) 병합: 이름-매칭(공백 무시) + 필수필드 보강
+    const norm = (s) => (s ?? '').replace(/\s+/g, '').trim();
+    let nextPlaces = effectivePlaces; // 기본은 방금 반영한 로컬본(안전)
+
+    if (result?.places && result.totalEstimatedCost !== undefined) {
+      const serverMap = new Map(
+        result.places.map((srv) => {
+          const ensured = ensurePlaceIds({ days: [{ places: [srv] }] }).days[0].places[0];
+          return [norm(ensured?.name), ensured];
+        })
       );
-      const updatedDays = prev.days.map((day, i) =>
-        i === selectedDayIndex ? { ...day, places: updatedPlaces } : day
-      );
-      return { ...prev, days: updatedDays };
-    });
 
-    setNewlyAddedPlaceId(null);
-
-    // 2) 서버에 현재 Day의 placeNames로 수정 요청 → 풍부한 필드 수신/병합
-    try {
-      const draft = editDraft ? JSON.parse(JSON.stringify(editDraft)) : JSON.parse(JSON.stringify(scheduleData));
-      const day = draft.days[selectedDayIndex];
-      const placeNames = day.places.map(p => (p?.name ?? '').trim()).filter(Boolean);
-
-      const numericId = getNumericScheduleId(); // 동기
-      const sid = numericId ?? resolveScheduleId();
-
-      const result = await editSchedule(placeNames, {
-        scheduleId: sid,
-        dayIndex: selectedDayIndex,
+      // 기존 순서 유지 + 이름 일치 시 서버값으로 덮어쓰기
+      nextPlaces = effectivePlaces.map((cli) => {
+        const hit = serverMap.get(norm(cli?.name));
+        return ensurePlaceFields(hit ? hit : cli, cli);
       });
 
-      let nextPlaces;
+      // 🚫 방어: 서버가 빈 places를 주면 덮어쓰지 않음
+      const merged = {
+        ...draft,
+        days: draft.days.map((d, i) =>
+          i === idx
+            ? {
+                ...d,
+                places: (Array.isArray(nextPlaces) && nextPlaces.length > 0) ? nextPlaces : d.places,
+                totalEstimatedCost: result.totalEstimatedCost,
+              }
+            : d
+        ),
+      };
+      setScheduleData(merged);
+      setEditDraft(merged);
+      console.log('[merge][object] totalEstimatedCost=%s places=%d',
+        result.totalEstimatedCost,
+        merged?.days?.[idx]?.places?.length ?? -1
+      );
 
-      if (result?.places && result.totalEstimatedCost !== undefined) {
-        // 서버가 { totalEstimatedCost, places } 구조로 준 경우
-        nextPlaces = result.places.map((srv, i) =>
-          ensurePlaceFields(
-            ensurePlaceIds({ days:[{ places:[srv] }]}).days[0].places[0],
-            day.places[i]
-          )
-        );
-
-        const updated = {
-          ...draft,
-          days: draft.days.map((d, idx) =>
-            idx === selectedDayIndex ? { ...d, places: nextPlaces, totalEstimatedCost: result.totalEstimatedCost } : d
-          ),
-        };
-        setScheduleData(updated);
-        setEditDraft(updated);
-
-      } else if (Array.isArray(result)) {
-        // 서버가 배열만 주는 경우 → 기존값과 병합 + 보강
-        nextPlaces = result.map((srv, i) => {
+    } else if (Array.isArray(result)) {
+      const serverMap = new Map(
+        result.map((srv) => {
           const srvObj = typeof srv === 'string' ? { name: srv } : srv;
-          return ensurePlaceFields(
-            ensurePlaceIds({ days:[{ places:[srvObj] }]}).days[0].places[0],
-            day.places[i]
-          );
-        });
+          const ensured = ensurePlaceIds({ days: [{ places: [srvObj] }] }).days[0].places[0];
+          return [norm(ensured?.name), ensured];
+        })
+      );
 
-        const updated = {
-          ...draft,
-          days: draft.days.map((d, idx) =>
-            idx === selectedDayIndex ? { ...d, places: nextPlaces } : d
-          ),
-        };
-        setScheduleData(updated);
-        setEditDraft(updated);
-
-      } else {
-        // 알 수 없는 응답 → 최소한 필수값 유지
-        const updated = {
-          ...draft,
-          days: draft.days.map((d, idx) =>
-            idx === selectedDayIndex
-              ? {
-                  ...d,
-                  places: d.places.map((p) =>
-                    p.id === placeId ? ensurePlaceFields({ ...p, name: newName }, p) : ensurePlaceFields(p, p)
-                  ),
-                }
-              : d
-          ),
-        };
-        setScheduleData(updated);
-        setEditDraft(updated);
-      }
-    } catch (e) {
-      console.warn('editSchedule 실패, 로컬 보강만 반영:', e?.message);
-
-      // 실패 시에도 필수 필드 보강하여 화면 유지
-      setEditDraft(prev => {
-        const d = JSON.parse(JSON.stringify(prev));
-        d.days[selectedDayIndex].places = d.days[selectedDayIndex].places.map(p =>
-          p.id === placeId ? ensurePlaceFields(p, p) : ensurePlaceFields(p, p)
-        );
-        setScheduleData(d);
-        return d;
+      nextPlaces = effectivePlaces.map((cli) => {
+        const hit = serverMap.get(norm(cli?.name));
+        return ensurePlaceFields(hit ? hit : cli, cli);
       });
-    }
-  };
 
-  // 수정 완료
+      const merged = {
+        ...draft,
+        days: draft.days.map((d, i) =>
+          i === idx
+            ? {
+                ...d,
+                places: (Array.isArray(nextPlaces) && nextPlaces.length > 0) ? nextPlaces : d.places,
+              }
+            : d
+        ),
+      };
+      setScheduleData(merged);
+      setEditDraft(merged);
+      console.log('[merge][array] places=%d', merged?.days?.[idx]?.places?.length ?? -1);
+    } else {
+      console.warn('[merge][unknown] result=', result);
+      // unknown → draft 그대로 유지(이미 1단계에서 반영함)
+    }
+
+    // 5) 입력 오버레이 제거 + 리렌더
+    setEditedPlaces(prev => { const n = { ...prev }; delete n[placeId]; return n; });
+    setListVersion(v => v + 1);
+    console.log('[END][done] places(len)=',
+      (editDraft ?? scheduleData)?.days?.[idx]?.places?.length ?? -1
+    );
+  } catch (e) {
+    console.warn('editSchedule 실패, 로컬 보강만 반영:', e?.message);
+    // 실패 시에도 최소 필드 보강으로 안정화
+    setEditDraft(prev => {
+      const d = JSON.parse(JSON.stringify(prev));
+      d.days[idx].places = d.days[idx].places.map(p => ensurePlaceFields(p, p));
+      setScheduleData(d);
+      return d;
+    });
+  }
+};
+
+  // ✨ 수정 완료
 const handleEditDone = async () => {
-  let refreshed = false;
-  let freshEnsured = null;
-  // 가드
+  // 0) 모든 입력창 blur
+  try {
+    Object.values(inputRefs.current || {}).forEach(r => r?.blur?.());
+  } catch {}
+
+  // [GUARD-1] 편집본/선택 일자 유효성
   if (!editDraft?.days?.[selectedDayIndex]?.places) {
     Alert.alert('오류', '편집본이 비어 있어 저장할 수 없습니다.');
     return;
   }
 
-  setNewlyAddedPlaceId(null);
-  setNewlyAddedIndex(-1);
-  setEditedPlaces({});
-
-  const emptyPlaces = editDraft.days[selectedDayIndex].places.filter(p => !p.name?.trim());
+  // [GUARD-2] 빈 장소 이름 존재 여부 (빈 항목 있으면 여기서 종료)
+  const emptyPlaces = draftMerged.days[selectedDayIndex].places
+    .filter(p => !p.name?.trim());
   if (emptyPlaces.length > 0) {
     Alert.alert('빈 장소가 있어요', '장소명을 입력하지 않은 항목이 있어요. 수정 후 저장해주세요');
     return;
   }
 
-  // 상세 재조회 결과/플래그는 함수 스코프에서 관리 (마지막 저장에도 사용)
+  // [ADDED] 저장 스플래시 시작 (무한로딩 방지 타이머 포함)
+  openSaving();
+
+  await new Promise(r => setTimeout(r, 0));
+
+  let refreshed = false;
+  let freshEnsured = null;
+
+  setNewlyAddedPlaceId(null);
+  setNewlyAddedIndex(-1);
+  setEditedPlaces({});
+
+  // 1) ‘입력 중인 값’(editedPlaces)을 편집본에 강제 반영
+  const mergedDraft = JSON.parse(JSON.stringify(editDraft));
+  mergedDraft.days[selectedDayIndex].places =
+    mergedDraft.days[selectedDayIndex].places.map(p => {
+      const pending = (editedPlaces?.[p.id] ?? '').trim();
+      return pending ? { ...p, name: pending } : p;
+    });
 
   const uniq = (arr) => Array.from(new Set(arr.map(s => (s ?? '').trim()).filter(Boolean)));
   const sid = getNumericScheduleId();
 
+  // 저장/재조회 진행
   setIsRegenerating(true);
+
   try {
     await saveCacheData(CACHE_KEYS.PLAN_EDITED, editDraft);
 
-    // 1) 현재 Day만 즉시 반영
-    const placeNames = uniq(editDraft.days[selectedDayIndex].places.map(p => p.name));
-    console.log(`[EditDone] currentDay=${selectedDayIndex} names before save: ${JSON.stringify(placeNames)}`);
-    const result = await editSchedule(placeNames, {
-      scheduleId: sid,
-      dayIndex: selectedDayIndex,
-    });
-
-    // 2) 모든 Day를 dayIndex 별로 반영 (백엔드가 Day 단위로 교체하는 구조 가정)
+    // 2) 모든 Day를 dayIndex 별로 반영 (0-based 우선)
     if (Number.isFinite(sid)) {
-      for (let i = 0; i < (editDraft.days?.length ?? 0); i++) {
-        const dayNames = uniq((editDraft.days[i]?.places ?? []).map(p => p?.name));
-        if (!dayNames.length) continue;  // 빈 Day 스킵
+      for (let i = 0; i < (mergedDraft.days?.length ?? 0); i++) {
+        const dayNames = uniq((mergedDraft.days[i]?.places ?? []).map(p => p?.name));
+        if (!dayNames.length) continue;
         await editSchedule(dayNames, { scheduleId: sid, dayIndex: i });
       }
 
-      // 3) 반영 후 상세 재조회 → 서버 계산값(이동시간/해시태그 등)으로 교체
+      // ★★★ 저장 직후 상세 재조회로 화면 상태 교체
       const fresh = await getScheduleDetail(sid);
- freshEnsured = ensurePlaceIds(fresh);
- setScheduleData(freshEnsured);
- setEditDraft(freshEnsured);
- refreshed = true;
-      // ✅ (검증) 방금 저장한 Day에 내가 보낸 이름들이 실제로 들어갔는지 확인
- const norm = (s) => (s ?? '').trim();
- const want = Array.from(new Set((editDraft.days[selectedDayIndex]?.places ?? [])
-   .map(p => norm(p?.name))
-   .filter(Boolean)));
- const got = Array.from(new Set((freshEnsured?.days?.[selectedDayIndex]?.places ?? [])
-   .map(p => norm(p?.name))
-   .filter(Boolean)));
- const missing = want.filter(n => !new Set(got).has(n));
- if (missing.length) {
-   console.warn('[EditDone][verify] missing after 0-based save:', missing);
-   // ▶ 백엔드가 dayIndex를 1-based로 기대하는 경우를 대비해 현재 Day만 1-based로 재시도
-   const dayIndex1b = selectedDayIndex + 1;
-await editSchedule(placeNames, { scheduleId: sid, dayIndex: dayIndex1b });
-   try {
-     await editSchedule(want, { scheduleId: sid, dayIndex: dayIndex1b });
-     const fresh2 = await getScheduleDetail(sid);
- freshEnsured = ensurePlaceIds(fresh2);      // ✅ 일관되게 freshEnsured 사용
- setScheduleData(freshEnsured);
- setEditDraft(freshEnsured);
-     console.log('[EditDone][verify] 1-based retry applied');
-     const gotNames2 = uniq((freshEnsured?.days?.[selectedDayIndex]?.places ?? []).map(p => p?.name));
-console.log('[EditDone][verify] after 1-based retry, got:', gotNames2);
-   } catch (rr) {
-     console.warn('[EditDone][verify] 1-based retry failed:', rr?.message);
-   }
- }
+
+      // 화면 소스 교체
+      setScheduleData(fresh);
+      setDraftMerged(fresh);
+
+      // 이전 캐시가 다시 덮어쓰는 걸 방지
+      await saveCacheData(CACHE_KEYS.PLAN_INITIAL, null);
+      await saveCacheData(CACHE_KEYS.PLAN_EDITED, null);
+
+      // 리스트 강제 리렌더
+      setVersion(v => v + 1);
+
+      // 서버 계산값 보강
+      freshEnsured = ensurePlaceIds(fresh);
+      setScheduleData(freshEnsured);
+      setEditDraft(freshEnsured);
+      refreshed = true;
+
+      // ✅ 검증(읽기 전용)
+      const norm = (s) => (s ?? '').replace(/\s+/g, '').trim();
+      const want = Array.from(new Set((mergedDraft.days[selectedDayIndex]?.places ?? [])
+        .map(p => norm(p?.name)).filter(Boolean)));
+      const got  = Array.from(new Set((freshEnsured?.days?.[selectedDayIndex]?.places ?? [])
+        .map(p => norm(p?.name)).filter(Boolean)));
+      const missing = want.filter(n => !new Set(got).has(n));
+      if (missing.length) {
+        console.warn('[EditDone][verify] server missing:', missing);
+        // 필요 시 Alert 등 추가 가능
+      }
     } else {
       console.warn('[EditDone] scheduleId 없음 → 서버 동기화 생략');
+      setScheduleData(editDraft); // 서버 호출을 못하면 편집본 유지
     }
 
-    // (보호 분기) 상세 재조회 못했으면 result로라도 현재 Day 갱신
-    if (!refreshed) {
-      if (result?.places && result.totalEstimatedCost !== undefined) {
-        const newPlaces = ensurePlaceIds({ days: [{ places: result.places }] }).days[0].places;
-        const updatedDraft = {
-          ...editDraft,
-          days: editDraft.days.map((day, idx) =>
-            idx === selectedDayIndex
-              ? { ...day, places: newPlaces, totalEstimatedCost: result.totalEstimatedCost }
-              : day
-          ),
-        };
-        setScheduleData(updatedDraft);
-      } else if (Array.isArray(result)) {
-        const newPlaces = ensurePlaceIds({ days: [{ places: result }] }).days[0].places;
-        const updatedDraft = {
-          ...editDraft,
-          days: editDraft.days.map((day, idx) =>
-            idx === selectedDayIndex ? { ...day, places: newPlaces } : day
-          ),
-        };
-        setScheduleData(updatedDraft);
-      } else {
-        setScheduleData(editDraft);
-      }
+    // 편집 종료 상태 정리
+    setIsEditing(false);
+    setOriginalScheduleData(null);
+
+    // 4) 캐시 무효화 + 홈/내여행 목록 갱신
+    try {
+      await AsyncStorage.removeItem(CACHE_KEYS.PLAN_INITIAL);
+      await new Promise((resolve) =>
+        InteractionManager.runAfterInteractions(() => resolve())
+      );
+
+      const base = refreshed ? freshEnsured : (latestScheduleRef.current || scheduleData || {});
+      const current = base?.id ? base : { ...(base || {}), id: uuid.v4() };
+      await saveTripToList(current);
+
+      console.log('[EditDone] PLAN_INITIAL 제거 및 MY_TRIPS 갱신 완료');
+    } catch (e) {
+      console.warn('[EditDone] 캐시/목록 갱신 실패:', e?.message || e);
     }
 
-    setEditDraft(null);
   } catch (e) {
     console.warn('⚠️ PLAN_EDITED 캐시 저장 or API 호출 실패:', e);
     setScheduleData(editDraft); // 실패 시 화면은 편집본 유지
-  }
-
-  setIsEditing(false);
-  setOriginalScheduleData(null);
-  setIsRegenerating(false);
-
-  // 4) 캐시 무효화 + 홈/내여행 목록 갱신
-  try {
-    await AsyncStorage.removeItem(CACHE_KEYS.PLAN_INITIAL);
-    await new Promise((resolve) => InteractionManager.runAfterInteractions(() => resolve()));
-
-    // 재조회 성공 데이터가 있으면 그걸 최우선으로 저장
-    const base = refreshed ? freshEnsured : (latestScheduleRef.current || scheduleData || {});
-    const current = base?.id ? base : { ...(base || {}), id: uuid.v4() };
-    await saveTripToList(current);
-
-    console.log('[EditDone] PLAN_INITIAL 제거 및 MY_TRIPS 갱신 완료');
-  } catch (e) {
-    console.warn('[EditDone] 캐시/목록 갱신 실패:', e?.message || e);
+  } finally {
+    // ✅ 어떤 경로로든 모달/플래그를 반드시 종료
+    setIsRegenerating(false);
+    closeSaving();
+    setIsEditing(false);
   }
 };
 
@@ -958,7 +1040,7 @@ console.log('[EditDone][verify] after 1-based retry, got:', gotNames2);
               data={places}
               keyExtractor={(item, idx) => item.id ? String(item.id) : `temp-${idx}`}
               onDragEnd={handleDragEnd}
-              extraData={[places, newlyAddedPlaceId, selectedDayIndex]}
+              extraData={[editDraft, scheduleData, newlyAddedPlaceId, selectedDayIndex, listVersion]}
               containerStyle={styles.container}
               keyboardDismissMode="on-drag"
               keyboardShouldPersistTaps="handled"
@@ -1013,7 +1095,7 @@ console.log('[EditDone][verify] after 1-based retry, got:', gotNames2);
                             <TextInput
                               ref={setInputRef(place.id)}
                               style={styles.placeNameInput}
-                              value={editedPlaces[place.id] ?? ''}
+                              value={editedPlaces[place.id] ?? (place?.name ?? '')}
                               placeholder="장소명을 입력하세요"
                               onFocus={() => focusAndScroll(place.id, index)}
                               onChangeText={(text) =>
@@ -1173,7 +1255,7 @@ console.log('[EditDone][verify] after 1-based retry, got:', gotNames2);
         {/* 하단 버튼 */}
         {isEditing ? (
           <View style={styles.fixedDoneButtonWrapper}>
-            <TouchableOpacity style={styles.fixedDoneButton} onPress={handleEditDone}>
+            <TouchableOpacity style={styles.fixedDoneButton} onPress={onPressSave}>
               <Text style={styles.fixedDoneButtonText}>플랜 수정 완료</Text>
             </TouchableOpacity>
           </View>
@@ -1360,6 +1442,11 @@ console.log('[EditDone][verify] after 1-based retry, got:', gotNames2);
         <Modal visible={isRegenerating} transparent animationType="fade">
           <SplashScreen />
         </Modal>
+
+        {/* [ADDED] 저장 진행 스플래시 (플랜 수정 완료 시 표시) */}
+<Modal visible={isSaving} transparent animationType="fade">
+  <SplashScreen />
+</Modal>
       </View>
     </SafeAreaView>
   );
