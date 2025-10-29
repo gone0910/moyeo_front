@@ -1,5 +1,5 @@
 // components/planner/PlannerInfoScreen.jsx
-import  { useState, useContext, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useContext, useRef, useEffect, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -14,7 +14,6 @@ import {
   Platform,
   PixelRatio,
   SafeAreaView,
-  ActivityIndicator, // [ADDED] 로딩 인디케이터
 } from 'react-native';
 import { Calendar, LocaleConfig } from 'react-native-calendars';
 import { UserContext } from '../../contexts/UserContext';
@@ -23,12 +22,17 @@ import Slider from '@react-native-community/slider';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { saveCacheData, CACHE_KEYS } from '../../caching/cacheService';
 import axios from 'axios';
-import { useCallback } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import uuid from 'react-native-uuid';
 import SplashScreen from '../../components/common/SplashScreen';
 import { createSchedule } from '../../api/planner_create_request';
 import { defaultTabBarStyle } from '../../navigation/BottomTabNavigator';
+
+// ✅ 지역 공통 맵 (Matching 기준)
+import {
+  REGION_MAP,           // { '서울': [{ name:'강남구', code:'GANGNAM_GU' }, ...], ...}
+  PROVINCE_MAP,         // { '서울': 'SEOUL', '경기도': 'GYEONGGI', ... }
+} from '../../components/common/regionMap';
 
 /* ===== Locale ===== */
 LocaleConfig.locales['ko'] = {
@@ -52,7 +56,7 @@ function normalize(size, based = 'width') {
     : Math.round(PixelRatio.roundToNearestPixel(newSize)) - 1;
 }
 
-/* ===== 공통 바텀시트 ===== */
+/* ===== 공통 BottomSheet ===== */
 function BottomSheet({ visible, onClose, children, heightRatio, maxHeightRatio, minHeightRatio }) {
   const translateY = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
 
@@ -105,9 +109,13 @@ function SheetHeader({ title, subtitle, onClose }) {
         <Text style={styles.sheetTitle}>{title}</Text>
         {!!subtitle && <Text style={styles.sheetSub}>{subtitle}</Text>}
       </View>
-      <TouchableOpacity onPress={onClose} hitSlop={8}>
-        <Ionicons name="close" size={normalize(22)} color="#111" />
-      </TouchableOpacity>
+      <TouchableOpacity
+  onPress={() => onClose(null)}
+  hitSlop={8}
+  style={{ marginTop: normalize(-55, 'height') }}  // ← ★ 이 부분이 여백 조정
+>
+  <Ionicons name="close" size={normalize(22)} color="#111" />
+</TouchableOpacity>
     </View>
   );
 }
@@ -143,7 +151,7 @@ function fmtKorean(date) {
 function getMarkedDatesTemp(start, end) {
   if (!start) return {};
   const marked = {
-    [start]: { startingDay: true, endingDay: !end, color: '#000', textColor: '#fff' },
+    [start]: { startingDay: true, endingDay: !end, color: '#4F46E5', textColor: '#fff' },
   };
   if (start && end) {
     let cur = new Date(start);
@@ -153,23 +161,43 @@ function getMarkedDatesTemp(start, end) {
       const s = cur.toISOString().slice(0,10);
       if (s !== end) marked[s] = { color:'#E3E0FF', textColor:'#111' };
     }
-    marked[end] = { endingDay: true, color: '#000', textColor:'#fff' };
+    marked[end] = { endingDay: true, color: '#4F46E5', textColor:'#fff' };
   }
   return marked;
 }
 
-/* ===== 목적지 시트 높이(파일 값) ===== */
+/* ===== Matching 기준 지역 데이터 구성 ===== */
+// 제외할 광역시
+const EXCLUDED_PROVINCES = ['부산', '대구', '인천', '대전', '울산', '세종', '광주'];
+
+// 도 라벨(선택없음 + 제외 적용)
+const PROVINCE_LABELS = [
+  '선택없음',
+  ...Object.keys(PROVINCE_MAP).filter(p => !EXCLUDED_PROVINCES.includes(p))
+];
+
+// 한글 시/군 → ENUM
+const CITY_TO_ENUM = Object.values(REGION_MAP).flat().reduce((acc, { name, code }) => {
+  acc[name] = code; return acc;
+}, {});
+
+// 도별 시/군 한글 리스트
+const CitiesByProvince = Object.fromEntries(
+  Object.entries(REGION_MAP).map(([provKor, cities]) => [provKor, cities.map(c => c.name)])
+);
+
+// 시트 높이 비율 (Matching 기준)
 function getCitySheetHeightRatio(province) {
   if (province === '선택없음') return 0.30;
-  if (province === '서울') return 0.597;
+  if (province === '서울') return 0.70;
   if (province === '제주') return 0.335;
-  if (province === '경기도') return 0.65;
-  if (province === '강원도') return 0.388;
-  if (province === '충청북도') return 0.335;
+  if (province === '경기도') return 0.70;
+  if (province === '강원도') return 0.43;
+  if (province === '충청북도') return 0.38;
   if (province === '충청남도') return 0.44;
   if (province === '전라북도') return 0.388;
   if (province === '전라남도') return 0.388;
-  if (province === '경상북도') return 0.44;
+  if (province === '경상북도') return 0.37;
   if (province === '경상남도') return 0.44;
   return 0.36;
 }
@@ -192,9 +220,9 @@ export default function PlannerInfoScreen() {
   const [startDate, setStartDate] = useState(null);
   const [endDate, setEndDate] = useState(null);
 
-  // 목적지
-  const [selectedRegion, setSelectedRegion] = useState('');
-  const [selectedCity, setSelectedCity] = useState('');
+  // 목적지 (도/시)
+  const [selectedRegion, setSelectedRegion] = useState(''); // 도(한글)
+  const [selectedCity, setSelectedCity] = useState('');     // 시(한글) - ✅ 단일 선택
 
   // 인원/기타
   const [selectedItems, setSelectedItems] = useState({
@@ -205,17 +233,25 @@ export default function PlannerInfoScreen() {
   });
 
   // 예산
- const [budget, setBudget] = useState(null);
- 
+  const [budget, setBudget] = useState(null);
 
   // MBTI
   const [selectedMbti, setSelectedMbti] = useState(null);
 
-  // 여행 스타일(다중)
+  // 여행 스타일(다중) - 화면은 다중, API는 첫 1개만 전송(기존 유지)
   const [selectedTravelStyles, setSelectedTravelStyles] = useState(null);
 
   // 하단 CTA 활성 조건
   const isDateSelected = !!startDate && !!endDate;
+
+  // [ADDED] 도 선택 시 시/군 필수 유효성
+  const isRegionValid = useMemo(() => {
+    if (!selectedRegion || selectedRegion === '선택없음') return true; // 목적지 미선택 또는 '선택없음'은 통과
+    return !!selectedCity; // 도를 골랐다면 시/군 필수
+  }, [selectedRegion, selectedCity]);
+
+  // [ADDED] 최종 CTA 활성화 조건
+  const isCTAEnabled = isDateSelected && isRegionValid;
 
   // 어떤 시트를 열지
   const [sheet, setSheet] = useState(null); // 'date' | 'region' | 'budget' | 'mbti' | 'style' | 'group' | null
@@ -245,83 +281,23 @@ export default function PlannerInfoScreen() {
     setSheet(null);
   };
 
-  /* ===== 목적지 ENUM ===== */
-  const Province = {
-    '선택없음': 'NONE',
-    '서울': 'SEOUL',
-    '제주': 'JEJU',
-    '경기도': 'GYEONGGI',
-    '강원도': 'GANGWON',
-    '충청북도': 'CHUNGBUK',
-    '충청남도': 'CHUNGNAM',
-    '전라북도': 'JEONBUK',
-    '전라남도': 'JEONNAM',
-    '경상북도': 'GYEONGBUK',
-    '경상남도': 'GYEONGNAM',
-  };
-  const City = {
-    // 서울
-    '강남구': 'GANGNAM_GU', '강동구': 'GANGDONG_GU', '강북구': 'GANGBUK_GU', '강서구': 'GANGSEO_GU',
-    '관악구': 'GWANAK_GU', '광진구': 'GWANGJIN_GU', '구로구': 'GURO_GU', '금천구': 'GEUMCHEON_GU',
-    '노원구': 'NOWON_GU', '도봉구': 'DOBONG_GU', '동대문구': 'DONGDAEMUN_GU', '동작구': 'DONGJAK_GU',
-    '마포구': 'MAPO_GU', '서대문구': 'SEODAEMUN_GU', '서초구': 'SEOCHO_GU', '성동구': 'SEONGDONG_GU',
-    '성북구': 'SEONGBUK_GU', '송파구': 'SONGPA_GU', '양천구': 'YANGCHEON_GU', '영등포구': 'YEONGDEUNGPO_GU',
-    '용산구': 'YONGSAN_GU', '은평구': 'EUNPYEONG_GU', '종로구': 'JONGNO_GU', '중구': 'JUNG_GU', '중랑구': 'JUNGNANG_GU',
-    // 제주
-    '제주시': 'JEJU_SI', '서귀포시': 'SEOGWIPO_SI',
-    // 경기도
-    '수원시': 'SUWON_SI', '성남시': 'SEONGNAM_SI', '고양시': 'GOYANG_SI', '용인시': 'YONGIN_SI',
-    '부천시': 'BUCHEON_SI', '안산시': 'ANSAN_SI', '안양시': 'ANYANG_SI', '남양주시': 'NAMYANGJU_SI',
-    '화성시': 'HWASEONG_SI', '평택시': 'PYEONGTAEK_SI', '의정부시': 'UIJEONGBU_SI', '파주시': 'PAJU_SI',
-    '시흥시': 'SIHEUNG_SI', '김포시': 'GIMPO_SI', '광명시': 'GWANGMYEONG_SI', '군포시': 'GUNPO_SI',
-    '이천시': 'ICHEON_SI', '오산시': 'OSAN_SI', '하남시': 'HANAM_SI', '양주시': 'YANGJU_SI',
-    '구리시': 'GURI_SI', '안성시': 'ANSEONG_SI', '포천시': 'POCHEON_SI', '의왕시': 'UIWANG_SI',
-    '여주시': 'YEOJU_SI', '양평군': 'YANGPYEONG_GUN', '동두천시': 'DONGDUCHEON_SI', '과천시': 'GWACHEON_SI',
-    '가평군': 'GAPYEONG_GUN', '연천군': 'YEONCHEON_GUN',
-    '광주시': 'GWANGJU_GYEONGGI_SI', // [ADDED] 경기도 광주시 (백엔드 ENUM 확인 필요)
-    // 강원특별자치도
-    '춘천시': 'CHUNCHEON_SI', '원주시': 'WONJU_SI', '강릉시': 'GANGNEUNG_SI', '동해시': 'DONGHAE_SI',
-    '태백시': 'TAEBAEK_SI', '속초시': 'SOKCHO_SI', '삼척시': 'SAMCHEOK_SI',
-    // 충청북도
-    '청주시': 'CHEONGJU_SI', '충주시': 'CHUNGJU_SI', '제천시': 'JECHEON_SI',
-    // 충청남도
-    '천안시': 'CHEONAN_SI', '공주시': 'GONGJU_SI', '보령시': 'BOREONG_SI', '아산시': 'ASAN_SI', '서산시': 'SEOSAN_SI',
-    '논산시': 'NONSAN_SI', '계룡시': 'GYERYONG_SI', '당진시': 'DANGJIN_SI', '부여군': 'BUYEO_GUN', '홍성군': 'HONGSEONG_GUN',
-    // 전라북도
-    '전주시': 'JEONJU_SI', '군산시': 'GUNSAN_SI', '익산시': 'IKSAN_SI', '정읍시': 'JEONGEUP_SI', '남원시': 'NAMWON_SI',
-    '김제시': 'GIMJE_SI', '순창군': 'SUNCHANG_GUN',
-    // 전라남도
-    '목포시': 'MOKPO_SI', '여수시': 'YEOSU_SI', '순천시': 'SUNCHEON_SI', '나주시': 'NAJU_SI', '광양시': 'GWANGYANG_SI', '해남군': 'HAENAM_GUN',
-    // 경상북도
-    '포항시': 'POHANG_SI', '경주시': 'GYEONGJU_SI', '김천시': 'GIMCHEON_SI', '안동시': 'ANDONG_SI', '구미시': 'GUMI_SI',
-    '영주시': 'YEONGJU_SI', '영천시': 'YEONGCHEON_SI', '상주시': 'SANGJU_SI', '문경시': 'MUNGYEONG_SI',
-    '경산시': 'GYEONGSAN_SI', '울진군': 'ULJIN_GUN', '울릉군': 'ULLUNG_GUN',
-    // 경상남도
-    '창원시': 'CHANGWON_SI', '진주시': 'JINJU_SI', '통영시': 'TONGYEONG_SI', '사천시': 'SACHEON_SI', '김해시': 'GIMHAE_SI',
-    '밀양시': 'MIRYANG_SI', '거제시': 'GEOJE_SI', '양산시': 'YANGSAN_SI', '남해군': 'NAMHAE_GUN',
-  };
-  const CitiesByProvince = useMemo(() => ({
-    '서울': ['강남구','강동구','강북구','강서구','관악구','광진구','구로구','금천구','노원구','도봉구','동대문구','동작구','마포구','서대문구','서초구','성동구','성북구','송파구','양천구','영등포구','용산구','은평구','종로구','중구','중랑구'],
-    '제주': ['제주시', '서귀포시'],
-    '경기도': ['수원시','성남시','고양시','용인시','부천시','안산시','안양시','남양주시','화성시','평택시','의정부시','파주시','시흥시','김포시','광명시','군포시','이천시','오산시','하남시','양주시','구리시','안성시','포천시','의왕시','여주시','양평군','동두천시','과천시','가평군','연천군','광주시'], // [ADDED] 광주시
-    '강원도': ['춘천시','원주시','강릉시','동해시','태백시','속초시','삼척시'],
-    '충청북도': ['청주시','충주시','제천시'],
-    '충청남도': ['천안시','공주시','보령시','아산시','서산시','논산시','계룡시','당진시','부여군','홍성군'],
-    '전라북도': ['전주시','군산시','익산시','정읍시','남원시','김제시','순창군'],
-    '전라남도': ['목포시','여수시','순천시','나주시','광양시','해남군'],
-    '경상북도': ['포항시','경주시','김천시','안동시','구미시','영주시','영천시','상주시','문경시','경산시','울진군','울릉군'],
-    '경상남도': ['창원시','진주시','통영시','사천시','김해시','밀양시','거제시','양산시','남해군'],
-  }), [])
-
-  /* ===== 목적지 시트 (임시 상태) ===== */
+  /* ===== 목적지 시트 (Matching 구조) ===== */
   const [regionStep, setRegionStep] = useState('province'); // 'province' | 'city'
   const [tmpProvince, setTmpProvince] = useState('선택없음');
-  const [tmpCity, setTmpCity] = useState('');
+  const [tmpCity, setTmpCity] = useState(''); // ✅ 단일 선택
+  // [ADDED] 시/군 단계 확인 가능 여부: 도가 '선택없음'이면 통과, 아니면 시/군 필수
+  const canConfirmCity = useMemo(() => (tmpProvince === '선택없음' || !!tmpCity), [tmpProvince, tmpCity]);
   const openRegionSheet = () => {
     setTmpProvince(selectedRegion || '선택없음');
     setTmpCity(selectedCity || '');
     setRegionStep('province');
     setSheet('region');
+  };
+
+  // ✅ 시 단일선택
+  const selectTmpCity = (c) => {
+    if (c === '선택없음') setTmpCity('');
+    else setTmpCity(c);
   };
   const confirmRegion = () => {
     if (tmpProvince === '선택없음') {
@@ -397,27 +373,26 @@ export default function PlannerInfoScreen() {
     return endDate ? `${formatDate(startDate)} - ${formatDate(endDate)}`
                    : formatDate(startDate);
   }, [startDate, endDate]);
+
   const destinationLabel = useMemo(() => {
-   if (!selectedRegion) return '';                        // 아직 아무 선택 안함 → 미표시
-   if (selectedRegion === '선택없음') return '선택없음';  // 사용자가 명시적으로 선택
-   return selectedCity ? `${selectedRegion} · ${selectedCity}` : `${selectedRegion} · 선택없음`;
- }, [selectedRegion, selectedCity]);
+    if (!selectedRegion) return '';
+    if (selectedRegion === '선택없음') return '선택없음';
+    return selectedCity ? `${selectedRegion} · ${selectedCity}` : `${selectedRegion} · 선택없음`;
+  }, [selectedRegion, selectedCity]);
+
   const mbtiLabel = selectedMbti == null ? '' : (selectedMbti === 'NONE' ? '선택없음' : selectedMbti);
   const styleLabel =
-   selectedTravelStyles == null
-     ? '' // 아직 시트에서 확정하지 않음 → 미표시
-     : (selectedTravelStyles.length
-         ? (selectedTravelStyles.length === 1
+    selectedTravelStyles == null
+      ? ''
+      : (selectedTravelStyles.length
+          ? (selectedTravelStyles.length === 1
               ? selectedTravelStyles[0]
               : `${selectedTravelStyles[0]} 외 ${selectedTravelStyles.length - 1}`)
-         : '선택없음'); // 시트에서 '선택없음'(빈 배열) 확정
-  const groupLabel = selectedItems.group ? selectedItems.group : ''; // 아직 선택 전이면 미표시
-  const budgetLabel =
-  typeof budget === 'number'
-    ? `${budget.toLocaleString()}원`
-    : '';
+          : '선택없음');
+  const groupLabel = selectedItems.group ? selectedItems.group : '';
+  const budgetLabel = typeof budget === 'number' ? `${budget.toLocaleString()}원` : '';
 
-  /* ===== Mock 플랜 이동 ===== */
+  /* ===== Mock 플랜 이동 (유지) ===== */
   const handleCustomPlan = () => {
     const mockData = {
       title: '모의 여행 플랜',
@@ -425,7 +400,7 @@ export default function PlannerInfoScreen() {
       endDate,
       destination: 'SEOUL',
       mbti: selectedMbti || 'NONE',
-      travelStyle: selectedTravelStyles[0] || 'NONE',
+      travelStyle: (Array.isArray(selectedTravelStyles) && selectedTravelStyles[0]) || 'NONE',
       peopleGroup: selectedItems.group || 'NONE',
       budget,
       days: [
@@ -460,46 +435,52 @@ export default function PlannerInfoScreen() {
 
   /* -- 실제 API -- */
   const handleCreateSchedule = async () => {
-  setLoading(true);
-  try {
-    const hasStyles =
-     Array.isArray(selectedTravelStyles) && selectedTravelStyles.length > 0;
-   const firstStyle = hasStyles ? selectedTravelStyles[0] : null;
-   const STYLE_ENUM = {
-     '액티비티':'ACTIVITY','문화/관광':'CULTURE','힐링':'HEALING',
-     '맛집':'FOOD','도심':'CITY','자연':'NATURE'
-   };
-     const data = await createSchedule(
-      startDate,
-      endDate,
-      selectedCity ? City[selectedCity] : 'NONE',
-      (!selectedMbti || selectedMbti === '선택없음') ? 'NONE' : selectedMbti,
-      firstStyle ? STYLE_ENUM[firstStyle] : 'NONE',
-      ({ '선택없음':'NONE','혼자':'SOLO','단둘이':'DUO','여럿이':'GROUP' })[selectedItems.group] || 'NONE',
-      Number(budget || 0)
-    );
+    setLoading(true);
+    // [ADDED] 안전 가드: 도 선택 시 시/군 미선택을 차단
+    if (selectedRegion && selectedRegion !== '선택없음' && !selectedCity) {
+      Alert.alert('안내', '시/군을 선택해 주세요.');
+      setLoading(false);
+      return;
+    }
+    try {
+      const hasStyles = Array.isArray(selectedTravelStyles) && selectedTravelStyles.length > 0;
+      const firstStyle = hasStyles ? selectedTravelStyles[0] : null;
+      const STYLE_ENUM = {
+        '액티비티':'ACTIVITY','문화/관광':'CULTURE','힐링':'HEALING',
+        '맛집':'FOOD','도심':'CITY','자연':'NATURE'
+      };
 
-    // ✅ scheduleId 안전하게 뽑기
-    const scheduleId =
-      data?.id ?? data?.scheduleId ?? null;
+      // ✅ 도시 ENUM 매핑 (단일 선택 / 미선택 시 NONE)
+      const cityEnum = selectedCity ? (CITY_TO_ENUM[selectedCity] || 'NONE') : 'NONE';
+      const mbtiEnum = (!selectedMbti || selectedMbti === '선택없음') ? 'NONE' : selectedMbti;
+      const groupEnum = ({ '선택없음':'NONE','혼자':'SOLO','단둘이':'DUO','여럿이':'GROUP' })[selectedItems.group] || 'NONE';
+      const styleEnum = firstStyle ? STYLE_ENUM[firstStyle] : 'NONE';
 
-    // ✅ 캐시 저장 (실패해도 네비는 진행)
-    try { await saveCacheData(CACHE_KEYS.PLAN_INITIAL, data); } catch {}
+      const data = await createSchedule(
+        startDate,
+        endDate,
+        cityEnum,                     // ✅ 변경: City ENUM 공통맵 기반
+        mbtiEnum,
+        styleEnum,                    // 화면 다중 → API 첫 1개
+        groupEnum,
+        Number(budget || 0)
+      );
 
-    // ✅ 같은 스택(HomeNavigator) 안에서 바로 진입 (가장 확실)
-    //    replace를 쓰면 뒤로 가기 눌러도 생성폼으로 안 돌아감 (의도)
-    navigation.replace('PlannerResponse', {
-      from: 'create',
-      scheduleId,
-    });
+      const scheduleId = data?.id ?? data?.scheduleId ?? null;
+      try { await saveCacheData(CACHE_KEYS.PLAN_INITIAL, data); } catch {}
 
-  } catch (e) {
-    console.error('❌ [PlannerInfo] 일정 생성 실패:', e);
-    Alert.alert('오류', e?.message === 'UNAUTHORIZED' ? '로그인이 필요합니다.' : '일정 생성 실패');
-  } finally {
-    setLoading(false);
-  }
-};
+      navigation.replace('PlannerResponse', {
+        from: 'create',
+        scheduleId,
+      });
+
+    } catch (e) {
+      console.error('❌ [PlannerInfo] 일정 생성 실패:', e);
+      Alert.alert('오류', e?.message === 'UNAUTHORIZED' ? '로그인이 필요합니다.' : '일정 생성 실패');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   /* ====== 렌더링 ====== */
   return (
@@ -524,33 +505,22 @@ export default function PlannerInfoScreen() {
           <Row title="목적지" value={destinationLabel} onPress={openRegionSheet} required={false}/>
           <Row title="인원" value={groupLabel} onPress={openGroupSheet} required={false}/>
           <Row title="예산" value={budgetLabel} onPress={openBudgetSheet} required={false}/>
-          <Row title="MBTI" value={mbtiLabel} onPress={() => setSheet('mbti')} required={false}/>
+          <Row title="MBTI" value={mbtiLabel} onPress={openMbtiSheet} required={false}/>
           <Row title="여행 스타일" value={styleLabel} onPress={openStyleSheet} required={false}/>
         </ScrollView>
 
         {/* 하단 CTA */}
         <View style={styles.ctaWrap}>
           <TouchableOpacity
-            style={[styles.ctaBtn, !isDateSelected && { opacity: 0.5 }]}
+            style={[styles.ctaBtn, !isCTAEnabled && { opacity: 0.5 }]}
             onPress={handleCreateSchedule}
-            disabled={!isDateSelected}
+            disabled={!isCTAEnabled}
             activeOpacity={0.9}
           >
-            <Text style={styles.ctaText}>여행플랜 바로 제작</Text>
+            <Text style={styles.ctaText}>나만의 여행 플랜 바로 제작</Text>
           </TouchableOpacity>
 
           <View style={{ height: normalize(8,'height') }} />
-
-          <TouchableOpacity
-            style={[styles.secondaryBtn]}
-            onPress={handleCustomPlan}
-            disabled={!isDateSelected}
-            activeOpacity={0.9}
-          >
-            <Text style={[styles.secondaryBtnText, !isDateSelected && { opacity: 0.5 }]}>
-              나만의 여행 플랜 제작
-            </Text>
-          </TouchableOpacity>
         </View>
       </View>
 
@@ -599,23 +569,82 @@ export default function PlannerInfoScreen() {
         </View>
       </BottomSheet>
 
-      {/* ===== 바텀시트: 목적지 (province 0.44 / city 가변) ===== */}
+      {/* ===== 바텀시트: 목적지 ===== */}
       <BottomSheet
         visible={sheet==='region'}
         onClose={()=>setSheet(null)}
-        heightRatio={regionStep==='province' ? 0.44 : getCitySheetHeightRatio(tmpProvince)}
+        heightRatio={regionStep==='province' ? 0.48 : getCitySheetHeightRatio(tmpProvince)}
       >
         <SheetHeader
           title="이번 여행, 어디로?"
-          subtitle={regionStep==='province' ? '먼저 도(광역)를 선택하세요' : '시/군을 선택하세요'}
+          subtitle={regionStep==='province' ? '먼저 도(광역)를 선택하세요' : '시/군을 선택하세요 (단일 선택)'}
           onClose={()=>setSheet(null)}
         />
 
-        {regionStep==='province' ? (
-          <View style={[styles.pillWrap, { paddingBottom: normalize(100,'height') }]}>
+        {/* 단계 전환 탭 표시 */}
+<View style={{ flexDirection: 'row', gap: normalize(8), paddingHorizontal: normalize(16), paddingBottom: normalize(20,'height') }}>
+  <View style={[styles.stepBadge, regionStep === 'province' && styles.stepBadgeActive]}>
+    <Text style={[styles.stepBadgeText, regionStep === 'province' && styles.stepBadgeTextActive]}>도 선택</Text>
+  </View>
+  <View style={[styles.stepBadge, regionStep === 'city' && styles.stepBadgeActive]}>
+    <Text style={[styles.stepBadgeText, regionStep === 'city' && styles.stepBadgeTextActive]}>시/군 선택</Text>
+  </View>
+</View>
+
+        {regionStep==='city' ? (
+          // 서울/경기도만 ScrollView
+          (tmpProvince === '서울' || tmpProvince === '경기도') ? (
+            <ScrollView
+              style={{ paddingHorizontal: normalize(16) }}
+              contentContainerStyle={{ paddingBottom: normalize(20, 'height') }}
+              showsVerticalScrollIndicator={false}
+            >
+              <View style={styles.regionGrid}>
+
+                {(CitiesByProvince[tmpProvince] ?? []).map((c) => {
+                  const sel = tmpCity === c;
+                  return (
+                    <TouchableOpacity
+                      key={c}
+                      style={[styles.regionChip, sel && styles.regionChipSelected]}
+                      onPress={()=>selectTmpCity(c)}
+                      activeOpacity={0.85}
+                    >
+                      <Text style={[styles.regionChipText, sel && styles.regionChipTextSelected]}>{c}</Text>
+                      {sel && <Ionicons name="checkmark-circle" size={normalize(14)} color="#4F46E5" style={{ marginLeft: normalize(6) }} />}
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </ScrollView>
+          ) : (
+            // 그 외 도는 고정 View
+            <View style={{ paddingHorizontal: normalize(16), paddingBottom: normalize(20, 'height') }}>
+              <View style={styles.regionGrid}>
+
+                {(CitiesByProvince[tmpProvince] ?? []).map((c) => {
+                  const sel = tmpCity === c;
+                  return (
+                    <TouchableOpacity
+                      key={c}
+                      style={[styles.regionChip, sel && styles.regionChipSelected]}
+                      onPress={()=>selectTmpCity(c)}
+                      activeOpacity={0.85}
+                    >
+                      <Text style={[styles.regionChipText, sel && styles.regionChipTextSelected]}>{c}</Text>
+                      {sel && <Ionicons name="checkmark-circle" size={normalize(14)} color="#4F46E5" style={{ marginLeft: normalize(6) }} />}
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </View>
+          )
+        ) : (
+          // 'province' 단계
+          <View style={{ paddingHorizontal: normalize(16), paddingBottom: normalize(100, 'height') }}>
             <View style={styles.regionGrid}>
-              {Object.keys(Province).map((p)=>{
-                const sel = p===tmpProvince;
+              {PROVINCE_LABELS.map((p) => {
+                const sel = p === tmpProvince;
                 return (
                   <TouchableOpacity
                     key={p}
@@ -624,35 +653,6 @@ export default function PlannerInfoScreen() {
                     activeOpacity={0.85}
                   >
                     <Text style={[styles.regionChipText, sel && styles.regionChipTextSelected]}>{p}</Text>
-                    {sel && <Ionicons name="checkmark-circle" size={normalize(14)} color="#4F46E5" style={{ marginLeft: normalize(6) }} />}
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          </View>
-        ) : (
-          <View style={[styles.pillWrap, { paddingBottom: normalize(100,'height') }]}>
-            <View style={styles.regionGrid}>
-              <TouchableOpacity
-                key="선택없음"
-                style={[styles.regionChip, (tmpCity==='' ) && styles.regionChipSelected]}
-                onPress={()=>setTmpCity('')}
-                activeOpacity={0.85}
-              >
-                <Text style={[styles.regionChipText, (tmpCity==='' ) && styles.regionChipTextSelected]}>선택없음</Text>
-                {tmpCity==='' && <Ionicons name="checkmark-circle" size={normalize(14)} color="#4F46E5" style={{ marginLeft: normalize(6) }} />}
-              </TouchableOpacity>
-
-              {(CitiesByProvince[tmpProvince]||[]).map((c)=>{
-                const sel = tmpCity===c;
-                return (
-                  <TouchableOpacity
-                    key={c}
-                    style={[styles.regionChip, sel && styles.regionChipSelected]}
-                    onPress={()=>setTmpCity(c)}
-                    activeOpacity={0.85}
-                  >
-                    <Text style={[styles.regionChipText, sel && styles.regionChipTextSelected]}>{c}</Text>
                     {sel && <Ionicons name="checkmark-circle" size={normalize(14)} color="#4F46E5" style={{ marginLeft: normalize(6) }} />}
                   </TouchableOpacity>
                 );
@@ -672,8 +672,8 @@ export default function PlannerInfoScreen() {
               >
                 <Text style={[styles.sheetCTAText,{ color:'#111'}]}>이전(도 선택)</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={[styles.sheetCTA,{ flex:1 }]} onPress={confirmRegion} activeOpacity={0.9}>
-                <Text style={styles.sheetCTAText}>
+              <TouchableOpacity style={[styles.sheetCTA,{ flex:1 }, !canConfirmCity && { opacity: 0.5 }]} onPress={canConfirmCity ? confirmRegion : undefined} disabled={!canConfirmCity} activeOpacity={0.9}>
+                <Text style={styles.sheetCTAText} numberOfLines={1} ellipsizeMode="tail">
                   {tmpProvince==='선택없음'
                     ? '도: 선택없음'
                     : `${tmpProvince} · ${tmpCity || '선택없음'}`}
@@ -704,7 +704,7 @@ export default function PlannerInfoScreen() {
       </BottomSheet>
 
       {/* ===== 바텀시트: 예산 (0.33) ===== */}
-      <BottomSheet visible={sheet==='budget'} onClose={()=>setSheet(null)} heightRatio={0.33}>
+      <BottomSheet visible={sheet==='budget'} onClose={()=>setSheet(null)} heightRatio={0.37}>
         <SheetHeader title="예산 (1인 기준)" subtitle="원하는 예산을 선택하세요" onClose={()=>setSheet(null)} />
         <View style={{ paddingHorizontal: normalize(20) }}>
           <View style={[styles.budgetValueBox, tmpBudget===0 && styles.disabledBudgetBox]}>
@@ -731,13 +731,13 @@ export default function PlannerInfoScreen() {
         </View>
       </BottomSheet>
 
-      {/* ===== 바텀시트: MBTI (높이 축소 0.5 + 컴팩트 칩) ===== */}
-      <BottomSheet visible={sheet==='mbti'} onClose={()=>setSheet(null)} heightRatio={0.45}>
+      {/* ===== 바텀시트: MBTI (0.45) ===== */}
+      <BottomSheet visible={sheet==='mbti'} onClose={()=>setSheet(null)} heightRatio={0.47}>
         <SheetHeader title="MBTI를 선택해 주세요" subtitle="" onClose={()=>setSheet(null)} />
         <View style={{ paddingHorizontal: normalize(16), paddingBottom: normalize(100,'height') }}>
           <View style={styles.regionGrid}>
             {[
-              '선택없음', // ISTJ 왼쪽, 같은 칩 박스
+              '선택없음',
               'ISTJ','ISFJ','INFJ','INTJ',
               'ISTP','ISFP','INFP','INTP',
               'ESTP','ESFP','ENFP','ENTP',
@@ -776,7 +776,7 @@ export default function PlannerInfoScreen() {
       </BottomSheet>
 
       {/* ===== 바텀시트: 여행 스타일 (0.33) ===== */}
-      <BottomSheet visible={sheet==='style'} onClose={()=>setSheet(null)} heightRatio={0.33}>
+      <BottomSheet visible={sheet==='style'} onClose={()=>setSheet(null)} heightRatio={0.37}>
         <SheetHeader title="나의 여행 스타일은?" subtitle="여러 개를 골라도 좋아요" onClose={()=>setSheet(null)} />
         <View style={{ paddingHorizontal: normalize(16), paddingBottom: normalize(100,'height') }}>
           <View style={styles.regionGrid}>
@@ -816,7 +816,7 @@ export default function PlannerInfoScreen() {
       </BottomSheet>
 
       {/* ===== 바텀시트: 인원(그룹) (0.29) ===== */}
-      <BottomSheet visible={sheet==='group'} onClose={()=>setSheet(null)} heightRatio={0.29}>
+      <BottomSheet visible={sheet==='group'} onClose={()=>setSheet(null)} heightRatio={0.32}>
         <SheetHeader title="인원" subtitle="여행 인원을 선택하세요" onClose={()=>setSheet(null)} />
         <View style={{ paddingHorizontal: normalize(16), paddingBottom: normalize(100,'height') }}>
           <View style={styles.optionGridLg}>
@@ -843,10 +843,10 @@ export default function PlannerInfoScreen() {
         </View>
       </BottomSheet>
 
-      {/* ===== [ADDED] 로딩 모달 ===== */}
-       <Modal visible={loading} transparent animationType="fade"> 
-         <SplashScreen /> 
-       </Modal> 
+      {/* ===== 로딩 모달 ===== */}
+      <Modal visible={loading} transparent animationType="fade">
+        <SplashScreen />
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -854,7 +854,11 @@ export default function PlannerInfoScreen() {
 /* ===== 스타일 ===== */
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: '#FAFAFA' },
-  container: { flex:1, backgroundColor:'#FAFAFA' },
+  container: {
+    flex: 1,
+    backgroundColor: '#FAFAFA',
+    paddingTop: normalize(20, 'height'),   // ✅ 이 위치에 있어야 적용됨
+  },
 
   // 헤더
   header: {
@@ -886,6 +890,18 @@ const styles = StyleSheet.create({
   cardValue: { color:'#4F46E5', fontWeight:'500', fontSize: normalize(16), flexShrink:1 },
   chevronBadge: { width: normalize(28), height: normalize(28), alignItems:'center', justifyContent:'center' },
 
+  stepBadge: {
+  paddingVertical: normalize(6,'height'),
+  paddingHorizontal: normalize(10),
+  borderRadius: normalize(999),
+  borderWidth: 1,
+  borderColor: '#E5E7EB',
+  backgroundColor: '#FFFFFF',
+},
+stepBadgeActive: { borderColor: '#4F46E5', backgroundColor: '#EEF2FF' },
+stepBadgeText: { fontSize: normalize(12), color: '#374151' },
+stepBadgeTextActive: { color: '#4F46E5', fontWeight: '700' },
+
   // 하단 CTA(화면)
   ctaWrap: { position:'absolute', left:0, right:0, bottom: normalize(16,'height'), paddingHorizontal: normalize(16) },
   ctaBtn: {
@@ -894,12 +910,6 @@ const styles = StyleSheet.create({
     shadowColor: '#000', shadowOpacity: 0.12, shadowOffset: { width: 0, height: 6 }, shadowRadius: 12, elevation: 3,
   },
   ctaText: { color:'#FFFFFF', fontSize: normalize(16), fontWeight:'600' },
-  secondaryBtn: {
-    height: normalize(50), borderRadius: normalize(10),
-    alignItems:'center', justifyContent:'center',
-    backgroundColor: '#FFF', borderWidth: 2, borderColor: '#4F46E5',
-  },
-  secondaryBtnText: { fontSize: normalize(18), fontWeight:'600', color: '#4F46E5' },
 
   // 공통
   asterisk: { color:'#EF4444', fontWeight:'bold', fontSize: 18 },
@@ -907,9 +917,11 @@ const styles = StyleSheet.create({
   // 바텀시트 공통
   dim: { ...StyleSheet.absoluteFillObject, backgroundColor:'rgba(0,0,0,0.35)' },
   sheet: {
-    position:'absolute', left:0, right:0, bottom:0, backgroundColor:'#FFFFFF',
+    position: 'absolute', left: 0, right: 0, bottom: 0, backgroundColor: '#FFFFFF',
     borderTopLeftRadius: normalize(16), borderTopRightRadius: normalize(16),
-    paddingTop: normalize(16,'height'), alignSelf:'stretch', overflow:'hidden',
+    paddingTop: normalize(32, 'height'),
+    alignSelf: 'stretch',
+    overflow: 'hidden',
   },
   sheetHeader: {
     paddingHorizontal: normalize(16), paddingBottom: normalize(20,'height'),
@@ -918,25 +930,34 @@ const styles = StyleSheet.create({
   sheetTitle: { fontSize: normalize(20), fontWeight:'500', color: '#111111' },
   sheetSub: { marginTop: normalize(4), marginBottom: normalize(4), fontSize: normalize(14), color: '#767676', fontWeight:'400' },
 
-  // 시트 본문 & 하단 고정 CTA (파일 기준 위치)
+  // 시트 본문 & 하단 고정 CTA
   sheetBody: { paddingHorizontal: normalize(16), paddingBottom: normalize(100,'height'), flexGrow:1 },
   sheetFixedCTA: {
     position:'absolute',
     left: normalize(16),
     right: normalize(16),
-    bottom: normalize(50,'height'), // 파일과 동일 위치
+    bottom: normalize(50,'height'),
   },
+
+  
   sheetCTA: {
     height: normalize(52,'height'), borderRadius: normalize(12), backgroundColor:'#4F46E5',
     alignItems:'center', justifyContent:'center',
   },
   sheetCTAText: { color:'#fff', fontSize: normalize(16), fontWeight:'600' },
 
-  // 칩/그리드
-  regionGrid: { flexDirection:'row', flexWrap:'wrap', gap: normalize(10) },
+  // 칩/그리드 (Matching 기준: 1줄 4개 고정 + 간격)
+  regionGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'flex-start',
+    columnGap: normalize(12),
+    rowGap: normalize(12,'height'),
+  },
   regionChip: {
-    flexDirection:'row', alignItems:'center',
-    paddingVertical: normalize(10,'height'), paddingHorizontal: normalize(14),
+    width: (SCREEN_WIDTH - normalize(16) * 2 - normalize(12) * 3) / 4, // ✅ 4칩/줄 고정
+    flexDirection:'row', alignItems:'center', justifyContent: 'center',
+    paddingVertical: normalize(10,'height'), paddingHorizontal: normalize(10),
     borderRadius: normalize(12), borderWidth: 1, borderColor:'#E5E7EB', backgroundColor:'#FFFFFF',
   },
   regionChipSelected: { borderColor:'#4F46E5', backgroundColor:'#EEF2FF' },
@@ -944,7 +965,7 @@ const styles = StyleSheet.create({
   regionChipTextSelected: { color:'#4F46E5', fontWeight:'600' },
   pillWrap: { paddingHorizontal: normalize(16) },
 
-  // 목적지 시트 하단 2버튼 고정 행 (파일 기준)
+  // 목적지 시트 하단 2버튼 고정 행
   sheetFixedRow: {
     position:'absolute',
     left: normalize(16),
@@ -979,7 +1000,7 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: '#E5E7EB', backgroundColor: '#FFFFFF',
   },
   optionChipLgSelected: { borderColor: '#4F46E5', backgroundColor: '#EEF2FF' },
-  optionTextLg: { fontSize: normalize(15), color: '#111111', fontWeight: '600' },
+  optionTextLg: { fontSize: normalize(15), color: '#111111', fontWeight: '400' },
 
   // MBTI 컴팩트 칩
   mbtiChip: {
@@ -999,30 +1020,7 @@ const styles = StyleSheet.create({
   mbtiChipText: {
     fontSize: normalize(15),
     color:'#111',
-    fontWeight:'500',
-  },
-
-  // 로딩 모달
-  loadingDim: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.25)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: normalize(24),
-  },
-  loadingBox: {
-    width: '80%',
-    maxWidth: 320,
-    borderRadius: normalize(14),
-    backgroundColor: '#fff',
-    paddingVertical: normalize(24,'height'),
-    paddingHorizontal: normalize(20),
-    alignItems: 'center',
-  },
-  loadingText: {
-    marginTop: normalize(10,'height'),
-    fontSize: normalize(14),
-    color: '#111',
+    fontWeight:'400',
   },
 
   // (과거 둥근 '선택없음' 버튼 스타일은 미사용)

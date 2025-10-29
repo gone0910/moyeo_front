@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, TextInput, Image, FlatList,
-  Dimensions, Platform, PixelRatio, Keyboard, TouchableWithoutFeedback
+  Dimensions, Platform, PixelRatio, Keyboard, TouchableWithoutFeedback, Alert
 } from 'react-native';
 import HeaderBar from '../../components/common/HeaderBar';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
@@ -39,6 +39,9 @@ const Province = {
   '경상남도': 'GYEONGNAM',
 };
 const City = {
+  // [FIX] 시 토글에서 '선택안함'을 누르면 NONE으로 인식하도록 추가
+  '선택안함': 'NONE',
+
   // 서울특별시
   '강남구': 'GANGNAM_GU',
   '강동구': 'GANGDONG_GU',
@@ -114,7 +117,7 @@ const City = {
   // 충청북도
   '청주시': 'CHEONGJU_SI',
   '충주시': 'CHUNGJU_SI',
-  '제천시': 'JECEHON_SI',
+  '제천시': 'JECEHEON_SI',
 
   // 충청남도
   '천안시': 'CHEONAN_SI',
@@ -171,27 +174,6 @@ const City = {
   '남해군': 'NAMHAE_GUN',
 };
 
-const POSTS = [
-  {
-    id: '1',
-    profileImg: "https://via.placeholder.com/36x36?text=P",
-    username: '기본 프로필',
-    title: '부산 가성비 횟집 추천',
-    img: 'https://via.placeholder.com/80x80?text=IMG',
-    views: 12,
-    time: '8시간 전',
-  },
-  {
-    id: '2',
-    profileImg: 'https://via.placeholder.com/36x36?text=P',
-    username: '기본 프로필',
-    title: '강원도 후기',
-    img: "https://via.placeholder.com/80x80?text=IMG",
-    views: 32,
-    time: '2일 전',
-  },
-];
-
 // =========== [API 연동용 STATE 추가] ===========
 const CommunityScreen = () => {
   const navigation = useNavigation();
@@ -206,49 +188,55 @@ const CommunityScreen = () => {
 
 
   useEffect(() => {
-  setSelectedCity('선택안함');
-}, [selectedRegion]);
+    setSelectedCity('선택안함');
+  }, [selectedRegion]);
 
   // =========== [API 연동 함수] ===========
   const loadPosts = async (_page = 0) => {
-  if (loading) return;
-  setLoading(true);
-  try {
-    const token = await AsyncStorage.getItem('jwt');
-    const province = Province[selectedRegion] || 'NONE';
-    const city = City[selectedCity] || 'NONE';
+    if (loading) return;
+    setLoading(true);
+    try {
+      const token = await AsyncStorage.getItem('jwt');
 
-    let data;
-    // "필터 조건이 하나라도 있으면" 필터 API 사용
-    if (
-      (province && province !== 'NONE') ||
-      (city && city !== 'NONE') ||
-      (searchTitle && searchTitle.trim() !== '')
-    ) {
-      data = await fetchFilteredPostList({
-        page: _page,
-        size: 10,
-        token,
-        province,
-        city,
-        title: searchTitle,
-      });
-    } else {
-      data = await fetchCommunityPosts({
-        page: _page,
-        size: 10,
-        token,
-      });
+      const provinceEnum = Province[selectedRegion]; // 'SEOUL' | 'NONE' | undefined
+      const cityEnum = City[selectedCity];           // 'GANGNAM_GU' | 'NONE' | undefined
+      const trimmedTitle = (searchTitle || '').trim();
+
+      // NONE/빈값은 필터에서 제외
+      const hasProvince = !!provinceEnum && provinceEnum !== 'NONE';
+      const effectiveCityEnum = hasProvince ? cityEnum : undefined; // [FIX] 도가 선택되지 않으면 시는 무시
+      const hasCity = !!effectiveCityEnum && effectiveCityEnum !== 'NONE';
+      const hasTitle = trimmedTitle.length > 0;
+
+      let data;
+
+      if (hasProvince || hasCity || hasTitle) {
+        // NONE은 보내지 않음(=필터 미적용)
+        data = await fetchFilteredPostList({
+          page: _page,
+          size: 10,
+          token,
+          province: hasProvince ? provinceEnum : undefined,
+          city: hasCity ? effectiveCityEnum : undefined,
+          title: hasTitle ? trimmedTitle : undefined,
+        });
+      } else {
+        // 아무 필터도 없으면 전체 목록 API
+        data = await fetchCommunityPosts({
+          page: _page,
+          size: 10,
+          token,
+        });
+      }
+
+      setPosts(_page === 0 ? data.postListResDtos : (prev) => [...prev, ...data.postListResDtos]);
+      setPage(data.nowPage);
+      setHasNextPage(data.hasNextPage);
+    } catch (err) {
+      setPosts([]);
     }
-
-    setPosts(_page === 0 ? data.postListResDtos : (prev) => [...prev, ...data.postListResDtos]);
-    setPage(data.nowPage);
-    setHasNextPage(data.hasNextPage);
-  } catch (err) {
-    setPosts([]);
-  }
-  setLoading(false);
-};
+    setLoading(false);
+  };
 
   useEffect(() => {
     loadPosts(0);
@@ -263,195 +251,292 @@ const CommunityScreen = () => {
 
   return (
     <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
-    <View style={styles.screen}>
-      <HeaderBar />
-      <View style={{ height: normalize(14) }} /> 
+      <View style={styles.screen}>
+        <HeaderBar />
+        <View style={{ height: normalize(14) }} /> 
 
-      {/* 검색 + 연필 아이콘 라인 */}
-      <View style={styles.searchRow}>
-        <View style={styles.searchBox}>
-          <TextInput
-            style={styles.input}
-            placeholder="제목을 통하여 검색"
-            placeholderTextColor="#B3B3B3"
-            value={searchTitle}
-            onChangeText={setSearchTitle}
-            onSubmitEditing={() => loadPosts(0)}
-          />
-          <TouchableOpacity onPress={() => loadPosts(0)}>
-            <Ionicons name="search" size={normalize(22)} color="#7D5CF6" />
+        {/* 검색 + 연필 아이콘 라인 */}
+        <View style={styles.searchRow}>
+          <View style={styles.searchBox}>
+            <TextInput
+              style={styles.input}
+              placeholder="제목을 통하여 검색"
+              placeholderTextColor="#B3B3B3"
+              value={searchTitle}
+              onChangeText={setSearchTitle}
+              onSubmitEditing={() => loadPosts(0)}
+            />
+            <TouchableOpacity onPress={() => loadPosts(0)}>
+              <Ionicons name="search" size={normalize(22)} color="#7D5CF6" />
+            </TouchableOpacity>
+          </View>
+          <TouchableOpacity style={styles.editIconBtn} onPress={() => navigation.navigate('NewPost')}>
+            <MaterialIcons name="edit" size={normalize(22)} color="#4F46E5" />
           </TouchableOpacity>
         </View>
-        <TouchableOpacity style={styles.editIconBtn} onPress={() => navigation.navigate('NewPost')}>
-          <MaterialIcons name="edit" size={normalize(22)} color="#4F46E5" />
-        </TouchableOpacity>
-      </View>
 
-      {/* 목적지 필터 버튼 & 토글 UI */}
+        {/* 목적지 필터 버튼 & 토글 UI */}
         <Text style={styles.filterText}>목적지 필터</Text>
 
         <View style={{ paddingHorizontal: SCREEN_WIDTH * 0.04, paddingBottom: normalize(12) }}>
           <ToggleSelector
             items={["선택안함", "서울", "제주", "경기도", "강원도", "충청북도", "충청남도", "전라북도", "전라남도", "경상북도", "경상남도"]}
             selectedItem={selectedRegion}
-            onSelect={setSelectedRegion}
+            onSelect={(val) => {
+            setSelectedRegion(val);
+            if (val === '선택안함') {
+              // [FIX] 도=선택안함이면 시도 즉시 선택안함으로 초기화 (트랜지언트 필터링 방지)
+              setSelectedCity('선택안함');
+            }
+          }}
             size="large"
           />
-          {selectedRegion === '서울' && (
-                <View style={{ marginTop: 4 }}>
-                  <ToggleSelector
-                    items={["선택안함","강남구", "강동구", "강북구", "강서구", "관악구", "광진구", "구로구", "금천구", "노원구", "도봉구", "동대문구", "동작구", "마포구", "서대문구", "서초구", "성동구", "성북구", "송파구", "양천구", "영등포구", "용산구", "은평구", "종로구", "중구", "중랑구"]}
-                    selectedItem={selectedCity}
-                    onSelect={setSelectedCity}
-                    size="small"
-                  />
-                </View>
-              )}
-              {selectedRegion === '제주' && (
-                <View style={{ marginTop: 4 }}>
-                  <ToggleSelector
-                    items={["선택안함","제주시", "서귀포시"]}
-                    selectedItem={selectedCity}
-                    onSelect={setSelectedCity}
-                    size="small"
-                  />
-                </View>
-              )}
-                {selectedRegion === '경기도' && (
-                <View style={{ marginTop: 4 }}>
-                  <ToggleSelector
-                    items={["선택안함","수원시", "성남시", "의정부시", "안양시", "부천시", "광명시", "평택시", "동두천시", "안산시", "고양시", "과천시",
-                            "구리시", "남양주시", "오산시", "시흥시", "군포시", "의왕시", "하남시", "용인시", "파주시", "이천시", "안성시",
-                            "김포시", "화성시", "광주시", "양주시", "포천시", "여주시", "연천군", "가평군", "양평군"
-                    ]}
-                    selectedItem={selectedCity}
-                    onSelect={setSelectedCity}
-                    size="small"
-                  />
-                </View>
-              )}
-              {selectedRegion === '강원도' && (
-                <View style={{ marginTop: 4 }}>
-                  <ToggleSelector
-                    items={["선택안함","춘천시", "원주시", "강릉시", "동해시", "태백시", "속초시", "삼척시"]}
-                    selectedItem={selectedCity}
-                    onSelect={setSelectedCity}
-                    size="small"
-                  />
-                </View>
-              )}
-              {selectedRegion === '충청북도' && (
-                <View style={{ marginTop: 4 }}>
-                  <ToggleSelector
-                    items={["선택안함","청주시", "충주시", "제천시"]}
-                    selectedItem={selectedCity}
-                    onSelect={setSelectedCity}
-                    size="small"
-                  />
-                </View>
-              )}
-              {selectedRegion === '충청남도' && (
-                <View style={{ marginTop: 4 }}>
-                  <ToggleSelector
-                    items={["선택안함","천안시", "공주시", "보령시", "아산시", "서산시", "논산시", "계룡시", "당진시", "부여군", "홍성군"]}
-                    selectedItem={selectedCity}
-                    onSelect={setSelectedCity}
-                    size="small"
-                  />
-                </View>
-              )}
-              {selectedRegion === '전라북도' && (
-                <View style={{ marginTop: 4 }}>
-                  <ToggleSelector
-                    items={["선택안함","전주시", "군산시", "익산시", "정읍시", "남원시", "김제시", "순창군"]}
-                    selectedItem={selectedCity}
-                    onSelect={setSelectedCity}
-                    size="small"
-                  />
-                </View>
-              )}
-              {selectedRegion === '전라남도' && (
-                <View style={{ marginTop: 4 }}>
-                  <ToggleSelector
-                    items={["선택안함","목포시", "여수시", "순천시", "나주시", "광양시", "해남군"]}
-                    selectedItem={selectedCity}
-                    onSelect={setSelectedCity}
-                    size="small"
-                  />
-                </View>
-              )}
-              {selectedRegion === '경상북도' && (
-                <View style={{ marginTop: 4 }}>
-                  <ToggleSelector
-                    items={["선택안함","포항시"," 경주시", "김천시", "안동시", "구미시", "영주시", "영천시", "상주시", "문경시", "경산시", "울진군", "울릉군"]}
-                    selectedItem={selectedCity}
-                    onSelect={setSelectedCity}
-                    size="small"
-                  />
-                </View>
-              )}
-              {selectedRegion === '경상남도' && (
-                <View style={{ marginTop: 4 }}>
-                  <ToggleSelector
-                    items={["선택안함","창원시", "진주시", "통영시", "사천시", "김해시", "밀양시", "거제시", "양산시", "남해군"]}
-                    selectedItem={selectedCity}
-                    onSelect={setSelectedCity}
-                    size="small"
-                  />
-            
-                </View>
-              )}
-    {/* <== 모든 조건문 View 닫힘 주의! */}
-  </View>
 
-      {/* 게시글 목록 */}
-      <FlatList
-        data={posts}
-        keyExtractor={(item, idx) => (item.id?.toString() || idx.toString())}
-        contentContainerStyle={{ paddingBottom: normalize(24) }}
-        renderItem={({ item }) => (
-          <View>
-            <TouchableOpacity
-  style={styles.postCard}
-  activeOpacity={0.3}
-  onPress={() => {
-    
-    const postId = item.postId ?? item.id;
-    if (!postId) {
-      Alert.alert('게시글 ID를 찾을 수 없습니다.');
-      return;
-    }
-    navigation.navigate('PostDetail', { postId });
-  }}
->
-  <View style={styles.leftCol}>
-    <View style={styles.profileRow}>
-      <Text style={styles.username}>{item.nickname || '익명'}</Text>
-    </View>
-    <Text style={styles.title}>{item.title}</Text>
-    <View style={styles.postMeta}>
-      <Ionicons name="chatbubble-ellipses-outline" size={normalize(14)} color="#A0A0A0" />
-      <Text style={styles.views}>{item.countComment ?? 0}</Text>
-      <Text style={styles.time}>{item.createdAt?.substring(0, 10) || ''}</Text>
-    </View>
-  </View>
-  {item.firstImage ? (
-    <Image
-      style={styles.thumbnail}
-      source={{ uri: item.firstImage }}
-      resizeMode="cover"
-    />
-  ) : null}
-</TouchableOpacity>
-          </View>
-        )}
-        refreshing={loading}
-        onRefresh={() => loadPosts(0)}
-        onEndReached={handleLoadMore}
-        onEndReachedThreshold={0.8}
-        ListEmptyComponent={<Text style={{ textAlign: 'center', marginTop: 40, color: '#aaa' }}>게시글이 없습니다.</Text>}
-      />
-    </View>
+          {/* [FIX][A방법] 모든 '시' 토글에 동일 로직 적용: '선택안함' 클릭 시 도/시 모두 해제 */}
+          {selectedRegion === '서울' && (
+            <View style={{ marginTop: 4 }}>
+              <ToggleSelector
+                items={["선택안함","강남구", "강동구", "강북구", "강서구", "관악구", "광진구", "구로구", "금천구", "노원구", "도봉구", "동대문구", "동작구", "마포구", "서대문구", "서초구", "성동구", "성북구", "송파구", "양천구", "영등포구", "용산구", "은평구", "종로구", "중구", "중랑구"]}
+                selectedItem={selectedCity}
+                onSelect={(val) => {
+                  if (val === '선택안함') {
+                    setSelectedCity('선택안함');
+                    setSelectedRegion('선택안함'); // [FIX]
+                  } else {
+                    setSelectedCity(val);
+                  }
+                }}
+                size="small"
+              />
+            </View>
+          )}
+
+          {selectedRegion === '제주' && (
+            <View style={{ marginTop: 4 }}>
+              <ToggleSelector
+                items={["선택안함","제주시", "서귀포시"]}
+                selectedItem={selectedCity}
+                onSelect={(val) => {
+                  if (val === '선택안함') {
+                    setSelectedCity('선택안함');
+                    setSelectedRegion('선택안함'); // [FIX]
+                  } else {
+                    setSelectedCity(val);
+                  }
+                }}
+                size="small"
+              />
+            </View>
+          )}
+
+          {selectedRegion === '경기도' && (
+            <View style={{ marginTop: 4 }}>
+              <ToggleSelector
+                items={["선택안함","수원시", "성남시", "의정부시", "안양시", "부천시", "광명시", "평택시", "동두천시", "안산시", "고양시", "과천시",
+                        "구리시", "남양주시", "오산시", "시흥시", "군포시", "의왕시", "하남시", "용인시", "파주시", "이천시", "안성시",
+                        "김포시", "화성시", "광주시", "양주시", "포천시", "여주시", "연천군", "가평군", "양평군"
+                ]}
+                selectedItem={selectedCity}
+                onSelect={(val) => {
+                  if (val === '선택안함') {
+                    setSelectedCity('선택안함');
+                    setSelectedRegion('선택안함'); // [FIX]
+                  } else {
+                    setSelectedCity(val);
+                  }
+                }}
+                size="small"
+              />
+            </View>
+          )}
+
+          {selectedRegion === '강원도' && (
+            <View style={{ marginTop: 4 }}>
+              <ToggleSelector
+                items={["선택안함","춘천시", "원주시", "강릉시", "동해시", "태백시", "속초시", "삼척시"]}
+                selectedItem={selectedCity}
+                onSelect={(val) => {
+                  if (val === '선택안함') {
+                    setSelectedCity('선택안함');
+                    setSelectedRegion('선택안함'); // [FIX]
+                  } else {
+                    setSelectedCity(val);
+                  }
+                }}
+                size="small"
+              />
+            </View>
+          )}
+
+          {selectedRegion === '충청북도' && (
+            <View style={{ marginTop: 4 }}>
+              <ToggleSelector
+                items={["선택안함","청주시", "충주시", "제천시"]}
+                selectedItem={selectedCity}
+                onSelect={(val) => {
+                  if (val === '선택안함') {
+                    setSelectedCity('선택안함');
+                    setSelectedRegion('선택안함'); // [FIX]
+                  } else {
+                    setSelectedCity(val);
+                  }
+                }}
+                size="small"
+              />
+            </View>
+          )}
+
+          {selectedRegion === '충청남도' && (
+            <View style={{ marginTop: 4 }}>
+              <ToggleSelector
+                items={["선택안함","천안시", "공주시", "보령시", "아산시", "서산시", "논산시", "계룡시", "당진시", "부여군", "홍성군"]}
+                selectedItem={selectedCity}
+                onSelect={(val) => {
+                  if (val === '선택안함') {
+                    setSelectedCity('선택안함');
+                    setSelectedRegion('선택안함'); // [FIX]
+                  } else {
+                    setSelectedCity(val);
+                  }
+                }}
+                size="small"
+              />
+            </View>
+          )}
+
+          {selectedRegion === '전라북도' && (
+            <View style={{ marginTop: 4 }}>
+              <ToggleSelector
+                items={["선택안함","전주시", "군산시", "익산시", "정읍시", "남원시", "김제시", "순창군"]}
+                selectedItem={selectedCity}
+                onSelect={(val) => {
+                  if (val === '선택안함') {
+                    setSelectedCity('선택안함');
+                    setSelectedRegion('선택안함'); // [FIX]
+                  } else {
+                    setSelectedCity(val);
+                  }
+                }}
+                size="small"
+              />
+            </View>
+          )}
+
+          {selectedRegion === '전라남도' && (
+            <View style={{ marginTop: 4 }}>
+              <ToggleSelector
+                items={["선택안함","목포시", "여수시", "순천시", "나주시", "광양시", "해남군"]}
+                selectedItem={selectedCity}
+                onSelect={(val) => {
+                  if (val === '선택안함') {
+                    setSelectedCity('선택안함');
+                    setSelectedRegion('선택안함'); // [FIX]
+                  } else {
+                    setSelectedCity(val);
+                  }
+                }}
+                size="small"
+              />
+            </View>
+          )}
+
+          {selectedRegion === '경상북도' && (
+            <View style={{ marginTop: 4 }}>
+              <ToggleSelector
+                items={["선택안함","포항시"," 경주시", "김천시", "안동시", "구미시", "영주시", "영천시", "상주시", "문경시", "경산시", "울진군", "울릉군"]}
+                selectedItem={selectedCity}
+                onSelect={(val) => {
+                  if (val === '선택안함') {
+                    setSelectedCity('선택안함');
+                    setSelectedRegion('선택안함'); // [FIX]
+                  } else {
+                    setSelectedCity(val);
+                  }
+                }}
+                size="small"
+              />
+            </View>
+          )}
+
+          {selectedRegion === '경상남도' && (
+            <View style={{ marginTop: 4 }}>
+              <ToggleSelector
+                items={["선택안함","창원시", "진주시", "통영시", "사천시", "김해시", "밀양시", "거제시", "양산시", "남해군"]}
+                selectedItem={selectedCity}
+                onSelect={(val) => {
+                  if (val === '선택안함') {
+                    setSelectedCity('선택안함');
+                    setSelectedRegion('선택안함'); // [FIX]
+                  } else {
+                    setSelectedCity(val);
+                  }
+                }}
+                size="small"
+              />
+            </View>
+          )}
+          {/* <== 모든 조건문 View 닫힘 주의! */}
+        </View>
+
+        {/* 게시글 목록 */}
+        <FlatList
+          data={posts}
+          keyExtractor={(item, idx) => (item.id?.toString() || idx.toString())}
+          contentContainerStyle={{ paddingBottom: normalize(24) }}
+          renderItem={({ item }) => (
+            <View>
+              <TouchableOpacity
+                style={styles.postCard}
+                activeOpacity={0.3}
+                onPress={() => {
+                  const postId = item.postId ?? item.id;
+                  if (!postId) {
+                    Alert.alert('게시글 ID를 찾을 수 없습니다.');
+                    return;
+                  }
+                  navigation.navigate('PostDetail', { postId });
+                }}
+              >
+                <View style={styles.leftCol}>
+                  <View style={styles.profileRow}>
+                    <Text style={styles.username}>{item.nickname || '익명'}</Text>
+                  </View>
+                  <Text style={styles.title}>{item.title}</Text>
+                  <View style={styles.postMeta}>
+                    <Ionicons name="chatbubble-ellipses-outline" size={normalize(14)} color="#A0A0A0" />
+                    <Text style={styles.views}>{item.countComment ?? 0}</Text>
+                    <Text style={styles.time}>
+                      {item.createdAt
+                        ? (() => {
+                            const d = new Date(item.createdAt);
+                            const yyyy = d.getFullYear();
+                            const mm = String(d.getMonth() + 1).padStart(2, '0');
+                            const dd = String(d.getDate()).padStart(2, '0');
+                            const hh = String(d.getHours()).padStart(2, '0');
+                            const mi = String(d.getMinutes()).padStart(2, '0');
+                            return `${yyyy}.${mm}.${dd} ${hh}:${mi}`;
+                          })()
+                        : ''}
+                    </Text>
+                  </View>
+                </View>
+                {item.firstImage ? (
+                  <Image
+                    style={styles.thumbnail}
+                    source={{ uri: item.firstImage }}
+                    resizeMode="cover"
+                  />
+                ) : null}
+              </TouchableOpacity>
+            </View>
+          )}
+          refreshing={loading}
+          onRefresh={() => loadPosts(0)}
+          onEndReached={handleLoadMore}
+          onEndReachedThreshold={0.8}
+          ListEmptyComponent={<Text style={{ textAlign: 'center', marginTop: 40, color: '#aaa' }}>게시글이 없습니다.</Text>}
+        />
+      </View>
     </TouchableWithoutFeedback>
   );
 };
@@ -533,7 +618,7 @@ const styles = StyleSheet.create({
     fontSize: normalize(14),
     color: '#232a33',
     marginBottom: normalize(10),  // 기존 6 -> 10으로 살짝 늘림
-  marginTop: normalize(15), 
+    marginTop: normalize(15), 
   },
   postMeta: {
     flexDirection: 'row',
