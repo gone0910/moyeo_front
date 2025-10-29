@@ -76,6 +76,22 @@ async function refreshAfterSave(sid) {
     setEditDraft(ensured);
     setOriginalScheduleData(null);
 
+    const days = Array.isArray(ensured?.days) ? ensured.days : [];
+   const firstPlaceName = days?.[0]?.places?.[0]?.name || '';
+   const placeCount = days.reduce((acc, d) => acc + ((d?.places?.length) || 0), 0);
+
+   // [ADDED] 리스트용 최소 필드만 안전 저장 (기존 값은 내부에서 merge)
+   await saveTripToList({
+     id: sid,
+     serverId: sid,
+     title: ensured?.title ?? '',
+     startDate: ensured?.startDate ?? '',
+     endDate: ensured?.endDate ?? '',
+     firstPlaceName,
+     placeCount,
+     updatedAt: Date.now(),
+   });
+
     // 내 여행 목록에도 동일 sid로 갱신 저장
     await saveTripToList({ ...ensured, id: sid, serverId: sid });
 
@@ -925,11 +941,11 @@ console.log('[editSchedule][RES]', JSON.stringify(result));
     setIsEditing(false);
     setOriginalScheduleData(null);
 
-    // ✅ 캐시 무효화
+    // ✅ 캐시 무효화 (MY_TRIPS 는 삭제 금지!)
     try {
       await AsyncStorage.removeItem(CACHE_KEYS.PLAN_INITIAL);
-      await AsyncStorage.removeItem('MY_TRIPS');
-      console.log('[EditDone] 캐시 무효화 완료');
+      await AsyncStorage.removeItem(CACHE_KEYS.PLAN_EDITED);
+      // await AsyncStorage.removeItem('MY_TRIPS'); // 🚫 절대 삭제하지 말 것
     } catch (e) {
       console.warn('[EditDone] 캐시 무효화 실패:', e?.message);
     }
