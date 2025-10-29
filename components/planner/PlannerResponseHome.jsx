@@ -44,16 +44,51 @@ const saveTripToList = async (tripData) => {
     const existing = await AsyncStorage.getItem('MY_TRIPS');
     let trips = [];
     if (existing) trips = JSON.parse(existing);
-    const idx = trips.findIndex(
-      t => t.title === tripData.title && t.startDate === tripData.startDate
-    );
-    if (idx !== -1) trips[idx] = tripData;
+
+    const sid = Number(tripData?.serverId ?? tripData?.id);
+    let idx = -1;
+
+    if (Number.isFinite(sid)) {
+      idx = trips.findIndex(t => Number(t?.serverId ?? t?.id) === sid);
+    }
+    if (idx === -1) {
+      idx = trips.findIndex(
+        t => t.title === tripData.title && t.startDate === tripData.startDate
+      );
+    }
+
+    if (idx !== -1) trips[idx] = { ...trips[idx], ...tripData };
     else trips.push(tripData);
+
     await AsyncStorage.setItem('MY_TRIPS', JSON.stringify(trips));
   } catch (e) {
     console.warn('저장 실패:', e);
   }
-};
+}
+
+// [ADDED] 저장 직후 '기존 scheduleId'로 상세 재조회하여 화면/드래프트/로컬동기화
+async function refreshAfterSave(sid) {
+  try {
+    const fresh = await getScheduleDetail(sid);
+    const ensured = ensurePlaceIds(fresh?.id ? fresh : { ...fresh, id: sid });
+
+    setScheduleData(ensured);
+    setEditDraft(ensured);
+    setOriginalScheduleData(null);
+
+    // 내 여행 목록에도 동일 sid로 갱신 저장
+    await saveTripToList({ ...ensured, id: sid, serverId: sid });
+
+    // 캐시 무효화(필요 시)
+    try {
+      await AsyncStorage.removeItem(CACHE_KEYS.PLAN_INITIAL);
+      await AsyncStorage.removeItem(CACHE_KEYS.PLAN_EDITED);
+    } catch {}
+    console.log('[EditDone] 상세 재조회 및 동기화 완료 (keep id=', sid, ')');
+  } catch (e) {
+    console.warn('[refreshAfterSave] 실패:', e?.message);
+  }
+}
 
 /* ============================
    🧪 MOCK DATA (주석 처리)
@@ -333,29 +368,32 @@ const extractNumericScheduleId = (obj) => {
 
 // ✅ 무엇이 와도 숫자형 scheduleId로 강제 변환 (최상위 스코프!)
 const coerceNumericScheduleId = (raw) => {
-  if (raw == null) return null;
-  if (typeof raw === 'number' && Number.isFinite(raw)) return raw;
-  if (typeof raw === 'string') {
-    const n = Number(raw.match(/\d+/)?.[0]);
-    return Number.isFinite(n) ? n : null;
-  }
-  if (typeof raw === 'object') {
-    return extractNumericScheduleId(raw);
-  }
-  return null;
+  const toNum = (s) => {
+    if (typeof s === 'number') return s;
+    if (typeof s === 'string') {
+      const n = Number(s.match(/\d+/)?.[0]);
+      return Number.isFinite(n) ? n : NaN;
+    }
+    if (typeof s === 'object' && s) return extractNumericScheduleId(s);
+    return NaN;
+  };
+  const n = toNum(raw);
+  return Number.isFinite(n) && n > 0 ? n : null; // ✋ 0, 음수, NaN 전부 무효
 };
 
 // ===========================================
 // ✅ 숫자형 scheduleId 동기 리졸버 (캐시/로컬 우선, 네트워크 X)
 // ===========================================
+const isValidId = (n) => Number.isFinite(n) && n > 0;
+
 const getNumericScheduleId = () => {
-  if (Number.isFinite(numericScheduleId)) return numericScheduleId;
+  if (isValidId(numericScheduleId)) return numericScheduleId;
 
   const fromState = extractNumericScheduleId(scheduleData);
-  if (Number.isFinite(fromState)) return fromState;
+  if (isValidId(fromState)) return fromState;
 
   const fromRoute = coerceNumericScheduleId(route?.params?.scheduleId ?? route?.params);
-  if (Number.isFinite(fromRoute)) return fromRoute;
+  if (isValidId(fromRoute)) return fromRoute;
 
   return null;
 };
@@ -368,32 +406,56 @@ const getNumericScheduleId = () => {
   }, [isEditing, scheduleData, editDraft]);
 
 
-  useEffect(() => {
-    if (!isEditing && scrollRef.current) {
-      scrollRef.current.scrollTo({ y: 0, animated: false });
-    }
-  }, [selectedDayIndex, isEditing]);
+ useEffect(() => {
+  if (!isEditing && scrollRef.current) {
+    requestAnimationFrame(() => {
+      // 레이아웃이 그려진 뒤 이동 → 점프 느낌 최소화
+      scrollRef.current?.scrollTo({ y: 0, animated: false });
+    });
+  }
+}, [selectedDayIndex, isEditing]);
 
   const ensurePlaceIds = (data) => ({
-  ...data,
-  days: (data?.days ?? []).map(day => ({
-    ...day,
-    places: (day?.places ?? []).map(place => {
-      // 🔁 백엔드 → 프론트 렌더링용 교통 시간 매핑
-      const car = Number.isFinite(Number(place?.driveTime)) ? Number(place.driveTime) : 0;
-      const publicTransport = Number.isFinite(Number(place?.transitTime)) ? Number(place.transitTime) : 0;
-      const walk = Number.isFinite(Number(place?.walkTime)) ? Number(place.walkTime) : 0;
+    ...data,
+    days: (data?.days ?? []).map(day => ({
+      ...day,
+      places: (day?.places ?? []).map(place => {
+        const car = Number.isFinite(Number(place?.driveTime)) ? Number(place.driveTime) : 0;
+        const publicTransport = Number.isFinite(Number(place?.transitTime)) ? Number(place.transitTime) : 0;
+        const walk = Number.isFinite(Number(place?.walkTime)) ? Number(place.walkTime) : 0;
 
-      return {
-        ...place,
-        id: place?.id ? String(place.id) : uuid.v4(),
-        fromPrevious: place?.fromPrevious ?? { car, publicTransport, walk },
-        // (선택) 서버 hashtag → 화면 gptOriginalName 키 통일
-        gptOriginalName: place?.gptOriginalName ?? place?.hashtag ?? '',
-      };
-    }),
-  })),
-});
+        return {
+          ...place,
+          id: place?.id ? String(place.id) : uuid.v4(),
+          fromPrevious: place?.fromPrevious ?? { car, publicTransport, walk },
+          gptOriginalName: place?.gptOriginalName ?? place?.hashtag ?? '',
+        };
+      }),
+    })),
+  });
+
+  // ✅ 여기에 refreshAfterSave도 같이 정의해야 함
+  const refreshAfterSave = async (sid) => {
+    try {
+      const fresh = await getScheduleDetail(sid);
+      const ensured = ensurePlaceIds(fresh?.id ? fresh : { ...fresh, id: sid });
+
+      setScheduleData(ensured);
+      setEditDraft(ensured);
+      setOriginalScheduleData(null);
+
+      await saveTripToList({ ...ensured, id: sid, serverId: sid });
+
+      try {
+        await AsyncStorage.removeItem(CACHE_KEYS.PLAN_INITIAL);
+        await AsyncStorage.removeItem(CACHE_KEYS.PLAN_EDITED);
+      } catch {}
+
+      console.log('[EditDone] 상세 재조회 및 동기화 완료 (keep id=', sid, ')');
+    } catch (e) {
+      console.warn('[refreshAfterSave] 실패:', e?.message);
+    }
+  };
 
   // [ADDED] 모든 장소에 필수 필드 보강
   function ensurePlaceFields(place = {}, prev = {}) {
@@ -686,22 +748,17 @@ const handleEndEditing = async (placeId) => {
   }
 
   // 1) "현재 화면 상태"를 기준으로 즉시 로컬 반영 + API에 쓸 draft를 동기 생성
-  //    (setState 비동기성으로 인한 레이스 방지)
   const idx = dayIdxRef.current; // 🔒 고정
   const base = editDraft ?? scheduleData;
   const draft = JSON.parse(JSON.stringify(base));
 
-  // 화면 기준(editedPlaces 오버레이 포함)으로 places 갱신본 만들기
   const effectivePlaces = draft.days[idx].places.map((p) => {
     if (p.id === placeId) return { ...p, name: newName };
-    // 아직 입력창에 남아있는 값이 있으면 그걸 우선
     const overlay = editedPlaces[p.id];
     return overlay != null ? { ...p, name: overlay } : p;
   });
 
   draft.days[idx].places = effectivePlaces; // 로컬 적용본
-
-  // 즉시 화면 반영(사용자 체감용)
   setEditDraft(draft);
   setScheduleData(draft);
 
@@ -710,14 +767,13 @@ const handleEndEditing = async (placeId) => {
     .map((p) => (p?.name ?? '').trim())
     .filter(Boolean);
 
-  // 이름이 하나도 없으면 서버 호출 무의미 → 여기서 종료
   if (placeNames.length === 0) {
     setEditedPlaces(prev => { const n = { ...prev }; delete n[placeId]; return n; });
     setListVersion(v => v + 1);
     return;
   }
 
-  // 3) 서버 호출
+  // 3) 서버 호출 (0-based + 1-based 보조 호출)
   const numericId = getNumericScheduleId();
   const sid = numericId ?? resolveScheduleId();
 
@@ -726,12 +782,15 @@ const handleEndEditing = async (placeId) => {
   }));
 
   try {
+    // ✅ 0-based
     const result = await editSchedule(placeNames, { scheduleId: sid, dayIndex: idx });
-    console.log('[editSchedule][RES:ok]', { keys: Object.keys(result || {}) });
+console.log('[editSchedule][RES]', JSON.stringify(result));
+    // ✅ 1-based 보조 호출 (서버 구현 차이 커버)
+    try { await editSchedule(placeNames, { scheduleId: sid, dayIndex: idx + 1 }); } catch {}
 
-    // 4) 병합: 이름-매칭(공백 무시) + 필수필드 보강
+    // 4) 병합 처리 (그대로 유지)
     const norm = (s) => (s ?? '').replace(/\s+/g, '').trim();
-    let nextPlaces = effectivePlaces; // 기본은 방금 반영한 로컬본(안전)
+    let nextPlaces = effectivePlaces;
 
     if (result?.places && result.totalEstimatedCost !== undefined) {
       const serverMap = new Map(
@@ -740,14 +799,10 @@ const handleEndEditing = async (placeId) => {
           return [norm(ensured?.name), ensured];
         })
       );
-
-      // 기존 순서 유지 + 이름 일치 시 서버값으로 덮어쓰기
       nextPlaces = effectivePlaces.map((cli) => {
         const hit = serverMap.get(norm(cli?.name));
         return ensurePlaceFields(hit ? hit : cli, cli);
       });
-
-      // 🚫 방어: 서버가 빈 places를 주면 덮어쓰지 않음
       const merged = {
         ...draft,
         days: draft.days.map((d, i) =>
@@ -767,6 +822,7 @@ const handleEndEditing = async (placeId) => {
         merged?.days?.[idx]?.places?.length ?? -1
       );
 
+      try { await refreshAfterSave(sid); } catch (e) { console.warn('[EndEditing] refresh 실패:', e?.message); }
     } else if (Array.isArray(result)) {
       const serverMap = new Map(
         result.map((srv) => {
@@ -775,20 +831,15 @@ const handleEndEditing = async (placeId) => {
           return [norm(ensured?.name), ensured];
         })
       );
-
       nextPlaces = effectivePlaces.map((cli) => {
         const hit = serverMap.get(norm(cli?.name));
         return ensurePlaceFields(hit ? hit : cli, cli);
       });
-
       const merged = {
         ...draft,
         days: draft.days.map((d, i) =>
           i === idx
-            ? {
-                ...d,
-                places: (Array.isArray(nextPlaces) && nextPlaces.length > 0) ? nextPlaces : d.places,
-              }
+            ? { ...d, places: (Array.isArray(nextPlaces) && nextPlaces.length > 0) ? nextPlaces : d.places }
             : d
         ),
       };
@@ -797,10 +848,8 @@ const handleEndEditing = async (placeId) => {
       console.log('[merge][array] places=%d', merged?.days?.[idx]?.places?.length ?? -1);
     } else {
       console.warn('[merge][unknown] result=', result);
-      // unknown → draft 그대로 유지(이미 1단계에서 반영함)
     }
 
-    // 5) 입력 오버레이 제거 + 리렌더
     setEditedPlaces(prev => { const n = { ...prev }; delete n[placeId]; return n; });
     setListVersion(v => v + 1);
     console.log('[END][done] places(len)=',
@@ -808,7 +857,6 @@ const handleEndEditing = async (placeId) => {
     );
   } catch (e) {
     console.warn('editSchedule 실패, 로컬 보강만 반영:', e?.message);
-    // 실패 시에도 최소 필드 보강으로 안정화
     setEditDraft(prev => {
       const d = JSON.parse(JSON.stringify(prev));
       d.days[idx].places = d.days[idx].places.map(p => ensurePlaceFields(p, p));
@@ -818,128 +866,80 @@ const handleEndEditing = async (placeId) => {
   }
 };
 
-  // ✨ 수정 완료
-const handleEditDone = async () => {
-  // 0) 모든 입력창 blur
+
+  const handleEditDone = async () => {
   try {
     Object.values(inputRefs.current || {}).forEach(r => r?.blur?.());
   } catch {}
 
-  // [GUARD-1] 편집본/선택 일자 유효성
-  if (!editDraft?.days?.[selectedDayIndex]?.places) {
+  if (!editDraft?.days?.length) {
     Alert.alert('오류', '편집본이 비어 있어 저장할 수 없습니다.');
     return;
   }
 
-  // [GUARD-2] 빈 장소 이름 존재 여부 (빈 항목 있으면 여기서 종료)
-  const emptyPlaces = draftMerged.days[selectedDayIndex].places
-    .filter(p => !p.name?.trim());
-  if (emptyPlaces.length > 0) {
-    Alert.alert('빈 장소가 있어요', '장소명을 입력하지 않은 항목이 있어요. 수정 후 저장해주세요');
+  const sid = getNumericScheduleId();
+  if (!Number.isFinite(sid)) {
+    Alert.alert('오류', '유효한 일정 ID가 없습니다.');
     return;
   }
 
-  // [ADDED] 저장 스플래시 시작 (무한로딩 방지 타이머 포함)
   openSaving();
-
   await new Promise(r => setTimeout(r, 0));
-
-  let refreshed = false;
-  let freshEnsured = null;
 
   setNewlyAddedPlaceId(null);
   setNewlyAddedIndex(-1);
   setEditedPlaces({});
+  setIsRegenerating(true);
 
-  // 1) ‘입력 중인 값’(editedPlaces)을 편집본에 강제 반영
   const mergedDraft = JSON.parse(JSON.stringify(editDraft));
-  mergedDraft.days[selectedDayIndex].places =
-    mergedDraft.days[selectedDayIndex].places.map(p => {
+
+  // ✅ 입력 중인 값 반영
+  for (let i = 0; i < mergedDraft.days.length; i++) {
+    mergedDraft.days[i].places = mergedDraft.days[i].places.map(p => {
       const pending = (editedPlaces?.[p.id] ?? '').trim();
       return pending ? { ...p, name: pending } : p;
     });
-
-  const uniq = (arr) => Array.from(new Set(arr.map(s => (s ?? '').trim()).filter(Boolean)));
-  const sid = getNumericScheduleId();
-
-  // 저장/재조회 진행
-  setIsRegenerating(true);
+  }
 
   try {
-    await saveCacheData(CACHE_KEYS.PLAN_EDITED, editDraft);
+    await saveCacheData(CACHE_KEYS.PLAN_EDITED, mergedDraft);
 
-    // 2) 모든 Day를 dayIndex 별로 반영 (0-based 우선)
-    if (Number.isFinite(sid)) {
-      for (let i = 0; i < (mergedDraft.days?.length ?? 0); i++) {
-        const dayNames = uniq((mergedDraft.days[i]?.places ?? []).map(p => p?.name));
-        if (!dayNames.length) continue;
+    // ✅ 모든 Day 반영: 빈 리스트도 포함
+    for (let i = 0; i < mergedDraft.days.length; i++) {
+      const dayNames = mergedDraft.days[i].places.map(p => p.name?.trim()).filter(Boolean);
+      console.log(`[EditDone] Day ${i} 장소 ${dayNames.length}개 전송:`, dayNames);
+      try {
         await editSchedule(dayNames, { scheduleId: sid, dayIndex: i });
+        await editSchedule(dayNames, { scheduleId: sid, dayIndex: i + 1 }); // 보조 호출
+      } catch (e) {
+        console.warn(`[EditDone] Day ${i} editSchedule 실패:`, e?.message);
       }
-
-      // ★★★ 저장 직후 상세 재조회로 화면 상태 교체
-      const fresh = await getScheduleDetail(sid);
-
-      // 화면 소스 교체
-      setScheduleData(fresh);
-      setDraftMerged(fresh);
-
-      // 이전 캐시가 다시 덮어쓰는 걸 방지
-      await saveCacheData(CACHE_KEYS.PLAN_INITIAL, null);
-      await saveCacheData(CACHE_KEYS.PLAN_EDITED, null);
-
-      // 리스트 강제 리렌더
-      setVersion(v => v + 1);
-
-      // 서버 계산값 보강
-      freshEnsured = ensurePlaceIds(fresh);
-      setScheduleData(freshEnsured);
-      setEditDraft(freshEnsured);
-      refreshed = true;
-
-      // ✅ 검증(읽기 전용)
-      const norm = (s) => (s ?? '').replace(/\s+/g, '').trim();
-      const want = Array.from(new Set((mergedDraft.days[selectedDayIndex]?.places ?? [])
-        .map(p => norm(p?.name)).filter(Boolean)));
-      const got  = Array.from(new Set((freshEnsured?.days?.[selectedDayIndex]?.places ?? [])
-        .map(p => norm(p?.name)).filter(Boolean)));
-      const missing = want.filter(n => !new Set(got).has(n));
-      if (missing.length) {
-        console.warn('[EditDone][verify] server missing:', missing);
-        // 필요 시 Alert 등 추가 가능
-      }
-    } else {
-      console.warn('[EditDone] scheduleId 없음 → 서버 동기화 생략');
-      setScheduleData(editDraft); // 서버 호출을 못하면 편집본 유지
     }
 
-    // 편집 종료 상태 정리
+    // ✅ 기존 ID로 전체 일정 저장 호출 제거 → 기존 sid로 상세 재조회해서 화면 교체
+    try { await refreshAfterSave(sid); } catch (e) { console.warn('[EditDone] refresh 실패:', e?.message); }
+
+    // ✅ 화면 반영 및 편집모드 종료
+    setScheduleData(mergedDraft);
+    setEditDraft(mergedDraft);
     setIsEditing(false);
     setOriginalScheduleData(null);
 
-    // 4) 캐시 무효화 + 홈/내여행 목록 갱신
+    // ✅ 캐시 무효화
     try {
       await AsyncStorage.removeItem(CACHE_KEYS.PLAN_INITIAL);
-      await new Promise((resolve) =>
-        InteractionManager.runAfterInteractions(() => resolve())
-      );
-
-      const base = refreshed ? freshEnsured : (latestScheduleRef.current || scheduleData || {});
-      const current = base?.id ? base : { ...(base || {}), id: uuid.v4() };
-      await saveTripToList(current);
-
-      console.log('[EditDone] PLAN_INITIAL 제거 및 MY_TRIPS 갱신 완료');
+      await AsyncStorage.removeItem('MY_TRIPS');
+      console.log('[EditDone] 캐시 무효화 완료');
     } catch (e) {
-      console.warn('[EditDone] 캐시/목록 갱신 실패:', e?.message || e);
+      console.warn('[EditDone] 캐시 무효화 실패:', e?.message);
     }
 
   } catch (e) {
-    console.warn('⚠️ PLAN_EDITED 캐시 저장 or API 호출 실패:', e);
-    setScheduleData(editDraft); // 실패 시 화면은 편집본 유지
+    console.warn('[EditDone] 전체 처리 실패:', e?.message);
+    setScheduleData(editDraft);
   } finally {
-    // ✅ 어떤 경로로든 모달/플래그를 반드시 종료
     setIsRegenerating(false);
     closeSaving();
-    setIsEditing(false);
   }
 };
 
@@ -1163,26 +1163,37 @@ const handleEditDone = async () => {
             <ScrollView
               ref={scrollRef}
               style={styles.container}
-              contentContainerStyle={{ paddingBottom: normalize(160, 'height') }}
+              contentContainerStyle={{
+   paddingTop: normalize(5),            // ← 탭과 카드 사이 여백
+   paddingBottom: normalize(160, 'height')
+ }}
             >
               {places.map((place, idx) => (
                 <View key={place.id ? String(place.id) : `temp-${idx}`}>
                   {/* 교통정보 (맨 위 카드 제외) */}
                   {idx !== 0 && place.fromPrevious && (
                     <View style={styles.transportRow}>
-                      <View style={styles.transportItem}>
-                        <Ionicons name="car-outline" size={normalize(19)} color="#6B7280" style={{ marginRight: normalize(-10) }}/>
-                        <Text style={styles.transportTextss}>{place.fromPrevious.car}분</Text>
-                      </View>
-                      <View style={styles.transportItem}>
-                        <Ionicons name="bus-outline" size={normalize(17)} color="#6B7280" />
-                        <Text style={styles.transportText}>{place.fromPrevious.publicTransport}분</Text>
-                      </View>
-                      <View style={styles.transportItem}>
-                        <MaterialCommunityIcons name="walk" size={normalize(17)} color="#6B7280" style={{ marginRight: normalize(30) }}/>
-                        <Text style={styles.transportTexts}>{place.fromPrevious.walk}분</Text>
-                      </View>
-                    </View>
+  <View style={styles.transportItem}>
+    <View style={styles.iconSlot}>
+      <Ionicons name="car-outline" size={normalize(19)} color="#6B7280" />
+    </View>
+    <Text style={styles.timeText}>{place.fromPrevious.car}분</Text>
+  </View>
+
+  <View style={styles.transportItem}>
+    <View style={styles.iconSlot}>
+      <Ionicons name="bus-outline" size={normalize(17)} color="#6B7280" />
+    </View>
+    <Text style={styles.timeText}>{place.fromPrevious.publicTransport}분</Text>
+  </View>
+
+  <View style={styles.transportItem}>
+    <View style={styles.iconSlot}>
+      <MaterialCommunityIcons name="walk" size={normalize(17)} color="#6B7280" />
+    </View>
+    <Text style={styles.timeText}>{place.fromPrevious.walk}분</Text>
+  </View>
+</View>
                   )}
 
                   <View style={styles.placeRow}>
@@ -1202,9 +1213,9 @@ const handleEditDone = async () => {
                       >
                         <View style={styles.placeHeader}>
                           <Text style={styles.placeName}>{place.name}</Text>
-                          <Text style={styles.placeCost}>
-                            {place.estimatedCost === 0 ? '무료' : `${place.estimatedCost?.toLocaleString()}원`}
-                          </Text>
+                          <Text style={[styles.placeCost, { color: '#4F46E5' }]}>
+  {place.estimatedCost === 0 ? '무료' : `${place.estimatedCost?.toLocaleString()}원`}
+</Text>
                         </View>
                         <Text style={styles.placeType}>{place.type}</Text>
                         {place.gptOriginalName && (
@@ -1214,7 +1225,7 @@ const handleEditDone = async () => {
                                 key={i}
                                 style={{
                                   color: '#606060',
-                                  fontSize: 14,
+                                  fontSize: 12,
                                   marginRight: 4,
                                   fontWeight: '400',
                                   lineHeight: 19,
@@ -1231,20 +1242,28 @@ const handleEditDone = async () => {
 
                   {/* 마지막 카드라면 교통정보를 아래 한 번 더 (마지막 day 제외) */}
                   {idx === places.length - 1 && place.fromPrevious && selectedDayIndex !== scheduleData.days.length - 1 && (
-                    <View style={styles.transportRow}>
-                      <View style={styles.transportItem}>
-                        <Ionicons name="car-outline" size={normalize(19)} color="#6B7280" style={{ marginRight: normalize(-10)}}/>
-                        <Text style={styles.transportTextss}>{place.fromPrevious.car}분</Text>
-                      </View>
-                      <View style={styles.transportItem}>
-                        <Ionicons name="bus-outline" size={normalize(17)} color="#6B7280" />
-                        <Text style={styles.transportText}>{place.fromPrevious.publicTransport}분</Text>
-                      </View>
-                      <View style={styles.transportItem}>
-                        <MaterialCommunityIcons name="walk" size={normalize(17)} color="#6B7280" style={{ marginRight: normalize(30) }}/>
-                        <Text style={styles.transportTexts}>{place.fromPrevious.walk}분</Text>
-                      </View>
-                    </View>
+  <View style={styles.transportRow}>
+  <View style={styles.transportItem}>
+    <View style={styles.iconSlot}>
+      <Ionicons name="car-outline" size={normalize(19)} color="#6B7280" />
+    </View>
+    <Text style={styles.timeText}>{place.fromPrevious.car}분</Text>
+  </View>
+
+  <View style={styles.transportItem}>
+    <View style={styles.iconSlot}>
+      <Ionicons name="bus-outline" size={normalize(17)} color="#6B7280" />
+    </View>
+    <Text style={styles.timeText}>{place.fromPrevious.publicTransport}분</Text>
+  </View>
+
+  <View style={styles.transportItem}>
+    <View style={styles.iconSlot}>
+      <MaterialCommunityIcons name="walk" size={normalize(17)} color="#6B7280" />
+    </View>
+    <Text style={styles.timeText}>{place.fromPrevious.walk}분</Text>
+  </View>
+</View>
                   )}
                 </View>
               ))}
@@ -1469,7 +1488,7 @@ const styles = StyleSheet.create({
   tabText: { fontSize: normalize(18), color: '#9CA3AF' },
   tabTextSelected: { color: '#4F46E5', fontWeight: 'bold' },
   activeBar: { marginTop: normalize(5), height: normalize(4), width: normalize(80), backgroundColor: '#4F46E5', borderRadius: 2 },
-  container: { paddingHorizontal: normalize(16), marginBottom: -normalize(70), marginTop: normalize(20), backgroundColor: '#FAFAFA' },
+  container: { paddingHorizontal: normalize(16), marginBottom: -normalize(70), marginTop: normalize(0), backgroundColor: '#FAFAFA' },
   bottomButtonContainer1: { flexDirection: 'row', backgroundColor: '#fafafa', paddingVertical: normalize(20), paddingHorizontal: normalize(16), borderRadius: normalize(12), marginBottom: -normalize(20) },
   bottomButtonContainer: { flexDirection: 'row', backgroundColor: '#fafafa', paddingVertical: normalize(18), paddingHorizontal: normalize(20), top: normalize(10), borderRadius: normalize(12), paddingBottom: normalize(20) },
   placeRow: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: normalize(32) },
@@ -1483,14 +1502,43 @@ const styles = StyleSheet.create({
   placeHeader: { flexDirection: 'row', justifyContent: 'space-between' },
   placeName: { fontSize: normalize(16), marginBottom: normalize(4), color: '#373737' },
   placeCost: { fontSize: normalize(15), fontWeight: '600', fontStyle: 'Inter', color: '#353537ff', bottom: -normalize(15) },
-  placeType: { fontSize: normalize(13), color: '#9CA3AF', marginBottom: normalize(4) , top: normalize(2) },
+  placeType: { fontSize: normalize(11), color: '#9CA3AF', marginBottom: normalize(4) , top: normalize(2) },
   keywords: { fontSize: normalize(12), color: '#333333', marginBottom: normalize(6) },
-  transportRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: normalize(12), marginBottom: normalize(12) },
+  transportRow: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  paddingHorizontal: normalize(12),
+  marginTop: normalize(16),
+  marginBottom: normalize(12),
+  gap: normalize(12),
+  paddingLeft: normalize(50),   // ✅ 오른쪽으로 전체 이동
+},
   placeNameInput: { fontSize: normalize(18), marginBottom: normalize(19), color: '#373737', paddingVertical: normalize(4), paddingTop: normalize(18) },
-  transportItem: { flexDirection: 'row', alignItems: 'center', minWidth: normalize(120), marginLeft: normalize(10), justifyContent: 'center' },
-  transportText: { marginLeft: normalize(6), fontSize: normalize(14), color: '#000' },
-  transportTexts: { marginLeft: normalize(-28), fontSize: normalize(14), color: '#000' },
-  transportTextss: { marginLeft: normalize(14), fontSize: normalize(14), color: '#000' },
+  transportItem: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  justifyContent: 'center',
+  flex: 1,                 // 3칸 균등 분배 (열 너비는 동일)
+},
+
+iconSlot: {
+  width: normalize(22),    // ✅ 아이콘 고정 너비 → 아이콘 위치가 절대 안 밀림
+  alignItems: 'center',
+  marginRight: normalize(6),
+},
+
+timeText: {
+  fontSize: normalize(14),
+  // iOS에서는 숫자 폭을 균일하게(20, 100 동일 폭) 보이게 할 수 있어요:
+  // fontVariant: ['tabular-nums'],      // ← iOS에서만 적용됨
+  // Android까지 완전 동일폭 원하면 고정 폭을 주세요:
+  width: normalize(44),    // ✅ ‘20분’, ‘100분’ 모두 이 폭 안에서만 표시
+  textAlign: 'left',       // 왼쪽 정렬(아이콘에서 일정 간격 뒤에 시작)
+  color: '#000',
+},
+  transportTexts:  { fontSize: normalize(14), color: '#000' },
+  transportTextss: { fontSize: normalize(14), color: '#000' },
   dragHandle: { position: 'absolute', left: -normalize(45), top: normalize(25), padding: normalize(4), zIndex: 5 },
   editButton: { flex: 1, height: normalize(45), borderRadius: normalize(12), borderWidth: 1, borderColor: '#4F46E5', backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center' },
   editButtonText: { fontSize: normalize(16), color: '#4F46E5' },

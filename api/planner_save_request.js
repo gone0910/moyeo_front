@@ -42,11 +42,12 @@ export async function saveSchedule(scheduleData) {
   });
 
   const body = {
-    title: scheduleData.title || 'My Trip',
-    startDate: scheduleData.startDate,
-    endDate: scheduleData.endDate,
-    days: normalizedDays,
-  };
+  scheduleId: scheduleData.id ?? scheduleData.scheduleId, // ✅ 기존 ID 유지
+  title: scheduleData.title || 'My Trip',
+  startDate: scheduleData.startDate,
+  endDate: scheduleData.endDate,
+  days: normalizedDays,
+};
 
   const res = await axios.post(
     `${BASE_URL}/schedule/save`, // 저장 엔드포인트

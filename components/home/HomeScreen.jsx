@@ -51,7 +51,6 @@ export default function HomeScreen() {
   const USE_MOCK = false; // 서버 사용
   const [showSplash, setShowSplash] = useState(false);
   const [myTrips, setMyTrips] = useState([]); // 여행 플랜 리스트 관리
-  const [serverDown, setServerDown] = useState(false); // [ADDED] 서버 5xx/오프라인 배너용
   
 
   useEffect(() => {

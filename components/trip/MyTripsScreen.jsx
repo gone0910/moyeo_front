@@ -285,21 +285,23 @@ export default function MyTripsScreen() {
                   disabled={isEditing}
                   onPress={() => {
                     // 숫자 serverId가 있으면 그걸 전달, 없으면 id에서 숫자만 추출 시도
-                    const fallbackNum =
-                      Number(String(trip?.id ?? '').match(/^\d+$/)?.[0]);
-                    const scheduleId =
-                      Number.isFinite(trip?.serverId)
-                        ? trip.serverId
-                        : (Number.isFinite(fallbackNum) ? fallbackNum : undefined);
+                    const toPositiveInt = (v) => {
+  const n = Number(String(v ?? '').match(/^\d+$/)?.[0]);
+  return Number.isFinite(n) && n > 0 ? n : null;
+};
 
-                    if (!Number.isFinite(scheduleId)) {
-                      Alert.alert('잘못된 일정', '유효한 서버 일정 ID가 없습니다.');
-                      return;
-                    }
+const scheduleId =
+  toPositiveInt(trip?.serverId) ??
+  toPositiveInt(trip?.id);
+
+if (!scheduleId) {
+  Alert.alert('잘못된 일정', '유효한 서버 일정 ID가 없습니다.');
+  return;
+}
 
                     navigation.navigate('Home', {
                       screen: 'PlannerResponse',
-                      params: { scheduleId, mode: 'read' },
+                      params: { scheduleId, mode: 'read', from: 'MyTrips' },
                     });
 
                     // 🔽 (참고용) mock 이동 주석
