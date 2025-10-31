@@ -1,7 +1,7 @@
 // components/commnuity/PostDetailScreen.jsx 게시글 상세보기기
 // 게시글 상세 전체(메인) 화면, 컴포넌트 조합
 import React, { useEffect, useState, useRef } from 'react';
-import { SafeAreaView, ScrollView, View, Text, StyleSheet, Dimensions, Image,
+import { ScrollView, View, Text, StyleSheet, Dimensions, Image,
    ActivityIndicator, useNavigation, BackHandler, Alert, RefreshControl, KeyboardAvoidingView, Platform ,FlatList
   } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -13,6 +13,7 @@ import {decode as atob} from 'base-64';
 import { ENUM_TO_PROVINCE_KOR, ENUM_TO_CITY_KOR } from '../common/regionMap';
 import { useFocusEffect } from '@react-navigation/native';
 import { LogBox } from 'react-native';
+import { SafeAreaView } from "react-native-safe-area-context";
 
 LogBox.ignoreLogs([
   'VirtualizedLists should never be nested', // 해당 경고 포함하는 메시지 모두 무시
@@ -389,11 +390,6 @@ export default function PostDetailScreen({ route, navigation }) {
  
     
     return (
-    //<KeyboardAvoidingView
-    //  style={{ flex: 1 }}
-    //  behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    //  keyboardVerticalOffset={Platform.OS === 'ios' ? 60 : 0}
-    //>
     <KeyboardAvoidingView
     behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     style={{ flex: 1 }}
@@ -422,23 +418,24 @@ export default function PostDetailScreen({ route, navigation }) {
 const styles = StyleSheet.create({
   scrollContainer: { flex: 1 },
   
-  mainCardContainer: {   // 제목 ~본문까지 전체 묶는 컨테이너
+  mainCardContainer: {
     backgroundColor: '#FFFFFF',
-    borderRadius: scale(14), // 원하는 만큼
-    marginHorizontal: scale(14),
+    borderRadius: scale(12), // ⬅️ 시안 값 (12px)
+    marginHorizontal: scale(16), // ⬅️ 시안 값 (left: 16px)
     marginTop: vScale(13),
   },
   titleProfileContainer: {
-    flexDirection: 'column',   // 제목이 길면 프로필 섹션을 자동으로 아래로 밀어냄
+    flexDirection: 'column',
     marginTop: vScale(13),
-    paddingHorizontal: scale(10),
+    // ⬇️ 343px(카드) - 323px(내용) = 20px / 2 = 10px
+    paddingHorizontal: scale(10), 
   },
   title: {
     fontFamily: 'Roboto',
     fontWeight: '400',
-    fontSize: scale(22),
+    fontSize: scale(22), // ⬅️ 시안 값 (22px)
     lineHeight: scale(25),
-    color: '#1E1E1E',
+    color: '#1E1E1E', // ⬅️ 시안 값
     borderRadius: scale(4),
     paddingVertical: vScale(4),
   },
@@ -456,60 +453,50 @@ const styles = StyleSheet.create({
     marginTop: scale(6),
     marginBottom: scale(6),
   },
-  profileImg: {
+  profileImg: { // 'image 24'
     width: scale(36),
     height: scale(36),
-    borderRadius: scale(14),
+    borderRadius: scale(14), // ⬅️ 시안 값 (14px)
     backgroundColor: '#eee',
-    // marginRight: scale(8),
   },
-  profileImg: {
-  width: scale(36),
-  height: scale(36),
-  borderRadius: scale(14),
-  backgroundColor: '#eee',
-  // marginRight: scale(8),  // 제거
-  },
-  nickname: {
+  nickname: { // '기본 프로필'
     fontFamily: 'Roboto',
     fontWeight: '400',
-    fontSize: scale(14),
+    fontSize: scale(14), // ⬅️ 시안 값 (14px)
     lineHeight: scale(25),
-    color: '#333333',
+    color: '#333333', // ⬅️ 시안 값
     borderRadius: scale(8),
-    marginLeft: scale(6),   // 제거
+    marginLeft: scale(6),
   },
-  date: {
-    fontSize: scale(14),
-    color: '#606060',
+  date: { // '2025.05.31...'
+    fontSize: scale(14), // ⬅️ 시안 값 (14px)
+    color: '#606060', // ⬅️ 시안 값
     borderRadius: scale(6),
-    // marginRight: scale(6),  // 제거
   },
-  destination: {
-    fontSize: scale(14),
-    color: '#606060',
+  destination: { // '춘천'
+    fontSize: scale(14), // ⬅️ 시안 값 (14px)
+    color: '#606060', // ⬅️ 시안 값
     borderRadius: scale(6),
-    marginLeft: scale(6),  // 제거
+    marginLeft: scale(6),
   },
-
   content: {
     fontFamily: 'Roboto',
     fontWeight: '400',
-    fontSize: scale(16),
+    fontSize: scale(16), // ⬅️ 시안 값 (16px)
     lineHeight: scale(22),
     backgroundColor: '#FFFFFF',
-    color: '#373737',
+    color: '#373737', // ⬅️ 시안 값
     marginTop: vScale(16),
-    marginHorizontal: scale(13),
-    padding: scale(12),
-    borderRadius: scale(8),
+    paddingHorizontal: scale(16),
+    paddingVertical: scale(12),
+    borderRadius: scale(12), // ⬅️ 시안 값 (12px)
   },
   divider: {
-    width: scale(340),
+    width: '90%', // ⬅️ 332px / 375px (비율로 변경)
+    alignSelf: 'center',
     borderBottomWidth: 1,
-    borderBottomColor: '#B3B3B3',
+    borderBottomColor: '#E1E1E1', // ⬅️ 시안 값
     marginTop: vScale(18),
-    marginLeft: scale(16),
     marginBottom: vScale(6),
   },
 });

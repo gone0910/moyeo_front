@@ -345,7 +345,8 @@ const styles = StyleSheet.create({
     borderColor: '#111111',
   },
   cardLabelRow: {
-    marginBottom: hScale(8),
+    paddingTop: hScale(16),
+    paddingHorizontal: wScale(16),
   },
   cardLabel: {
     fontSize: normalize(13),

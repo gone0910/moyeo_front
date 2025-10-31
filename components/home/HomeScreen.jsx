@@ -23,6 +23,7 @@ import SplashScreen from '../common/SplashScreen';
 import { fetchPlanList } from '../../api/MyPlanner_fetch_list'; // <-- 실제 플랜 목록 fetch
 import { useFocusEffect } from '@react-navigation/native';
 import HeaderBar from '../../components/common/HeaderBar';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 
 // ==== 반응형 유틸 함수 (iPhone 13 기준) ====
@@ -87,31 +88,31 @@ export default function HomeScreen() {
   );
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       {/* 상단바 챗봇 아이콘 추가 (로고/프로필 상단줄은 다른 컴포넌트일 수 있음) */}
       <HeaderBar showChatBot={true} />
 
       {/* 사용자 인사말 */}
       <View style={styles.greetingWrapper}>
-      {/*
-      {isLong ? (
-        <>
-          <Text style={styles.greetingText}>{nickname}님</Text>
-          <Text style={styles.greetingText}>좋은 하루 보내세요</Text>
-        </>
-      ) : (
-        <Text style={styles.greetingText}>
-          {nickname}님 좋은 하루 보내세요
-        </Text>
-      )}
-      */}
+        {/*
+        {isLong ? (
+          <>
+            <Text style={styles.greetingText}>{nickname}님</Text>
+            <Text style={styles.greetingText}>좋은 하루 보내세요</Text>
+          </>
+        ) : (
+          <Text style={styles.greetingText}>
+            {nickname}님 좋은 하루 보내세요
+          </Text>
+        )}
+        */}
 
-      {/* ✅ 항상 두 줄로 고정 */}
-      <Text style={styles.greetingText}>{nickname}님</Text>
-      <Text style={styles.greetingText}>좋은 하루 보내세요</Text>
+        {/* ✅ 항상 두 줄로 고정 */}
+        <Text style={styles.greetingText}>{nickname}님</Text>
+        <Text style={styles.greetingText}>좋은 하루 보내세요</Text>
 
-      <Text style={styles.subGreetingText}>오늘은 어디로 떠나고 싶으세요?</Text>
-    </View>
+        <Text style={styles.subGreetingText}>오늘은 어디로 떠나고 싶으세요?</Text>
+      </View>
 
       {/* 기능 카드 - 시안: 하나의 큰 그룹 카드 안에 2타일 */}
       <View style={styles.featureGroup /* [NEW] 그룹 카드 컨테이너 */}>
@@ -190,7 +191,7 @@ export default function HomeScreen() {
           />
         </View>
       )}
-    </View>
+    </SafeAreaView>
   );
 }
 

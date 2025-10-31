@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, TextInput, Image, FlatList,
-  Dimensions, Platform, ScrollView, PixelRatio, Keyboard, TouchableWithoutFeedback, SafeAreaView
+  Dimensions, Platform, ScrollView, PixelRatio, Keyboard, TouchableWithoutFeedback,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { KeyboardAvoidingView } from 'react-native';
@@ -11,8 +11,10 @@ import { useNavigation } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
 import { editPostWithImages } from '../../api/community_fetch';
 import * as ImageManipulator from 'expo-image-manipulator';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy'; // sdk54 업데이트로 인해, 이미지 api와 버전을 맞춰야함.
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { SafeAreaView } from "react-native-safe-area-context";
+
 
 // 리사이징 후 사진 크기의 제한 30mb
 const MAX_IMAGE_SIZE = 30 * 1024 * 1024; // 30MB

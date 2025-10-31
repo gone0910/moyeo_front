@@ -116,6 +116,8 @@ export default function PostImageCarousel({ images = testImages }) {
         onScroll={onScroll}
         snapToInterval={SCREEN_WIDTH}
         decelerationRate="fast"
+
+        scrollEnabled={images.length > 1} // 사진이 2장 이상일때 스크롤 활성화
       />
       <View style={styles.dotContainer}>
         {images.map((_, idx) => (

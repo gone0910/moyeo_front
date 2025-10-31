@@ -6,7 +6,7 @@ import ChatBotCardList from './common/ChatBotCardList';
 import ChatBotCard from './common/ChatBotCard';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
-const BASE_WIDTH = 390;
+const BASE_WIDTH = 375;
 const BASE_HEIGHT = 844;
 const scale = (size) => (SCREEN_WIDTH / BASE_WIDTH) * size;
 const vScale = (size) => (SCREEN_HEIGHT / BASE_HEIGHT) * size;

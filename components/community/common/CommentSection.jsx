@@ -236,7 +236,7 @@ export default function CommentSection({ postId, myNickname = '', comments: prop
       <Text style={styles.nickname}>{item.nickname}</Text>
       <View style={styles.flexSpacer} />
       <View style={styles.timeAndMenuCol}>
-        <Text style={styles.time}>{item.createdDate}</Text>
+       
         {item.isMine && (
           <>
             <TouchableOpacity
@@ -252,6 +252,7 @@ export default function CommentSection({ postId, myNickname = '', comments: prop
             >
               <MaterialIcons name="more-horiz" size={scale(22)} color="#7E7E7E" />
             </TouchableOpacity>
+            <Text style={styles.time}>{item.createdDate}</Text>
  {/* ---------- (수정) 댓글 더보기 메뉴 Modal로 변경 시작 ---------- */}
             <Modal
               visible={openMenuId === item.id}
@@ -371,10 +372,10 @@ export default function CommentSection({ postId, myNickname = '', comments: prop
       />
 
       {/* 하단 입력창만 KeyboardAvoidingView로 분리 */}
-      <KeyboardAvoidingView
+      {/* <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 80 : 0} // iOS는 필요에 따라 조정 (60~120)
-      >
+      > */}
         <View style={styles.inputRow}>
           <TextInput
             ref={inputRef}
@@ -422,14 +423,13 @@ export default function CommentSection({ postId, myNickname = '', comments: prop
             <Text style={styles.submitText}>등록</Text>
           </TouchableOpacity>
         </View>
-      </KeyboardAvoidingView>
+      {/* </KeyboardAvoidingView> */}
 
   </View>
   );
 }
 
 // 이 코드를 CommentSection.jsx 맨 아래(마지막 줄 근처)에 붙여넣으세요
-
 export function CommentItem(props) {
   // props에는 댓글 한 개의 모든 정보(id, nickname, content, profileUrl, createdDate, isMine 등)가 담겨있음
   return (
@@ -507,8 +507,9 @@ const styles = StyleSheet.create({
   timeAndMenuCol: {
     alignItems: 'flex-end',
     justifyContent: 'flex-start',
-    marginRight: scale(10), // 오른쪽 맞춤 간격, 필요시 조절
     marginTop: scale(10),
+    gap: vScale(7),
+    marginRight: scale(16)
   },
   time: {
     width: scale(60),
@@ -518,7 +519,7 @@ const styles = StyleSheet.create({
     fontSize: scale(14),
     lineHeight: vScale(25),
     color: '#7E7E7E',
-    textAlign: 'left',
+    textAlign: 'right',
   },
   commentContent: {
     fontSize: scale(14),
@@ -535,13 +536,14 @@ const styles = StyleSheet.create({
     height: scale(22),
     alignItems: 'center',
     justifyContent: 'center',
-    marginLeft: scale(2),
-    marginRight: vScale(4),
+    marginRight: scale(0), 
+    marginTop: vScale(2),
+    marginBottom: vScale(2),
   },
   btnCol: {
-  flexDirection: 'row',
-  alignItems: 'center',
-  marginLeft: scale(8),
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginLeft: scale(8),
   // ...기존 스타일 유지
   },
   editBtn: {

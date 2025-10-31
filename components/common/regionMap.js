@@ -78,7 +78,7 @@ export const REGION_MAP = {
     충청북도: [
       { name: '청주시', code: 'CHEONGJU_SI' },
       { name: '충주시', code: 'CHUNGJU_SI' },
-      { name: '제천시', code: 'JECEHON_SI' }
+      { name: '제천시', code: 'JECEHEON_SI' }
     ],
     충청남도: [
       { name: '천안시', code: 'CHEONAN_SI' },

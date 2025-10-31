@@ -185,7 +185,7 @@ const styles = StyleSheet.create({
   },
   headerDivider: {
     height: StyleSheet.hairlineWidth,
-    backgroundColor: '#EDEDF2',
+    backgroundColor: '#ffffff',
     marginTop: 0,
   },
 

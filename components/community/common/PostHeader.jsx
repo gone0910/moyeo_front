@@ -30,7 +30,7 @@ export default function CustomHeader({
     <View style={styles.headerContainer}>
       {/* 왼쪽: 뒤로가기 */}
       <TouchableOpacity onPress={onBack} style={styles.sideButton}>
-        <MaterialIcons name="chevron-left" size={scaleWidth(36)} color="#4F46E5" />
+        <MaterialIcons name="chevron-left" size={scaleWidth(36)} color="#111111" />
       </TouchableOpacity>
 
       {/* 가운데: 타이틀 */}
@@ -47,7 +47,7 @@ export default function CustomHeader({
       {/* 오른쪽: 더보기 */}
       {showMore ? (
         <TouchableOpacity onPress={() => setShowMoreMenu(true)} style={styles.sideButton}>
-          <MaterialIcons name="more-horiz" size={scaleWidth(36)} color="#4F46E5" />
+          <MaterialIcons name="more-horiz" size={scaleWidth(36)} color="#111111" />
         </TouchableOpacity>
       ) : (
         <View style={styles.sideButton} /> // 공간 유지용
@@ -88,21 +88,19 @@ export default function CustomHeader({
 const styles = StyleSheet.create({
   headerContainer: {
     width: '100%',
-    height: scaleHeight(60),
+    height: scaleHeight(56), // ⬅️ 시안 높이 56px
     backgroundColor: '#FAFAFA',
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    paddingTop: scaleHeight(10),
-    paddingHorizontal: scaleWidth(0),
+    alignItems: 'center', // ⬅️ 수직 중앙 정렬
+    paddingHorizontal: scaleWidth(16), // ⬅️ 좌우 여백
     justifyContent: 'space-between',
     position: 'relative',
   },
   sideButton: {
-    width: scaleWidth(80),
-    height: scaleHeight(50),
+    width: scaleWidth(44), 
+    height: scaleWidth(44),
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: scaleWidth(0),
   },
   titleWrapper: {
     flex: 1,
@@ -126,7 +124,7 @@ const styles = StyleSheet.create({
     left: scaleWidth(16),
     width: scaleWidth(358),
     height: 1,
-    backgroundColor: '#999999',
+    backgroundColor: '#FAFAFA',
   },
   // ----- More menu (팝업) -----
   moreMenuBackdrop: {
@@ -135,13 +133,12 @@ const styles = StyleSheet.create({
   },
   moreMenu: {
     position: 'absolute',
-    top: scaleHeight(72),
-    left: SCREEN_WIDTH - scaleWidth(131),
+    top: scaleHeight(80), 
+    right: scaleWidth(16), 
     width: scaleWidth(114),
     height: scaleHeight(60),
     borderRadius: scaleWidth(12),
     backgroundColor: '#FFF',
-    // RN 전용 그림자
     shadowColor: '#000',
     shadowOffset: { width: 2, height: 2 },
     shadowOpacity: 0.12,

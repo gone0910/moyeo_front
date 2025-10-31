@@ -34,7 +34,7 @@ const wScale = (px) => normalize(px, 'width');
 const hScale = (px) => normalize(px, 'height');
 
 const Dropdown = Platform.OS === 'ios'
-  ? require('../common/Dropdown').default
+  ? require('../auth/common/DropdownAndroid').default
   : require('../auth/common/DropdownAndroid').default;
 
 export default function UserInfoScreen() {
@@ -155,7 +155,7 @@ export default function UserInfoScreen() {
           <View style={styles.headerBar}>
             <TouchableOpacity
               style={styles.backButton}
-              onPress={() => navigation.goBack?.()}
+              onPress={() => navigation.replace('Login')}
               accessibilityLabel="뒤로가기"
             >
               <Ionicons name="chevron-back" size={normalize(24)} color="#111111" />
@@ -373,7 +373,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E5E5EC',
     borderRadius: normalize(12),
-    overflow: 'hidden',
   },
   cardFocused: {
     borderColor: '#111111',

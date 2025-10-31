@@ -64,7 +64,22 @@ const ChatRoomScreen = ({ route, navigation }) => {
     console.log('📜 [새로고침] 메시지 다시 로딩...');
     const token = await AsyncStorage.getItem('jwt'); // ⬅️ [수정] AsyncStorage에서 가져오기
     if (!token) throw new Error('토큰이 없습니다.');
+    //  토큰 만료시간 확인
+    try {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        const expiryTime = payload.exp * 1000;
+        const now = Date.now();
+        const timeLeft = expiryTime - now;
 
+        console.log(`⏱️ 토큰 만료 시간 (exp): ${new Date(expiryTime).toLocaleString()}`);
+        console.log(`⏱️ 남은 시간: ${Math.floor(timeLeft / 1000)}초`);
+        if (timeLeft < 0) {
+            console.error('❌ 경고: 액세스 토큰이 만료되었습니다!');
+        }
+    } catch (e) {
+        console.warn('❗ JWT 파싱 오류');
+    }
+    
     const history = await getChatHistory(roomId, token); // ⬅️ [수정]
     setMessages(history);
     console.log('📜 [새로고침] 완료');
@@ -399,43 +414,52 @@ const ChatRoomScreen = ({ route, navigation }) => {
 
 
   return (
+  <SafeAreaView style={{ flex: 1, backgroundColor: '#ffffff' }}>
     <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={-10} // 키보드와 하단 공백값.
-      >
+      style={{ flex: 1 }}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'} // ⬅️ 'height'로 수정
+      keyboardVerticalOffset={0}
+    >
     {/* safeAreaview와 keyboardAvoid 서로 중복되어 상하단 공백생김. */}
     <View style={styles.container}> 
 
       {/* ✅ 상단 헤더 */}
       <View style={styles.header}>
-      <TouchableOpacity
-        onPress={() => {
-          if (params.origin === 'Matching') {
-            navigation.navigate('BottomTab', {
-              screen: 'Chat',
-              params: { screen: 'ChatListScreen' },
-            });
-          } else {
-            navigation.goBack();
-          }
-        }}
-        style={styles.sideButton}
-      >
-        <MaterialIcons name="chevron-left" size={28} color="#4F46E5" />
-      </TouchableOpacity>
+        {/* 뒤로가기 버튼 (Absolute) */}
+        <TouchableOpacity
+          onPress={() => {
+            if (params.origin === 'Matching') {
+              navigation.navigate('BottomTab', {
+                screen: 'Chat',
+                params: { screen: 'ChatListScreen' },
+              });
+            } else {
+              navigation.goBack();
+            }
+          }}
+          style={styles.backButton} // ✅ [수정] backButton 스타일
+          accessibilityLabel="뒤로가기"
+        >
+          {/* ✅ [수정] CSS 'Vector 66'에 맞는 아이콘 */}
+          <MaterialIcons name="arrow-back-ios" size={22} color="#111111" />
+        </TouchableOpacity>
 
-      {/* 닉네임 그룹 (이미지 포함했다 제외)*/}
-      <View style={styles.centerWrapper}>
+        {/* 닉네임 (중앙 정렬) */}
         <TouchableOpacity onPress={handleProfilePress} activeOpacity={0.7}>
-          <Text style={[styles.headerTitle]}>
+          {/* ✅ [수정] CSS '구교환' 스타일 적용 */}
+          <Text style={styles.headerTitle} numberOfLines={1}>
             {route.params.nickname}
           </Text>
         </TouchableOpacity>
-      </View>
 
-        <TouchableOpacity onPress={confirmExitRoom} style={styles.sideButton}>
-          <MaterialIcons name="logout" size={24} color="#F97575" />
+        {/* 나가기 버튼 (Absolute) */}
+        <TouchableOpacity 
+          onPress={confirmExitRoom} 
+          style={styles.exitButton} // ✅ [수정] exitButton 스타일
+          accessibilityLabel="채팅방 나가기"
+        >
+          {/* ✅ [수정] CSS 'Log out' (#F97575) 스타일 적용 */}
+          <MaterialIcons name="logout" size={22} color="#F97575" />
         </TouchableOpacity>
       </View>
       {/* 구분선 */}
@@ -490,83 +514,83 @@ const ChatRoomScreen = ({ route, navigation }) => {
       
 
 
-      <Modal
-        visible={isProfileModalVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setProfileModalVisible(false)}
-      >
-        <BlurView intensity={60} tint="dark" style={StyleSheet.absoluteFill}>
-          <View style={styles.modalCenter}>
-            <View style={styles.modalBoxUpdated}>
-              {profileData && (
-                <>
-                  {/* 모달 닫기 버튼 */}
-                  <TouchableOpacity style={styles.modalCloseIcon} onPress={() => setProfileModalVisible(false)}>
-                    <Ionicons name="close" size={24} color="#333" />
-                  </TouchableOpacity>
+        <Modal
+          visible={isProfileModalVisible}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setProfileModalVisible(false)}
+        >
+          <BlurView intensity={60} tint="dark" style={StyleSheet.absoluteFill}>
+            <View style={styles.modalCenter}>
+              <View style={styles.modalBoxUpdated}>
+                {profileData && (
+                  <>
+                    {/* 모달 닫기 버튼 */}
+                    <TouchableOpacity style={styles.modalCloseIcon} onPress={() => setProfileModalVisible(false)}>
+                      <Ionicons name="close" size={24} color="#333" />
+                    </TouchableOpacity>
 
-                  {/* 프로필 이미지 + 닉네임, 기간 */}
-                  <View style={styles.modalHeader}>
-                    <Image
-                      source={{ uri: profileData.image || profileData.imageUrl }}
-                      style={styles.modalProfileImageUpdated}
-                    />
-                    <View>
-                      <Text style={styles.modalUserName}>
-                        {profileData.name || profileData.nickname}
-                      </Text>
-                      <Text style={styles.modalDate}>
-                        {profileData.date
-                          ? profileData.date.replace(/-/g, '/')
-                          : `${profileData.startDate?.replace(/-/g, '/')} ~ ${profileData.endDate?.replace(/-/g, '/')}`}
+                    {/* 프로필 이미지 + 닉네임, 기간 */}
+                    <View style={styles.modalHeader}>
+                      <Image
+                        source={{ uri: profileData.image || profileData.imageUrl }}
+                        style={styles.modalProfileImageUpdated}
+                      />
+                      <View>
+                        <Text style={styles.modalUserName}>
+                          {profileData.name || profileData.nickname}
+                        </Text>
+                        <Text style={styles.modalDate}>
+                          {profileData.date
+                            ? profileData.date.replace(/-/g, '/')
+                            : `${profileData.startDate?.replace(/-/g, '/')} ~ ${profileData.endDate?.replace(/-/g, '/')}`}
+                        </Text>
+                      </View>
+                    </View>
+
+                    {/* 성별 */}
+                    <View style={styles.infoRow}>
+                      <Text style={styles.infoLabel}>성별</Text>
+                      <Text style={styles.infoTag1}>
+                        {GENDER_ENUM_TO_KOR[profileData.gender] || '선택없음'}
                       </Text>
                     </View>
-                  </View>
-
-                  {/* 성별 */}
-                  <View style={styles.infoRow}>
-                    <Text style={styles.infoLabel}>성별</Text>
-                    <Text style={styles.infoTag1}>
-                      {GENDER_ENUM_TO_KOR[profileData.gender] || '선택없음'}
-                    </Text>
-                  </View>
-                  {/* 여행 성향 */}
-                  <View style={styles.infoRow}>
-                    <Text style={styles.infoLabel}>여행 성향</Text>
-                    <View style={styles.tagGroup}>
-                      {(profileData.travelStyle || profileData.travelStyles)?.map((style, idx) =>
-                        style === 'NONE'
-                          ? <Text key={idx} style={styles.infoTag2}>{STYLE_ENUM_TO_KOR[style] || '선택없음'}</Text>
-                          : <Text key={idx} style={styles.infoTag2}>#{STYLE_ENUM_TO_KOR[style] || style}</Text>
-                      )}
+                    {/* 여행 성향 */}
+                    <View style={styles.infoRow}>
+                      <Text style={styles.infoLabel}>여행 성향</Text>
+                      <View style={styles.tagGroup}>
+                        {(profileData.travelStyle || profileData.travelStyles)?.map((style, idx) =>
+                          style === 'NONE'
+                            ? <Text key={idx} style={styles.infoTag2}>{STYLE_ENUM_TO_KOR[style] || '선택없음'}</Text>
+                            : <Text key={idx} style={styles.infoTag2}>#{STYLE_ENUM_TO_KOR[style] || style}</Text>
+                        )}
+                      </View>
                     </View>
-                  </View>
-                  {/* 목적지 */}
-                  <View style={styles.infoRow}>
-                    <Text style={styles.infoLabel}>목적지</Text>
-                    <Text style={styles.infoTag3}>
-                      {profileData.destination
-                        ? profileData.destination
-                        : formatDestination(profileData.province, profileData.cities)}
-                    </Text>
-                  </View>
-                  {/* MBTI */}
-                  <View style={styles.infoRow}>
-                    <Text style={styles.infoLabel}>MBTI</Text>
-                    <Text style={styles.infoTag4}>{profileData.mbti}</Text>
-                  </View>
-                  {/* "동행 채팅하기" 버튼은 여기서 제외 */}
-                </>
-              )}
+                    {/* 목적지 */}
+                    <View style={styles.infoRow}>
+                      <Text style={styles.infoLabel}>목적지</Text>
+                      <Text style={styles.infoTag3}>
+                        {profileData.destination
+                          ? profileData.destination
+                          : formatDestination(profileData.province, profileData.cities)}
+                      </Text>
+                    </View>
+                    {/* MBTI */}
+                    <View style={styles.infoRow}>
+                      <Text style={styles.infoLabel}>MBTI</Text>
+                      <Text style={styles.infoTag4}>{profileData.mbti}</Text>
+                    </View>
+                    {/* "동행 채팅하기" 버튼은 여기서 제외 */}
+                  </>
+                )}
+              </View>
             </View>
-          </View>
-        </BlurView>
-      </Modal>
+          </BlurView>
+        </Modal>
 
-    </View>
-  </KeyboardAvoidingView>
-
+      </View>
+    </KeyboardAvoidingView>
+  </SafeAreaView>  
     
   );
 };
@@ -574,45 +598,52 @@ const ChatRoomScreen = ({ route, navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FAFAFA',
+    backgroundColor: '#FFFFFF',
   },
   // ----- 상단 헤더 -----
   header: {
-    width: '100%',
-    height: vScale(105),
-    backgroundColor: '#FAFAFA',
+    width: '100%', 
+    height: vScale(56), 
+    backgroundColor: '#FFFFFF',      
     flexDirection: 'row',
     alignItems: 'center',
-    paddingTop: vScale(55),
-    paddingHorizontal: 0,
-    justifyContent: 'space-between',
-    position: 'relative',
+    justifyContent: 'center', 
+    position: 'relative', 
   },
-  sideButton: {
-    width: scale(60),
-    height: vScale(50),
-    alignItems: 'center',
+  backButton: {
+    // CSS 'Frame 1707485636'
+    position: 'absolute',
+    left: vScale(20), 
+    top: vScale(15), 
+    width: vScale(24), 
+    height: vScale(26), 
     justifyContent: 'center',
+    alignItems: 'center',
     zIndex: 1,
   },
-  centerWrapper: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   headerTitle: {
-    fontSize: scale(18),
-    fontFamily: 'Roboto',
-    fontWeight: '400',
-    color: '#000000',
-    marginLeft: scale(4),
-    maxWidth: scale(140),
-    overflow: 'hidden',
+    fontWeight: '500', 
+    fontSize: vScale(20), 
+    lineHeight: vScale(26), 
+    color: '#111111', 
+    letterSpacing: -0.5, 
+    maxWidth: SCREEN_WIDTH - vScale(120),
+  },
+  exitButton: {
+    // CSS 'Frame 114' / 'Log out'
+    position: 'absolute',
+    right: vScale(20),
+    top: vScale(9.5), 
+    width: vScale(37), 
+    height: vScale(37), 
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1,
   },
   headerLine: {
     width: '100%',
-    height: 1,
-    backgroundColor: '#999999',
+    height: StyleSheet.hairlineWidth, // 구분선
+    backgroundColor: '#fff', // (구분선 색상은 임의 지정)
   },
   // ----- 채팅 메시지 리스트 -----
   messageList: {

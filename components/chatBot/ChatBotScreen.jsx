@@ -21,7 +21,7 @@ import { SafeAreaView } from "react-native-safe-area-context"; // ✅ 추가됨
 
 
 const { width } = Dimensions.get('window');
-const scale = (size) => width * (size / 390);
+const scale = (size) => width * (size / 375);
 
 // 광역시 목록
 const METROPOLITAN_CITIES = [
