@@ -12,14 +12,20 @@ const CACHE_KEY = 'MY_TRIPS'; // 화면들과 맞춤
  *  - status: HTTP 상태코드 (성공=200대, 서버에러=500대, 네트워크= null)
  */
 export async function fetchPlanList() {
-  const url = `${BASE_URL}/schedule/list?_ts=${Date.now()}`;
+  const url = `${BASE_URL}/schedule/list`;
 
   try {
     const token = await AsyncStorage.getItem('jwt');
     if (!token) throw new Error('NO_JWT');
 
     const res = await axios.get(url, {
-      headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: 'application/json',
+        'Cache-Control': 'no-cache',
+        Pragma: 'no-cache',
+      },
+      params: { t: Date.now() },
       timeout: 15000,
       validateStatus: (s) => s >= 200 && s < 600, // 5xx도 받음
       transitional: { clarifyTimeoutError: true },

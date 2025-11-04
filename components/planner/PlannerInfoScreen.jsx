@@ -102,7 +102,8 @@ function Row({ title, value, onPress, required=true }) {
     </View>
   );
 }
-function SheetHeader({ title, subtitle, onClose }) {
+function SheetHeader({ title, subtitle, onClose, offset }) {
+  const mt = typeof offset === 'number' ? offset : normalize(-55, 'height'); // 다른 시트 기본값과 동일
   return (
     <View style={styles.sheetHeader}>
       <View>
@@ -110,12 +111,12 @@ function SheetHeader({ title, subtitle, onClose }) {
         {!!subtitle && <Text style={styles.sheetSub}>{subtitle}</Text>}
       </View>
       <TouchableOpacity
-  onPress={() => onClose(null)}
-  hitSlop={8}
-  style={{ marginTop: normalize(-55, 'height') }}  // ← ★ 이 부분이 여백 조정
->
-  <Ionicons name="close" size={normalize(22)} color="#111" />
-</TouchableOpacity>
+        onPress={() => onClose(null)}
+        hitSlop={8}
+        style={{ marginTop: mt }}   // ← 여기만 통일해서 제어
+      >
+        <Ionicons name="close" size={normalize(22)} color="#111" />
+      </TouchableOpacity>
     </View>
   );
 }
@@ -189,18 +190,21 @@ const CitiesByProvince = Object.fromEntries(
 // 시트 높이 비율 (Matching 기준)
 function getCitySheetHeightRatio(province) {
   if (province === '선택없음') return 0.30;
-  if (province === '서울') return 0.70;
+  if (province === '서울') return 0.72;
   if (province === '제주') return 0.335;
-  if (province === '경기도') return 0.70;
-  if (province === '강원도') return 0.43;
-  if (province === '충청북도') return 0.38;
-  if (province === '충청남도') return 0.44;
-  if (province === '전라북도') return 0.388;
-  if (province === '전라남도') return 0.388;
-  if (province === '경상북도') return 0.37;
-  if (province === '경상남도') return 0.44;
+  if (province === '경기도') return 0.66;
+  if (province === '강원도') return 0.42;
+  if (province === '충청북도') return 0.36;
+  if (province === '충청남도') return 0.42;
+  if (province === '전라북도') return 0.36;
+  if (province === '전라남도') return 0.36;
+  if (province === '경상북도') return 0.36;
+  if (province === '경상남도') return 0.42;
   return 0.36;
 }
+
+
+
 
 /* ===== 메인 ===== */
 export default function PlannerInfoScreen() {
@@ -390,7 +394,12 @@ export default function PlannerInfoScreen() {
               : `${selectedTravelStyles[0]} 외 ${selectedTravelStyles.length - 1}`)
           : '선택없음');
   const groupLabel = selectedItems.group ? selectedItems.group : '';
-  const budgetLabel = typeof budget === 'number' ? `${budget.toLocaleString()}원` : '';
+  const budgetLabel =
+  typeof budget === 'number'
+    ? (budget === 0
+        ? '선택없음'
+        : `${budget.toLocaleString()}원 이하`)
+    : '';
 
   /* ===== Mock 플랜 이동 (유지) ===== */
   const handleCustomPlan = () => {
@@ -466,8 +475,23 @@ export default function PlannerInfoScreen() {
         Number(budget || 0)
       );
 
+       // ✅ 생성 때 사용한 요청 스냅샷을 저장 (재생성 시 최우선 참조)
+ const requestSnapshot = {
+   startDate,
+   endDate,
+   destination: cityEnum,
+   mbti: mbtiEnum,
+   travelStyle: styleEnum,
+   peopleGroup: groupEnum,
+   budget: Number(budget || 0),
+ };
+ try { await saveCacheData(CACHE_KEYS.PLAN_REQUEST, requestSnapshot); } catch {}
+
+ // ✅ 생성 응답 객체에도 조건 주입 (혹시 응답에 destination 등 없을 때 대비)
+ const enriched = { ...data, ...requestSnapshot };
+
       const scheduleId = data?.id ?? data?.scheduleId ?? null;
-      try { await saveCacheData(CACHE_KEYS.PLAN_INITIAL, data); } catch {}
+      try { await saveCacheData(CACHE_KEYS.PLAN_INITIAL, enriched); } catch {}
 
       navigation.replace('PlannerResponse', {
         from: 'create',
@@ -495,11 +519,17 @@ export default function PlannerInfoScreen() {
       </View>
 
       <View style={styles.container}>
-        <ScrollView
-          style={{ flex:1 }}
-          contentContainerStyle={{ paddingBottom: normalize(140, 'height') }}
-          bounces
-        >
+  {/* 안내 문구 영역 */}
+  <View style={styles.infoBox}>
+    <Text style={styles.infoTitle}>여행 일정은 필수 입력이에요</Text>
+    <Text style={styles.infoSub}>그 외의 여행 스타일은 자유롭게 선택해주세요</Text>
+  </View>
+
+  <ScrollView
+    style={{ flex:1 }}
+    contentContainerStyle={{ paddingBottom: normalize(140, 'height') }}
+    bounces
+  >
           {/* 트리거 행들 */}
           <Row title="여행 일정" value={dateLabel} onPress={openDateSheet} />
           <Row title="목적지" value={destinationLabel} onPress={openRegionSheet} required={false}/>
@@ -520,7 +550,6 @@ export default function PlannerInfoScreen() {
             <Text style={styles.ctaText}>나만의 여행 플랜 바로 제작</Text>
           </TouchableOpacity>
 
-          <View style={{ height: normalize(8,'height') }} />
         </View>
       </View>
 
@@ -709,8 +738,8 @@ export default function PlannerInfoScreen() {
         <View style={{ paddingHorizontal: normalize(20) }}>
           <View style={[styles.budgetValueBox, tmpBudget===0 && styles.disabledBudgetBox]}>
             <Text style={[styles.budgetValueText, tmpBudget===0 && styles.disabledText]}>
-              예산: {tmpBudget.toLocaleString()}원
-            </Text>
+  예산: {tmpBudget === 0 ? '선택없음' : `${tmpBudget.toLocaleString()}원 이하`}
+</Text>
           </View>
           <Slider
             style={{ width: '100%', height: normalize(40) }}
@@ -726,47 +755,57 @@ export default function PlannerInfoScreen() {
         </View>
         <View style={styles.sheetFixedCTA}>
           <TouchableOpacity style={styles.sheetCTA} onPress={confirmBudget} activeOpacity={0.9}>
-            <Text style={styles.sheetCTAText}>{tmpBudget.toLocaleString()}원으로 설정</Text>
+            <Text style={styles.sheetCTAText}>
+  {tmpBudget === 0 ? '선택없음' : `${tmpBudget.toLocaleString()}원 이하로 설정`}
+</Text>
           </TouchableOpacity>
         </View>
       </BottomSheet>
 
       {/* ===== 바텀시트: MBTI (0.45) ===== */}
-      <BottomSheet visible={sheet==='mbti'} onClose={()=>setSheet(null)} heightRatio={0.47}>
-        <SheetHeader title="MBTI를 선택해 주세요" subtitle="" onClose={()=>setSheet(null)} />
+      <BottomSheet visible={sheet==='mbti'} onClose={()=>setSheet(null)} heightRatio={0.51}>
+  <SheetHeader
+    title="MBTI를 선택해 주세요"
+    subtitle=""
+    onClose={()=>setSheet(null)}
+    offset={normalize(-35, 'height')}  // ✅ 다른 시트와 동일 오프셋
+  />
         <View style={{ paddingHorizontal: normalize(16), paddingBottom: normalize(100,'height') }}>
-          <View style={styles.regionGrid}>
-            {[
-              '선택없음',
-              'ISTJ','ISFJ','INFJ','INTJ',
-              'ISTP','ISFP','INFP','INTP',
-              'ESTP','ESFP','ENFP','ENTP',
-              'ESTJ','ESFJ','ENFJ','ENTJ',
-            ].map(m => {
-              const value = (m === '선택없음') ? 'NONE' : m;
-              const selected = tmpMbti === value;
-              return (
-                <TouchableOpacity
-                  key={m}
-                  onPress={()=>setTmpMbti(value)}
-                  activeOpacity={0.85}
-                  style={[styles.mbtiChip, selected && styles.mbtiChipSelected]}
-                >
-                  <Text style={[styles.mbtiChipText, selected && styles.regionChipTextSelected]}>
-                    {m}
-                  </Text>
-                  {selected && (
-                    <Ionicons
-                      name="checkmark-circle"
-                      size={normalize(14)}
-                      color="#4F46E5"
-                      style={{ marginLeft: normalize(6) }}
-                    />
-                  )}
-                </TouchableOpacity>
-              );
-            })}
-          </View>
+  <View style={styles.regionGrid}>
+    {[
+      { label: '선택없음', value: 'NONE' },
+      { label: 'ISTJ', value: 'ISTJ' }, { label: 'ISFJ', value: 'ISFJ' },
+      { label: 'INFJ', value: 'INFJ' }, { label: 'INTJ', value: 'INTJ' },
+      { label: 'ISTP', value: 'ISTP' }, { label: 'ISFP', value: 'ISFP' },
+      { label: 'INFP', value: 'INFP' }, { label: 'INTP', value: 'INTP' },
+      { label: 'ESTP', value: 'ESTP' }, { label: 'ESFP', value: 'ESFP' },
+      { label: 'ENFP', value: 'ENFP' }, { label: 'ENTP', value: 'ENTP' },
+      { label: 'ESTJ', value: 'ESTJ' }, { label: 'ESFJ', value: 'ESFJ' },
+      { label: 'ENFJ', value: 'ENFJ' }, { label: 'ENTJ', value: 'ENTJ' },
+    ].map(({ label, value }) => {
+      const selected = (tmpMbti ?? 'NONE') === value;
+      return (
+        <TouchableOpacity
+          key={value}
+          onPress={() => setTmpMbti(value)}
+          activeOpacity={0.85}
+          style={[styles.regionChip, selected && styles.regionChipSelected]}
+        >
+          <Text style={[styles.regionChipText, selected && styles.regionChipTextSelected]}>
+            {label}
+          </Text>
+          {selected && (
+            <Ionicons
+              name="checkmark-circle"
+              size={normalize(14)}
+              color="#4F46E5"
+              style={{ marginLeft: normalize(6) }}
+            />
+          )}
+        </TouchableOpacity>
+      );
+    })}
+  </View>
         </View>
         <View style={styles.sheetFixedCTA}>
           <TouchableOpacity style={styles.sheetCTA} onPress={confirmMbti} activeOpacity={0.9}>
@@ -819,22 +858,29 @@ export default function PlannerInfoScreen() {
       <BottomSheet visible={sheet==='group'} onClose={()=>setSheet(null)} heightRatio={0.32}>
         <SheetHeader title="인원" subtitle="여행 인원을 선택하세요" onClose={()=>setSheet(null)} />
         <View style={{ paddingHorizontal: normalize(16), paddingBottom: normalize(100,'height') }}>
-          <View style={styles.optionGridLg}>
-            {["선택없음", "혼자", "단둘이", "여럿이"].map((g) => {
-              const sel = g === tmpGroup;
-              return (
-                <TouchableOpacity
-                  key={g}
-                  style={[styles.optionChipLg, sel && styles.optionChipLgSelected]}
-                  onPress={() => setTmpGroup(g)}
-                  activeOpacity={0.85}
-                >
-                  <Text style={[styles.optionTextLg, sel && { color: '#4F46E5' }]}>{g}</Text>
-                  {sel && <Ionicons name="checkmark-circle" size={normalize(16)} color="#4F46E5" style={{ marginLeft: normalize(6) }} />}
-                </TouchableOpacity>
-              );
-            })}
-          </View>
+  <View style={styles.regionGrid}>
+    {["선택없음", "혼자", "단둘이", "여럿이"].map((g) => {
+      const sel = g === tmpGroup;
+      return (
+        <TouchableOpacity
+          key={g}
+          style={[styles.regionChip, sel && styles.regionChipSelected]}
+          onPress={() => setTmpGroup(g)}
+          activeOpacity={0.85}
+        >
+          <Text style={[styles.regionChipText, sel && styles.regionChipTextSelected]}>{g}</Text>
+          {sel && (
+            <Ionicons
+              name="checkmark-circle"
+              size={normalize(14)}
+              color="#4F46E5"
+              style={{ marginLeft: normalize(6) }}
+            />
+          )}
+        </TouchableOpacity>
+      );
+    })}
+  </View>
         </View>
         <View style={styles.sheetFixedCTA}>
           <TouchableOpacity style={styles.sheetCTA} onPress={confirmGroup} activeOpacity={0.9}>
@@ -857,9 +903,29 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#FAFAFA',
-    paddingTop: normalize(20, 'height'),   // ✅ 이 위치에 있어야 적용됨
   },
 
+  infoBox: {
+    backgroundColor: '#4F46E50D',
+    borderRadius: normalize(12),
+    marginHorizontal: normalize(16),
+    marginTop: normalize(16, 'height'),
+    paddingVertical: normalize(14, 'height'),
+    paddingHorizontal: normalize(14),
+  },
+  infoTitle: { 
+    fontSize: normalize(15), 
+    fontWeight: '500', 
+    fontFamily:'Pretendard', 
+    color: '#111111', 
+    marginBottom: normalize(4, 'height') 
+  },
+  infoSub: { 
+    fontSize: normalize(14),
+    fontWeight: '400',
+    fontFamily: 'Pretendard',
+    color: '#505050' 
+  },
   // 헤더
   header: {
     paddingTop: normalize(6,'height'),
