@@ -29,27 +29,27 @@ export async function handleOAuthRedirectParams(params) {
   }
 }
 
-// [ADDED] 회원가입 (multipart/form-data)
-// Header: Authorization: Bearer {jwt}  (임시/정식 모두 동일 키 사용)
-export async function signupWithFormData(formData) {
-  const bearer = await TokenManager.getAccessToken();
-  if (!bearer) throw new Error('JWT가 없습니다(jwt).');
+// // [ADDED] 회원가입 (multipart/form-data)
+// // Header: Authorization: Bearer {jwt}  (임시/정식 모두 동일 키 사용)
+// export async function signupWithFormData(formData) {
+//   const bearer = await TokenManager.getAccessToken();
+//   if (!bearer) throw new Error('JWT가 없습니다(jwt).');
 
-  const res = await axios.post(`${BASE_URL}/auth/signup`, formData, {
-    headers: {
-      // Content-Type 지정 X (RN이 boundary 자동 설정)
-      Accept: 'application/json',
-      Authorization: `Bearer ${bearer}`, // 명세서: 임시 JWT 사용
-    },
-  });
+//   const res = await axios.post(`${BASE_URL}/auth/signup`, formData, {
+//     headers: {
+//       // Content-Type 지정 X (RN이 boundary 자동 설정)
+//       Accept: 'application/json',
+//       Authorization: `Bearer ${bearer}`, // 명세서: 임시 JWT 사용
+//     },
+//   });
 
-  const at = res.data?.accessToken;
-  const rt = res.data?.refreshToken;
-  if (!at || !rt) throw new Error('SignupResponseMissingTokens');
+//   const at = res.data?.accessToken;
+//   const rt = res.data?.refreshToken;
+//   if (!at || !rt) throw new Error('SignupResponseMissingTokens');
 
-  await TokenManager.setTokens(at, rt); // 회원가입 성공 → 정식 토큰 저장(= jwt 덮어쓰기)
-  return res.data;
-}
+//   await TokenManager.setTokens(at, rt); // 회원가입 성공 → 정식 토큰 저장(= jwt 덮어쓰기)
+//   return res.data;
+// }
 
 
 // 토큰 재발급 (POST /auth/reissue)

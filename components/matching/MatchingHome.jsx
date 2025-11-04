@@ -6,6 +6,7 @@ import { UserContext } from '../../contexts/UserContext';
 import { KaushanScript_400Regular } from '@expo-google-fonts/kaushan-script';
 import { useFonts } from 'expo-font';
 import AccordionCard from '../common/AccordionCard';
+import { SafeAreaView } from "react-native-safe-area-context";
 
 
 export default function MatchingHome() {
@@ -16,75 +17,77 @@ export default function MatchingHome() {
   if (!fontsLoaded) return null;
 
   return (
-    <View style={styles.container}>
-      {/* Header Section */}
-      <View style={styles.headerWrapper}>
-        <Text style={styles.logo} numberOfLines={1} adjustsFontSizeToFit>
-          moyeo 
-        </Text>
-        <TouchableOpacity onPress={() => navigation.navigate('ProfileHome', user)}>
-          {user?.profileImageUrl ? (
-            <Image source={{ uri: user.profileImageUrl }} style={styles.profileImage} />
-          ) : (
-            <View style={styles.profilePlaceholder} />
-          )}
-        </TouchableOpacity>
-      </View>
-
-      <View style={styles.divider} />
-
-      {/* Main Content */}
-      <View style={styles.centerWrapper}>
-        <Text style={styles.title}>이런 유형의 사람들과 함께 가고 싶어요</Text>
-
-        <TouchableOpacity>
-          <Text style={styles.titletext}>편집</Text>
-        </TouchableOpacity>
-        <TouchableOpacity onPress={() => navigation.navigate('MatchingInfo')}>
-            {/* 임시 버튼 생성 */}
-        <Text style={{ fontSize: 18, color: 'blue', marginTop: 20 }}> 
-            👉 다음 
-        </Text>
-        </TouchableOpacity>
-
-
-        {/* ✅ AccordionCard 적용 */}
-        <AccordionCard title={`여행 일정    2025.04.20 ~ 2025.04.22
-목적지       충청북도 괴산
-인원 수      단둘이
-`}>
-  <View style={styles.accordionContent1}>
-  <Text style={styles.textStyle}>선호 성별    여자</Text>
-  <Text style={styles.textStyle}>선호 나이    20대</Text>
-  </View>
-</AccordionCard>
-<AccordionCard title={`여행 일정    2025.04.22 ~ 2025.04.27
-목적지       선택안함
-인원 수      선택안함
-`}>
-  <View style={styles.accordionContent2}>
-  <Text style={styles.textStyle}>선호 성별    남자</Text>
-  <Text style={styles.textStyle}>선호 나이    30대</Text>
-  </View>
-</AccordionCard>
-<AccordionCard title={`여행 일정    2025.04.25 ~ 2025.04.30
-목적지       선택안함
-인원 수      선택안함
-`}>
-  <View style={styles.accordionContent3}>
-  <Text style={styles.textStyle}>선호 성별    선택안함</Text>
-  <Text style={styles.textStyle}>선호 나이    선택안함</Text>
-  </View>
-</AccordionCard>
-
-
-        <View style={styles.containerBar}>
-          <TouchableOpacity style={styles.containerBarButton}>
-            <Text style={styles.containerBarButtonText}>새로운 유형의 동행자 찾기</Text>
+    <SafeAreaView style={styles.safe}>
+      <View style={styles.container}>
+        {/* Header Section */}
+        <View style={styles.headerWrapper}>
+          <Text style={styles.logo} numberOfLines={1} adjustsFontSizeToFit>
+            moyeo 
+          </Text>
+          <TouchableOpacity onPress={() => navigation.navigate('ProfileHome', user)}>
+            {user?.profileImageUrl ? (
+              <Image source={{ uri: user.profileImageUrl }} style={styles.profileImage} />
+            ) : (
+              <View style={styles.profilePlaceholder} />
+            )}
           </TouchableOpacity>
         </View>
-      </View>
+
+        <View style={styles.divider} />
+
+        {/* Main Content */}
+        <View style={styles.centerWrapper}>
+          <Text style={styles.title}>이런 유형의 사람들과 함께 가고 싶어요</Text>
+
+          <TouchableOpacity>
+            <Text style={styles.titletext}>편집</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => navigation.navigate('MatchingInfo')}>
+              {/* 임시 버튼 생성 */}
+          <Text style={{ fontSize: 18, color: 'blue', marginTop: 20 }}> 
+              👉 다음 
+          </Text>
+          </TouchableOpacity>
+
+
+          {/* ✅ AccordionCard 적용 */}
+          <AccordionCard title={`여행 일정    2025.04.20 ~ 2025.04.22
+  목적지       충청북도 괴산
+  인원 수      단둘이
+  `}>
+    <View style={styles.accordionContent1}>
+    <Text style={styles.textStyle}>선호 성별    여자</Text>
+    <Text style={styles.textStyle}>선호 나이    20대</Text>
     </View>
+  </AccordionCard>
+  <AccordionCard title={`여행 일정    2025.04.22 ~ 2025.04.27
+  목적지       선택안함
+  인원 수      선택안함
+  `}>
+    <View style={styles.accordionContent2}>
+    <Text style={styles.textStyle}>선호 성별    남자</Text>
+    <Text style={styles.textStyle}>선호 나이    30대</Text>
+    </View>
+  </AccordionCard>
+  <AccordionCard title={`여행 일정    2025.04.25 ~ 2025.04.30
+  목적지       선택안함
+  인원 수      선택안함
+  `}>
+    <View style={styles.accordionContent3}>
+    <Text style={styles.textStyle}>선호 성별    선택안함</Text>
+    <Text style={styles.textStyle}>선호 나이    선택안함</Text>
+    </View>
+  </AccordionCard>
+
+
+          <View style={styles.containerBar}>
+            <TouchableOpacity style={styles.containerBarButton}>
+              <Text style={styles.containerBarButtonText}>새로운 유형의 동행자 찾기</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </SafeAreaView>
   );
 }
 

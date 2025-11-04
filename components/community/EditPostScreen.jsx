@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, TextInput, Image, FlatList,
-  Dimensions, Platform, ScrollView, PixelRatio, Keyboard, TouchableWithoutFeedback, SafeAreaView
+  Dimensions, Platform, ScrollView, PixelRatio, Keyboard, TouchableWithoutFeedback,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { KeyboardAvoidingView } from 'react-native';
@@ -11,33 +11,17 @@ import { useNavigation } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
 import { editPostWithImages } from '../../api/community_fetch';
 import * as ImageManipulator from 'expo-image-manipulator';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy'; // sdk54 업데이트로 인해, 이미지 api와 버전을 맞춰야함.
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { SafeAreaView } from "react-native-safe-area-context";
+import { getKorProvince, getKorCity } from '../common/regionMap';
+
 
 // 리사이징 후 사진 크기의 제한 30mb
 const MAX_IMAGE_SIZE = 30 * 1024 * 1024; // 30MB
 
 const { width, height } = Dimensions.get('window');
 const MAX_IMAGES = 3;
-
-function regionEnumToKor(enumValue) {
-  const map = {
-    'SEOUL': '서울',
-    'JEJU': '제주',
-    'GYEONGGI': '경기도',
-    // ... (전체 정의)
-    'NONE': '선택안함',
-  };
-  return map[enumValue] || '선택안함';
-}
-function cityEnumToKor(enumValue) {
-  const map = {
-    'GANGNAM_GU': '강남구',
-    // ... (전체 정의)
-    'NONE': '선택안함',
-  };
-  return map[enumValue] || '선택안함';
-}
 
 
 export default function EditPostScreen({ route, navigation }) {
@@ -69,11 +53,13 @@ export default function EditPostScreen({ route, navigation }) {
     if (post) {
       setTitle(post.title || '');
       setContent(post.content || '');
-      // 도/시 값 세팅
-      const regionKor = regionEnumToKor(post.province);
+      
+      // ⬇️ [수정] import한 함수를 사용합니다.
+      const regionKor = getKorProvince(post.province); // "SEOUL" -> "서울"
       setSelectedRegion(regionKor);
+      
       if (regionKor !== '선택안함') {
-        setSelectedCity(cityEnumToKor(post.city));
+        setSelectedCity(getKorCity(post.city)); // "GANGNAM_GU" -> "강남구"
       } else {
         setSelectedCity('선택안함');
       }
@@ -285,9 +271,34 @@ export default function EditPostScreen({ route, navigation }) {
     );
     console.log('게시글 수정 요청 완료, 서버 응답:', result);
 
-    // 성공시 이동/알림
-    navigation.replace('PostDetail', { postId });
-    // 또는 Alert.alert('수정 완료!')
+    navigation.reset({
+        index: 0, // 스택의 최상위는 BottomTab (하나만 있음)
+        routes: [
+          {
+            name: 'BottomTab', // 1. 최상위 스택은 BottomTab
+            state: {
+              index: 3, // 2. BottomTab의 4번째 탭(Community)을 활성화
+                        // (0:Home, 1:MyTrips, 2:Chat, 3:Community)
+              routes: [
+                // 3. 모든 탭 스크린을 정의
+                { name: 'Home' },
+                { name: 'MyTrips' },
+                { name: 'Chat' },
+                {
+                  name: 'Community', // 4. Community 탭의 상태를 지정
+                  state: {
+                    index: 1, // 5. Community 스택을 [CommunityMain, PostDetail]로 재설정
+                    routes: [
+                      { name: 'CommunityMain' },
+                      { name: 'PostDetail', params: { postId } } // 6. PostDetail을 활성화
+                    ],
+                  },
+                },
+              ],
+            },
+          },
+        ],
+      });
 
   } catch (err) {
     // ✅ 반드시 에러 핸들링 (알림, 콘솔, 등)
@@ -391,6 +402,7 @@ export default function EditPostScreen({ route, navigation }) {
         setSelectedCity('');
       }}
       size="large"
+      disableOnNone={false} // 선택안함 분기처리
     />
 
     {/* 도시 선택자들 */}
@@ -406,6 +418,7 @@ export default function EditPostScreen({ route, navigation }) {
           selectedItem={selectedCity}
           onSelect={setSelectedCity}
           size="small"
+          disableOnNone={false} // 선택안함 분기처리
         />
       </View>
     )}
@@ -416,6 +429,7 @@ export default function EditPostScreen({ route, navigation }) {
           selectedItem={selectedCity}
           onSelect={setSelectedCity}
           size="small"
+          disableOnNone={false} // 선택안함 분기처리
         />
       </View>
     )}
@@ -431,6 +445,7 @@ export default function EditPostScreen({ route, navigation }) {
           selectedItem={selectedCity}
           onSelect={setSelectedCity}
           size="small"
+          disableOnNone={false} // 선택안함 분기처리
         />
       </View>
     )}
@@ -441,6 +456,7 @@ export default function EditPostScreen({ route, navigation }) {
           selectedItem={selectedCity}
           onSelect={setSelectedCity}
           size="small"
+          disableOnNone={false} // 선택안함 분기처리
         />
       </View>
     )}
@@ -451,6 +467,7 @@ export default function EditPostScreen({ route, navigation }) {
           selectedItem={selectedCity}
           onSelect={setSelectedCity}
           size="small"
+          disableOnNone={false} // 선택안함 분기처리
         />
       </View>
     )}
@@ -461,6 +478,7 @@ export default function EditPostScreen({ route, navigation }) {
           selectedItem={selectedCity}
           onSelect={setSelectedCity}
           size="small"
+          disableOnNone={false} // 선택안함 분기처리
         />
       </View>
     )}
@@ -471,6 +489,7 @@ export default function EditPostScreen({ route, navigation }) {
           selectedItem={selectedCity}
           onSelect={setSelectedCity}
           size="small"
+          disableOnNone={false} // 선택안함 분기처리
         />
       </View>
     )}
@@ -481,6 +500,7 @@ export default function EditPostScreen({ route, navigation }) {
           selectedItem={selectedCity}
           onSelect={setSelectedCity}
           size="small"
+          disableOnNone={false} // 선택안함 분기처리
         />
       </View>
     )}
@@ -491,6 +511,7 @@ export default function EditPostScreen({ route, navigation }) {
           selectedItem={selectedCity}
           onSelect={setSelectedCity}
           size="small"
+          disableOnNone={false} // 선택안함 분기처리
         />
       </View>
     )}
@@ -501,6 +522,7 @@ export default function EditPostScreen({ route, navigation }) {
           selectedItem={selectedCity}
           onSelect={setSelectedCity}
           size="small"
+          disableOnNone={false} // 선택안함 분기처리
         />
       </View>
     )}

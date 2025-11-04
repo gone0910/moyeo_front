@@ -2,17 +2,16 @@
 
 import axios from 'axios';
 import { BASE_URL } from './config/api_Config'; // apiConfig.js에서 baseUrl 주소 변경
+import api from './AxiosInstance';
 
 // const BASE_URL = 'http://ec2-3-35-253-224.ap-northeast-2.compute.amazonaws.com:8080'; // 실제 서버 주소로 교체
 
 // 1. 게시글 상세 조회
 // GET /community/post/full/{postId}
-export async function getPostDetail(postId, token) {
-  const res = await axios.get(
-    `${BASE_URL}/community/post/full/${postId}`,
-    {
-      headers: { Authorization: `Bearer ${token}` },
-    }
+export async function getPostDetail(postId) { // ⬅️ 1. token 인자 제거
+  const res = await api.get( // ⬅️ 2. 'api' 사용
+    `${BASE_URL}/community/post/full/${postId}`
+    // ⬅️ 3. headers 블록 전체 제거
   );
   return res.data;
 }

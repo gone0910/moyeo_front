@@ -195,6 +195,7 @@ const styles = StyleSheet.create({
   innerContainer: {
     flex: 1,
     justifyContent: 'center',
+    paddingLeft: scale(20),
   },
   location: {
     width: scale(114),
@@ -262,7 +263,7 @@ const styles = StyleSheet.create({
     lineHeight: scale(25),
     fontWeight: '400',
     textAlignVertical: 'center',
-    marginLeft: scale(18), // 최고기온 left 25 맞추기 (조절 필요요)
+    marginLeft: scale(0), // 최고기온 left 25 맞추기 (조절 필요요)
   },
   highValue: {
     fontSize: scale(16),
@@ -270,7 +271,6 @@ const styles = StyleSheet.create({
     color: '#E35656',
     lineHeight: scale(25),
     fontWeight: '400',
-    marginLeft: scale(4),
     textAlignVertical: 'center',
   },
   precipRow: {

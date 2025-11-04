@@ -21,6 +21,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import TravelSection from './TravelSection';
 import { fetchPlanList } from '../../api/MyPlanner_fetch_list';
 import HeaderBar from '../../components/common/HeaderBar';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const BASE_WIDTH = 390;
@@ -125,10 +126,31 @@ export default function HomeScreen() {
   }, []);
 
   return (
+    <SafeAreaView style={styles.container}>
+      {/* 상단바 챗봇 아이콘 추가 (로고/프로필 상단줄은 다른 컴포넌트일 수 있음) */}
     <View style={styles.container}>
       <HeaderBar showChatBot={true} />
 
       <View style={styles.greetingWrapper}>
+        {/*
+        {isLong ? (
+          <>
+            <Text style={styles.greetingText}>{nickname}님</Text>
+            <Text style={styles.greetingText}>좋은 하루 보내세요</Text>
+          </>
+        ) : (
+          <Text style={styles.greetingText}>
+            {nickname}님 좋은 하루 보내세요
+          </Text>
+        )}
+        */}
+
+        {/* ✅ 항상 두 줄로 고정 */}
+        <Text style={styles.greetingText}>{nickname}님</Text>
+        <Text style={styles.greetingText}>좋은 하루 보내세요</Text>
+
+        <Text style={styles.subGreetingText}>오늘은 어디로 떠나고 싶으세요?</Text>
+      </View>
         <Text style={styles.greetingText}>{nickname}님</Text>
         <Text style={styles.greetingText}>좋은 하루 보내세요</Text>
         <Text style={styles.subGreetingText}>오늘은 어디로 떠나고 싶으세요?</Text>
@@ -198,7 +220,7 @@ export default function HomeScreen() {
           />
         </View>
       )}
-    </View>
+    </SafeAreaView>
   );
 }
 

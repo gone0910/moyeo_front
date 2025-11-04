@@ -34,7 +34,7 @@ let stompClient = null;
  */
 export const connectStompClient = (roomId, onMessage, token, onConnected, onReadNotice) => {
   // ⬇️ [수정] Polyfill이 제거되었으므로 "토큰 수리" 로직이 필요 없음.
-  console.log('🛰️ connectStompClient 실행됨', { roomId, token });
+  console.log('🛰️ connectStompClient 실행됨', { roomId, onMessage, token, onConnected, onReadNotice });
 
   if (!token) {
     console.error('❌ [STOMP 연결 실패] JWT 토큰이 없습니다.');
@@ -49,7 +49,9 @@ export const connectStompClient = (roomId, onMessage, token, onConnected, onRead
     },
 
     connectHeaders: {
-      Authorization: `Bearer ${token}`, // ⬅️ 전달받은 원본 토큰 사용
+      Authorization: `Bearer ${token}`, // 전달받은 원본 토큰 사용
+      // 📌 [추가 로그] 토큰이 헤더에 포함되었는지 확인
+      'X-Debug-Token-Exists': token ? 'YES' : 'NO',
     },
 
     reconnectDelay: 0, // ❗ 자동 재연결 방지
@@ -92,18 +94,42 @@ export const connectStompClient = (roomId, onMessage, token, onConnected, onRead
       console.error('❌ STOMP 프로토콜 오류 발생');
       console.error('📩 message:', frame.headers['message']);
       console.error('📜 상세:', frame.body);
+      console.error('🔑 토큰 확인:', token.substring(0, 20) + '...');
     },
 
     onWebSocketError: (err) => {
       console.error('❌ WebSocket 연결 오류 발생');
+      console.error('🌐 연결 URL:', `${BASE_URL}/connect`);
       console.error('🔧 상세 정보:', err.message || err);
     },
 
-    onDisconnect: () => {
+    // 💡 [최종 추가 로그] WebSocket/SockJS 종료 시 상세 정보 기록
+    // onWebSocketClose: (event) => {
+    //   console.error('🛑 [WebSocket Close] SockJS/WS 연결이 예기치 않게 종료됨!');
+    //   console.error('🔥 종료 코드:', event.code); // 1006 (비정상), 1000 (정상 또는 서버 인증 실패) 등
+    //   console.error('🔥 종료 이유:', event.reason);
+    // },
+
+    // 💡 [수정] onDisconnect 콜백에 프레임 객체를 받아 상세 정보 로그 추가
+    onDisconnect: (frame) => {
       console.log('🔌 STOMP 연결이 해제되었습니다');
+      // frame 객체는 STOMP DISCONNECT 명령에 대한 응답 프레임입니다.
+      // 연결이 예기치 않게 종료된 경우에도 이 콜백이 호출되지만,
+      // 서버가 보낸 정보가 frame.body나 frame.headers에 담겨있을 수 있습니다.
+      
+      console.warn('⚠️ [STOMP Disconnect] 상세 정보:', {
+        command: frame?.command,
+        headers: frame?.headers,
+        body: frame?.body,
+      });
     },
   });
-
+  
+  // 📌 [추가 로그] activate 직전에 최종 정보 확인
+  console.log('🚀 STOMP Client 활성화 시도', { 
+    SockJS_URL: `${BASE_URL}/connect`, 
+    Connect_Headers: stompClient.connectHeaders,
+  });
   stompClient.activate(); // ✅ 연결 시작
 };
 

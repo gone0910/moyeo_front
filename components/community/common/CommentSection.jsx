@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef,forwardRef, useImperativeHandle, } from 'react';
 import {
   View, Text, StyleSheet, TextInput, TouchableOpacity, Image, Dimensions, KeyboardAvoidingView, Platform, FlatList,
-ScrollView, Modal, Alert, RefreshControl } from 'react-native';
+ScrollView, Modal, Alert, RefreshControl, Keyboard } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getCommentList, createComment, editComment, deleteComment } from '../../../api/community'; 
 import { MaterialIcons } from '@expo/vector-icons';
@@ -36,7 +36,8 @@ const mockCommentList = [
   },
 ];
 
-export default function CommentSection({ postId, myNickname = '', comments: propComments, setComments: setPropComments }, ref) {
+export default function CommentSection({ postId, myNickname = '', comments: propComments, setComments: setPropComments, 
+  ListHeaderComponent }, ref) {
   const [input, setInput] = useState('');
   const [editId, setEditId] = useState(null); // 기존 입력란 수정
   const [editContent, setEditContent] = useState(''); // 댓글 직접 수정
@@ -164,7 +165,9 @@ export default function CommentSection({ postId, myNickname = '', comments: prop
       // [댓글 등록/수정 후 하단 자동 스크롤 + 포커스]
       setTimeout(() => {
         flatListRef.current?.scrollToEnd({ animated: true });
-        inputRef.current?.focus();
+        Keyboard.dismiss();           // ⬅️ [추가] 키보드를 내립니다.
+        inputRef.current?.blur();     // ⬅️ [수정] 포커스를 해제합니다.
+
       }, 200);
     } catch (e) {
       alert('댓글 등록/수정 실패');
@@ -236,7 +239,7 @@ export default function CommentSection({ postId, myNickname = '', comments: prop
       <Text style={styles.nickname}>{item.nickname}</Text>
       <View style={styles.flexSpacer} />
       <View style={styles.timeAndMenuCol}>
-        <Text style={styles.time}>{item.createdDate}</Text>
+       
         {item.isMine && (
           <>
             <TouchableOpacity
@@ -252,6 +255,7 @@ export default function CommentSection({ postId, myNickname = '', comments: prop
             >
               <MaterialIcons name="more-horiz" size={scale(22)} color="#7E7E7E" />
             </TouchableOpacity>
+            
  {/* ---------- (수정) 댓글 더보기 메뉴 Modal로 변경 시작 ---------- */}
             <Modal
               visible={openMenuId === item.id}
@@ -292,6 +296,7 @@ export default function CommentSection({ postId, myNickname = '', comments: prop
             {/* ---------- (수정) 댓글 더보기 메뉴 Modal로 변경 끝 ---------- */}
           </>
         )}
+        <Text style={styles.time}>{item.createdDate}</Text>{/* {시간표시} */}
       </View>
     </View>
     {/* 두 번째 줄: 댓글 본문 */}
@@ -339,6 +344,7 @@ export default function CommentSection({ postId, myNickname = '', comments: prop
       {/* 댓글 리스트 */}
       <FlatList
         ref={flatListRef}
+        ListHeaderComponent={ListHeaderComponent}
         data={comments}
         renderItem={renderItem}
         keyExtractor={(item, idx) => (item.id ?? idx).toString()}
@@ -352,9 +358,9 @@ export default function CommentSection({ postId, myNickname = '', comments: prop
           paddingTop: vScale(8),
         }}
         ListEmptyComponent={
-          <View style={{ paddingBottom: vScale(120) }}>
+          // <View style={{ paddingBottom: vScale(120) }}>
             <Text style={styles.emptyText}>아직 작성된 댓글이 없어요</Text>
-          </View>
+          // </View>
         }
         // [포커싱 및 키보드 문제 해결용 옵션 추가]
         keyboardShouldPersistTaps="handled"
@@ -429,7 +435,6 @@ export default function CommentSection({ postId, myNickname = '', comments: prop
 }
 
 // 이 코드를 CommentSection.jsx 맨 아래(마지막 줄 근처)에 붙여넣으세요
-
 export function CommentItem(props) {
   // props에는 댓글 한 개의 모든 정보(id, nickname, content, profileUrl, createdDate, isMine 등)가 담겨있음
   return (
@@ -507,8 +512,9 @@ const styles = StyleSheet.create({
   timeAndMenuCol: {
     alignItems: 'flex-end',
     justifyContent: 'flex-start',
-    marginRight: scale(10), // 오른쪽 맞춤 간격, 필요시 조절
     marginTop: scale(10),
+    gap: vScale(7),
+    marginRight: scale(16)
   },
   time: {
     width: scale(60),
@@ -518,7 +524,7 @@ const styles = StyleSheet.create({
     fontSize: scale(14),
     lineHeight: vScale(25),
     color: '#7E7E7E',
-    textAlign: 'left',
+    textAlign: 'right',
   },
   commentContent: {
     fontSize: scale(14),
@@ -535,13 +541,14 @@ const styles = StyleSheet.create({
     height: scale(22),
     alignItems: 'center',
     justifyContent: 'center',
-    marginLeft: scale(2),
-    marginRight: vScale(4),
+    marginRight: scale(0), 
+    marginTop: vScale(2),
+    marginBottom: vScale(2),
   },
   btnCol: {
-  flexDirection: 'row',
-  alignItems: 'center',
-  marginLeft: scale(8),
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginLeft: scale(8),
   // ...기존 스타일 유지
   },
   editBtn: {

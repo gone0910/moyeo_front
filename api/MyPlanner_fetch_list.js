@@ -1,15 +1,12 @@
-// api/MyPlanner_fetch_list.js
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { BASE_URL } from './config/api_Config';
-
-const CACHE_KEY = 'MY_TRIPS'; // 화면들과 맞춤
+import { BASE_URL } from './config/api_Config'; // apiConfig.js에서 baseUrl 주소 변경
+import api from './AxiosInstance';
 
 /**
- * 플랜 리스트 호출
- * @returns {Promise<{items: Array, status: number|null}>}
- *  - items: 정상/폴백 최종 배열
- *  - status: HTTP 상태코드 (성공=200대, 서버에러=500대, 네트워크= null)
+ * 플랜(여행 일정) 리스트 조회 API
+ * GET /schedule/list
+ * @returns {Promise<Array>} 플랜 리스트 배열 반환
  */
 export async function fetchPlanList() {
   const url = `${BASE_URL}/schedule/list`;
@@ -84,15 +81,8 @@ export async function fetchPlanList() {
       try { await AsyncStorage.setItem(CACHE_KEY, JSON.stringify(merged)); } catch {}
       return { items: merged, status: res.status };
     }
-
-    // 4xx/5xx → 캐시 폴백
-    const cached = await AsyncStorage.getItem(CACHE_KEY);
-    const items = cached ? JSON.parse(cached) : [];
-    return { items, status: res.status };
-  } catch (e) {
-    // 네트워크/타임아웃/예외 → 캐시 폴백
-    const cached = await AsyncStorage.getItem(CACHE_KEY);
-    const items = cached ? JSON.parse(cached) : [];
-    return { items, status: null };
+  } catch (error) {
+    console.error('❌ 플랜 리스트 조회 예외:', error.response?.data || error.message);
+    return [];
   }
 }

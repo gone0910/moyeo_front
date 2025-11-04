@@ -14,7 +14,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
-import { MaterialIcons } from '@expo/vector-icons';
+import { MaterialIcons, Ionicons } from '@expo/vector-icons';
 import { UserContext } from '../../contexts/UserContext';
 import { logoutUser } from '../../api/AuthApi';
 
@@ -81,7 +81,7 @@ export default function ProfileHomeScreen({ route }) {
           onPress={() => navigation.goBack()}
           accessibilityLabel="뒤로가기"
         >
-          <MaterialIcons name="arrow-back-ios" size={normalize(22)} color="#111111" />
+          <Ionicons name="chevron-back" size={normalize(24)} color="#111111" />
         </TouchableOpacity>
 
         <Text style={styles.headerTitle}>프로필 홈</Text>
@@ -93,10 +93,9 @@ export default function ProfileHomeScreen({ route }) {
           onPress={confirmLogout}
           accessibilityLabel="로그아웃"
         >
-          <MaterialIcons name="logout" size={normalize(22)} color="#111111" />
+          <MaterialIcons name="logout" size={normalize(22)} color="#F97575" />
         </TouchableOpacity>
       </View>
-      <View style={styles.headerDivider} />
 
       {/* === 본문 영역 === */}
       <View style={styles.container}>
@@ -183,12 +182,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  headerDivider: {
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: '#EDEDF2',
-    marginTop: 0,
-  },
-
   /** =========================
    * 프로필 이미지 (수정 제외)
    * ========================= */

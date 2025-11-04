@@ -91,12 +91,6 @@ export default function TravelSection({ travelList = [], onPressCreate, onPressC
         ))
       )}
 
-      <TouchableOpacity style={styles.createBtn} onPress={onPressCreate}>
-        <View style={styles.plusCircle}>
-          <MaterialIcons name="add" size={normalize(36)} color="#FFFFFF" />
-        </View>
-        <Text style={styles.createText}>여행 플랜 만들러 가기</Text>
-      </TouchableOpacity>
     </View>
   );
 }
@@ -162,39 +156,5 @@ const styles = StyleSheet.create({
     letterSpacing: normalize(-0.35),
   },
 
-  // ===== 기존 리스트 하단 CTA =====
-  createBtn: {
-    width: '100%',
-    height: normalize(48, 'height'),
-    borderRadius: normalize(20),
-    backgroundColor: '#FFFFFF',
-    shadowColor: '#000000',
-    shadowOpacity: 0.1,
-    shadowRadius: normalize(6),
-    shadowOffset: { width: 0, height: 0 },
-    elevation: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: normalize(36),
-    marginTop: normalize(18, 'height'),
-    alignSelf: 'center',
-  },
-  plusCircle: {
-    width: normalize(36),
-    height: normalize(36),
-    borderRadius: normalize(14),
-    backgroundColor: '#4F46E5',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: normalize(12),
-  },
-  createText: {
-    fontFamily: 'Inter_400Regular',
-    fontWeight: '400',
-    fontSize: normalize(16),
-    color: '#000000',
-    textAlign: 'center',
-    flex: 1,
-    paddingRight: normalize(36),
-  },
+
 });

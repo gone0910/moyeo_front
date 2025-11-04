@@ -70,7 +70,7 @@ export default function ChatRoomCard({ room, isEditing, onDeletePress }) {
       <Image source={{ uri: profileUrl }} style={styles.avatar} />
 
       {/* 중앙 텍스트 */}
-      <View style={styles.textWrapper}>
+      <View style={[styles.textWrapper, isEditing && unread === 0 && styles.textWrapperEditing]}>
         <Text style={styles.name} numberOfLines={1}>{name}</Text>
 
         {/* 마지막 메시지 */}
@@ -94,7 +94,7 @@ export default function ChatRoomCard({ room, isEditing, onDeletePress }) {
       {/* 삭제 아이콘 */}
       {isEditing && (
         <TouchableOpacity onPress={onDeletePress} style={styles.deleteIconWrapper}>
-          <MaterialIcons name="remove-circle" size={s(21)} color="#FF7E7E" />
+          <MaterialIcons name="cancel" size={s(21)} color="#FF7E7E" />
         </TouchableOpacity>
       )}
     </TouchableOpacity>
@@ -123,6 +123,9 @@ const styles = StyleSheet.create({
   textWrapper: {
     flex: 1,
     justifyContent: 'center',
+  },
+  textWrapperEditing: {
+    marginRight: s(44), // (뱃지 없을 때) 삭제 아이콘 영역 확보
   },
   name: {
     fontSize: s(15),
@@ -157,7 +160,7 @@ const styles = StyleSheet.create({
   deleteIconWrapper: {
     position: 'absolute',
     top: '50%',
-    right: s(8),
+    right: s(22),
     marginTop: -s(10),
     zIndex: 1,
   },

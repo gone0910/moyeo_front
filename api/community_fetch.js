@@ -1,7 +1,10 @@
 // api/community_fetch.js
 // import * as FileSystem from 'expo-file-system';
-import * as FileSystem from 'expo-file-system/legacy'; // sdk54로 인해, 지원되지 않는 api를 위해 임시사용
+import * as FileSystem from 'expo-file-system/legacy';
 import { BASE_URL } from './config/api_Config'; // apiConfig.js에서 baseUrl 주소 변경
+import * as TokenManager from './TokenManager';
+import { reissueToken } from './AuthApi'; // 사진 전송을 위해 fetch를 보존하고 내에서 토큰 재발급 구현
+
 
 // const BASE_URL = 'http://ec2-3-35-253-224.ap-northeast-2.compute.amazonaws.com:8080'; // 실제 서버 주소로 교체
 
@@ -98,7 +101,7 @@ async function urlToBase64File(url, idx = 0) {
   const filePath = FileSystem.cacheDirectory + filename;
   await FileSystem.downloadAsync(url, filePath);
 
-  const base64 = await FileSystem.readAsStringAsync(filePath, { encoding: FileSystem.EncodingType.Base64 });
+  const base64 = await FileSystem.readAsStringAsync(filePath, { encoding: 'base64' });
   return {
     uri: `data:image/jpeg;base64,${base64}`,
     name: filename,
@@ -109,7 +112,7 @@ async function urlToBase64File(url, idx = 0) {
 // 새로 추가된 파일 → base64 파일 객체 변환
 async function localImageToBase64File(image, idx = 0) {
   if (!image?.uri) return null;
-  const base64 = await FileSystem.readAsStringAsync(image.uri, { encoding: FileSystem.EncodingType.Base64 });
+  const base64 = await FileSystem.readAsStringAsync(image.uri, { encoding: 'base64' });
   return {
     uri: `data:image/jpeg;base64,${base64}`,
     name: image.name || `photo${idx}.jpg`,
@@ -117,11 +120,13 @@ async function localImageToBase64File(image, idx = 0) {
   };
 }
 
-// 게시글 수정 함수
-export async function editPostWithImages(postId, { postInfo, newImages, oldImageUrls }, token) {
+/**
+ * [내부 함수] 실제 fetch 로직 수행 (token을 인자로 받음)
+ */
+async function _doFetchEditPost(postId, { postInfo, newImages, oldImageUrls }, token) {
   const formData = new FormData();
 
-  // 1. postInfo JSON → base64 인코딩 후 FormData에 첨부
+  // 1. postInfo JSON → base64 (기존 로직 동일)
   const jsonString = JSON.stringify(postInfo);
   const jsonBase64 = btoa(unescape(encodeURIComponent(jsonString)));
   formData.append('postInfo', {
@@ -130,38 +135,24 @@ export async function editPostWithImages(postId, { postInfo, newImages, oldImage
     name: 'postInfo.json',
   });
 
-  // 2. 기존 이미지 URL → base64 파일 변환 후 FormData에 첨부
+  // 2. 기존 이미지 URL → base64 (기존 로직 동일)
   if (Array.isArray(oldImageUrls)) {
     for (let i = 0; i < oldImageUrls.length; i++) {
       const file = await urlToBase64File(oldImageUrls[i], i);
-      if (!file) continue;
-      formData.append('postImages', file);
+      if (file) formData.append('postImages', file);
     }
   }
 
-  // 3. 새 이미지 파일 → base64 파일 변환 후 FormData에 첨부
+  // 3. 새 이미지 파일 → base64 (기존 로직 동일)
   if (Array.isArray(newImages)) {
     for (let i = 0; i < newImages.length; i++) {
       const file = await localImageToBase64File(newImages[i], i);
-      if (!file) continue;
-      formData.append('postImages', file);
+      if (file) formData.append('postImages', file);
     }
   }
 
-  // ★ 빈 이미지일 때는 'postImages' 필드 자체를 아예 안 넣음 (방어코드 없음)
-
-  // 4. FormData 로그 출력 (디버깅용)
-  for (let pair of formData.entries()) {
-    if (typeof pair[1] === 'object') {
-      console.log(`[FormData] ${pair[0]}:`, {
-        uri: pair[1].uri,
-        name: pair[1].name,
-        type: pair[1].type,
-      });
-    } else {
-      console.log(`[FormData] ${pair[0]}:`, pair[1]);
-    }
-  }
+  // 4. FormData 로그 (디버깅용)
+  for (let pair of formData.entries()) { /* (로그 로직 생략) */ }
 
   // 5. API 요청 보내기
   const response = await fetch(`${BASE_URL}/community/post/edit/${postId}`, {
@@ -174,7 +165,9 @@ export async function editPostWithImages(postId, { postInfo, newImages, oldImage
 
   if (!response.ok) {
     const errText = await response.text();
-    throw new Error(`게시글 수정 실패: ${response.status} - ${errText}`);
+    const error = new Error(`게시글 수정 실패: ${errText}`);
+    error.status = response.status; // ⬅️ 401 감지를 위해 status 추가
+    throw error;
   }
 
   const contentType = response.headers.get('content-type');
@@ -182,5 +175,54 @@ export async function editPostWithImages(postId, { postInfo, newImages, oldImage
     return response.json();
   } else {
     return; // 성공 처리
+  }
+}
+
+/**
+ * [export] 게시글 수정 (401 재발급 로직 포함)
+ * (token 인자 제거됨)
+ */
+export async function editPostWithImages(postId, data) {
+  // 1. 현재 Access Token 가져오기
+  const token = await TokenManager.getAccessToken();
+  if (!token) {
+    console.warn('❌ 토큰 없음 — 로그인 후 다시 시도하세요.');
+    throw new Error('UNAUTHORIZED');
+  }
+
+  try {
+    // 2. 1차 시도 (현재 토큰)
+    console.log('[editPost] 1차 시도');
+    return await _doFetchEditPost(postId, data, token);
+
+  } catch (err) {
+    // 3. 401 오류(토큰 만료)인지 확인
+    if (err.status === 401) {
+      console.warn('[editPost] 401 감지. 토큰 재발급 시도...');
+      try {
+        // 4. Refresh Token 가져오기
+        const rt = await TokenManager.getRefreshToken();
+        if (!rt) throw new Error('Refresh Token이 없습니다.');
+
+        // 5. 재발급 API 호출
+        const { accessToken: newAT, refreshToken: newRT } = await reissueToken(rt);
+
+        // 6. 새 토큰 저장
+        await TokenManager.setTokens(newAT, newRT);
+
+        // 7. 2차 시도 (새 토큰)
+        console.log('[editPost] 2차 시도 (새 토큰)');
+        return await _doFetchEditPost(postId, data, newAT);
+        
+      } catch (reissueErr) {
+        // 8. 재발급 실패 (Refresh Token 만료 등)
+        console.error('[editPost] 재발급 실패:', reissueErr.message);
+        await TokenManager.clearTokens();
+        throw new Error('세션이 만료되었습니다. 다시 로그인해주세요.');
+      }
+    }
+    // 9. 401이 아닌 다른 오류 (500, 404 등)
+    console.error('[editPost] 401이 아닌 오류:', err.message);
+    throw err;
   }
 }

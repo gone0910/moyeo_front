@@ -28,7 +28,7 @@ const hScale = (px) => normalize(px, 'height');
 
 // OS에 따른 Dropdown 컴포넌트 임포트
 const Dropdown = Platform.OS === 'ios'
-  ? require('../common/Dropdown').default
+  ? require('../auth/common/DropdownAndroid').default
   : require('../auth/common/DropdownAndroid').default;
 
 export default function EditProfileScreen() {
@@ -124,7 +124,14 @@ export default function EditProfileScreen() {
       await AsyncStorage.setItem('user', JSON.stringify(updatedUser));
       
       Alert.alert('성공', '프로필이 수정되었습니다.');
-      navigation.goBack();
+      navigation.reset({
+        index: 1, // 우리가 활성화할 화면의 인덱스 (ProfileHome)
+        routes: [
+          { name: 'BottomTab' }, 
+          { name: 'ProfileHome' }  
+        ],
+      });
+
     } catch (e) {
       let errorMessage = '편집에 실패했습니다.';
       try {
@@ -178,16 +185,18 @@ export default function EditProfileScreen() {
               <View style={styles.cardLabelRow}>
                 <Text style={styles.cardLabel}>닉네임 <Text style={styles.asterisk}>*</Text></Text>
               </View>
-              <TextInput
-                style={styles.cardInput}
-                placeholder="닉네임을 입력해 주세요"
-                placeholderTextColor="#999999"
-                value={nickname}
-                onChangeText={(t) => t.length <= 12 && setNickname(t)}
-                onFocus={() => setFocusedField('nickname')}
-                onBlur={() => setFocusedField(null)}
-                returnKeyType="done"
-              />
+              <View style={styles.cardFieldRow}>
+                <TextInput
+                  style={styles.cardInput}
+                  placeholder="닉네임을 입력해 주세요"
+                  placeholderTextColor="#999999"
+                  value={nickname}
+                  onChangeText={(t) => t.length <= 12 && setNickname(t)}
+                  onFocus={() => setFocusedField('nickname')}
+                  onBlur={() => setFocusedField(null)}
+                  returnKeyType="done"
+                />
+              </View>
             </View>
 
             {/* 성별 토글 */}
@@ -213,21 +222,23 @@ export default function EditProfileScreen() {
               <View style={styles.cardLabelRow}>
                 <Text style={styles.cardLabel}>나이 <Text style={styles.asterisk}>*</Text></Text>
               </View>
-              <TextInput
-                style={styles.cardInput}
-                placeholder="나이를 입력해 주세요"
-                placeholderTextColor="#999999"
-                keyboardType="numeric"
-                value={age.toString()}
-                onChangeText={(text) => {
-                  const num = parseInt(text, 10);
-                  if (!isNaN(num) && num >= 0 && num <= 99) setAge(String(num));
-                  else if (text === '') setAge('');
-                }}
-                onFocus={() => setFocusedField('age')}
-                onBlur={() => setFocusedField(null)}
-                returnKeyType="done"
-              />
+              <View style={styles.cardFieldRow}>
+                <TextInput
+                  style={styles.cardInput}
+                  placeholder="나이를 입력해 주세요"
+                  placeholderTextColor="#999999"
+                  keyboardType="numeric"
+                  value={age.toString()}
+                  onChangeText={(text) => {
+                    const num = parseInt(text, 10);
+                    if (!isNaN(num) && num >= 0 && num <= 99) setAge(String(num));
+                    else if (text === '') setAge('');
+                  }}
+                  onFocus={() => setFocusedField('age')}
+                  onBlur={() => setFocusedField(null)}
+                  returnKeyType="done"
+                />
+              </View>
             </View>
 
             {/* MBTI 카드 */}
@@ -337,15 +348,18 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E5E5EC',
     borderRadius: normalize(12),
-    paddingHorizontal: wScale(16),
-    paddingTop: hScale(16),
+  },
+  cardFieldRow: {
+    paddingTop: hScale(8),
     paddingBottom: hScale(14),
+    paddingHorizontal: wScale(16),
   },
   cardFocused: {
     borderColor: '#111111',
   },
   cardLabelRow: {
-    marginBottom: hScale(8),
+    paddingTop: hScale(16),
+    paddingHorizontal: wScale(16),
   },
   cardLabel: {
     fontSize: normalize(13),
@@ -359,7 +373,7 @@ const styles = StyleSheet.create({
   cardInput: {
     fontSize: normalize(16),
     color: '#111111',
-    paddingVertical: 0, // 내부 패딩 제거
+    paddingVertical: hScale(8),
   },
   genderGroup: {
     backgroundColor: '#F7F7FB',
