@@ -5,6 +5,7 @@ export const CACHE_KEYS = {
   PLAN_EDITED: 'plan_edited',         // 장소 추가/수정 후
   PLAN_DETAIL: 'plan_detail',         // 상세보기 진입 시
   PLAN_SAVE_READY: 'plan_save_ready', // DB 저장 직전
+  PLAN_REQUEST: 'PLAN_REQUEST',
 };
 
 // ✅ 저장

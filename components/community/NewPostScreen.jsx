@@ -271,8 +271,6 @@ export default function NewPostScreen() {
             <Text style={styles.registerText}>등록</Text>
           </TouchableOpacity>
         </View>
-        <View style={styles.headerLine
-        } />
         {/* 목적지 필터 */}
         <View style={styles.filterSection}>
   <Text style={styles.filterLabel}>목적지 필터</Text>

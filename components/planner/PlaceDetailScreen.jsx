@@ -49,16 +49,22 @@ export default function PlaceDetailScreen() {
   const route = useRoute();
   const navigation = useNavigation();
 
- useFocusEffect(
-   useCallback(() => {
-     const tabNav =
-       navigation.getParent?.(MAIN_TAB_ID) ||
-       navigation.getParent?.()?.getParent?.();
-     console.log('[PlaceDetail] hide tabbar');
-     tabNav?.setOptions({ tabBarStyle: HIDDEN_TABBAR_STYLE });
-     return () => tabNav?.setOptions({ tabBarStyle: defaultTabBarStyle });
-   }, [navigation])
- );
+  useFocusEffect(
+  React.useCallback(() => {
+    const parent = navigation.getParent(MAIN_TAB_ID);
+    // 탭바 강제 숨김
+    parent?.setOptions({
+      tabBarStyle: [defaultTabBarStyle, HIDDEN_TABBAR_STYLE],
+    });
+
+    // 언포커스/언마운트 시 원복
+    return () => {
+      parent?.setOptions({
+        tabBarStyle: defaultTabBarStyle,
+      });
+    };
+  }, [navigation])
+);
 
   const place = route?.params?.place ?? {};
 
@@ -275,7 +281,6 @@ export default function PlaceDetailScreen() {
 
         {/* 카드 */}
         <View style={[styles.infoCard, { height: CARD_HEIGHT, marginBottom: normalize(30) }]}>
-          {loading ? <Text style={{ color: '#666', marginBottom: normalize(6) }}>불러오는 중...</Text> : null}
           {error ? (
             <Text style={{ color: '#888', marginBottom: normalize(6) }}>
               {String(error)}
@@ -285,7 +290,15 @@ export default function PlaceDetailScreen() {
           {/* 상단: 장소명/카테고리/가격 */}
           <View style={styles.row}>
             <View style={{ flexDirection: 'row', alignItems: 'center', flexShrink: 1 }}>
-              <Text style={styles.placeName}>{display.name}</Text>
+              {/* [FIT] 장소명 한 줄 + 자동 축소 */}
+              <Text
+                style={styles.placeName}
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.9}
+              >
+                {display.name}
+              </Text>
               {display.type ? <Text style={styles.type}>{display.type}</Text> : null}
             </View>
             {Number.isFinite(display.estimatedCost)
@@ -296,15 +309,55 @@ export default function PlaceDetailScreen() {
           </View>
 
           {/* 설명 */}
-          {display.description ? (
-            <Text style={styles.description}>{display.description}</Text>
-          ) : null}
+          {loading ? (
+            // [FIT] 로딩 문구도 한 줄 + 자동 축소
+            <Text
+              style={[styles.description, styles.loadingText]}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.9}
+            >
+              불러오는 중...
+            </Text>
+          ) : (
+            (display.description && String(display.description).trim().length > 0)
+              ? (
+                // [FIT] 실제 설명: 한 줄 + 자동 축소
+                <Text
+                  style={styles.description}
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.9}
+                >
+                  {display.description}
+                </Text>
+              )
+              : (
+                // [FIT] 대체 설명: 한 줄 + 자동 축소
+                <Text
+                  style={[styles.description, styles.descriptionFallback]}
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.9}
+                >
+                  한줄 설명이 없습니다.
+                </Text>
+              )
+          )}
 
           {/* 하단 주소 */}
           {(resolvedAddress || display.address) ? (
             <View style={styles.addressRow}>
               <Ionicons name="location-outline" size={normalize(17)} color="#4F46E5" style={{ marginRight: normalize(3) }} />
-              <Text style={styles.address}>{resolvedAddress || display.address}</Text>
+              {/* [FIT] 주소 한 줄 + 자동 축소 */}
+              <Text
+                style={styles.address}
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.9}
+              >
+                {resolvedAddress || display.address}
+              </Text>
             </View>
           ) : null}
         </View>
