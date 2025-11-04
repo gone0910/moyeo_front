@@ -1,7 +1,10 @@
-import axios from 'axios';
+import axios from 'axios'; // ⬅️ [참고] 기존 axios는 삭제해도 되나, 캐시 로직 등에서 필요시 유지
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { BASE_URL } from './config/api_Config'; // apiConfig.js에서 baseUrl 주소 변경
-import api from './AxiosInstance';
+import { BASE_URL } from './config/api_Config';
+import api from './AxiosInstance'; // ⬅️ [확인] api 인스턴스 사용
+
+// [참고] 캐시 키가 정의되어 있지 않아 임의로 추가합니다.
+const CACHE_KEY = 'planListCache'; 
 
 /**
  * 플랜(여행 일정) 리스트 조회 API
@@ -12,12 +15,21 @@ export async function fetchPlanList() {
   const url = `${BASE_URL}/schedule/list`;
 
   try {
-    const token = await AsyncStorage.getItem('jwt');
-    if (!token) throw new Error('NO_JWT');
+    // const token = await AsyncStorage.getItem('jwt'); // ⬅️ [제거] api가 자동으로 처리
+    // if (!token) throw new Error('NO_JWT');
 
-    const res = await axios.get(url, {
+    // ⬇️ [수정] axios.get -> api.get
+    const res = await api.get(url, {
+      // ⬇️ [제거] Authorization 헤더는 api가 자동으로 추가
+      // headers: {
+      //   Authorization: `Bearer ${token}`,
+      //   Accept: 'application/json',
+      //   'Cache-Control': 'no-cache',
+      //   Pragma: 'no-cache',
+      // },
+      
+      // ⬇️ [수정] Authorization을 제외한 나머지 헤더는 유지
       headers: {
-        Authorization: `Bearer ${token}`,
         Accept: 'application/json',
         'Cache-Control': 'no-cache',
         Pragma: 'no-cache',
@@ -81,8 +93,24 @@ export async function fetchPlanList() {
       try { await AsyncStorage.setItem(CACHE_KEY, JSON.stringify(merged)); } catch {}
       return { items: merged, status: res.status };
     }
+    
+    // [참고] 200-300이 아닌 응답(캐시 로직을 타지 않은)은 여기서 처리해야 합니다.
+    // 예를 들어 4xx, 5xx 오류 시 캐시를 반환할지, 오류를 던질지 등
+    // 여기서는 기존 로직을 따라 빈 배열을 반환합니다.
+    console.warn(`❌ 플랜 리스트 조회 실패 (Status: ${res.status})`, res.data);
+    return [];
+
   } catch (error) {
+    // ⬇️ [수정] api.get()이 401 재발급 실패 등으로 오류를 throw한 경우
     console.error('❌ 플랜 리스트 조회 예외:', error.response?.data || error.message);
+    
+    // [참고] 네트워크 오류 시 로컬 캐시 반환 (선택적)
+    // const cachedRaw = await AsyncStorage.getItem(CACHE_KEY);
+    // if (cachedRaw) {
+    //   console.log('📦 [오류] 네트워크 오류로 캐시된 데이터 반환');
+    //   return { items: JSON.parse(cachedRaw), status: 'cached' };
+    // }
+
     return [];
   }
 }
