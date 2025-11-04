@@ -1,10 +1,9 @@
 // 📁 /navigation/BottomTabNavigator.jsx
-import React from 'react';
-import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import React, { useMemo } from 'react';
+import { createBottomTabNavigator, BottomTabBar } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
 import Feather from 'react-native-vector-icons/Feather';
-import { View, Text, StyleSheet } from 'react-native';
-import { getFocusedRouteNameFromRoute } from '@react-navigation/native';
+import { View, Text, StyleSheet, Platform } from 'react-native';
 
 import HomeNavigator from './HomeNavigator';
 import MyTripsScreen from '../components/trip/MyTripsScreen';
@@ -25,33 +24,18 @@ export const defaultTabBarStyle = {
   borderTopRightRadius: 20,
 };
 
-// ✅ 완전 숨김(깜빡임 방지용)
+// (참고) 스타일 숨김 세트 — 커스텀 tabBar(null)로 가리므로 보조용
 export const HIDDEN_TABBAR_STYLE = {
   display: 'none',
- height: 0,
- position: 'absolute',
- borderTopWidth: 0,
- paddingTop: 0,
- paddingBottom: 0,
- opacity: 0,
- overflow: 'hidden',
- pointerEvents: 'none',
+  height: 0,
+  opacity: 0,
+  position: 'absolute',
+  borderTopWidth: 0,
+  pointerEvents: 'none',
 };
 
-const HIDDEN_ROUTES = [
-  'PlannerInfoScreen',
-  'PlannerResponseHome',
-  'PlaceDetail',
-];
-
-// [ADD] 포커스 라우트 기반으로 숨김 여부 판단 (+로그)
-function shouldHideByRoute(route) {
-  const routeName = getFocusedRouteNameFromRoute(route) ?? 'HomeMain';
-  if (__DEV__) console.log('[tabbar][focus route]', routeName);
-  return HIDDEN_ROUTES.some(
-    (name) => routeName === name || routeName?.startsWith?.(name)
-  );
-} // ←←← ← 여기 빠져있던 닫는 중괄호!
+// 🔒 HomeNavigator 실제 Stack.Screen 이름들과 1:1
+const HIDDEN_ROUTES = ['PlannerResponse', 'PlaceDetail', 'NewPost'];
 
 export default function BottomTabNavigator() {
   return (
@@ -59,12 +43,14 @@ export default function BottomTabNavigator() {
       id={MAIN_TAB_ID}
       screenOptions={({ route }) => ({
         headerShown: false,
+        sceneStyle: { paddingBottom: 0 },
+        sceneContainerStyle: { paddingBottom: 0 },
         tabBarLabel: ({ focused, color }) => {
           const labels = { Home: '홈 화면', MyTrips: '내 여행', Chat: '채팅', Community: '커뮤니티' };
           return (
             <Text
               style={[
-                { fontSize: 12, fontFamily: 'Roboto_400Regular', color, textAlign: 'center' },
+                { fontSize: 12, color, textAlign: 'center' },
                 focused && styles.textShadowStyle,
               ]}
             >
@@ -94,41 +80,40 @@ export default function BottomTabNavigator() {
         tabBarActiveTintColor: '#4F46E5',
         tabBarInactiveTintColor: '#A1A1AA',
       })}
+      // ✅ 커스텀 tabBar: Home 탭의 중첩 라우트가 숨김 대상이면 탭바 자체를 렌더하지 않음
+      tabBar={(props) => {
+        try {
+          const homeRoute = props.state.routes.find((r) => r.name === 'Home');
+          // 중첩 네비게이터의 현재 포커스된 자식 라우트명
+          const nestedName =
+            homeRoute?.state?.routes?.[homeRoute.state.index]?.name ?? 'HomeMain';
+
+          if (__DEV__) console.log('[tabbar][custom nested]', nestedName);
+
+          const shouldHide = HIDDEN_ROUTES.some(
+            (name) => nestedName === name || nestedName?.startsWith?.(name)
+          );
+
+          return shouldHide ? null : <BottomTabBar {...props} />;
+        } catch (e) {
+          // 안전망: 문제 생기면 기본 탭바
+          if (__DEV__) console.warn('[tabbar] custom check failed:', e);
+          return <BottomTabBar {...props} />;
+        }
+      }}
     >
-      {/* Home 탭: 헬퍼로 숨김 제어 */}
       <Tab.Screen
-  name="Home"
-  component={HomeNavigator}
-  options={({ route }) => {
-    const hide = shouldHideByRoute(route);
-    return {
-      // ✅ 기본 → 숨김 순서의 배열. 뒤가 이긴다 = 숨김이 최우선
-      tabBarStyle: hide ? HIDDEN_TABBAR_STYLE : defaultTabBarStyle,
-    };
-  }}
-  // ✅ 추가: 홈 탭 버튼 눌렀을 때 항상 HomeMain으로 이동하도록 강제
-  listeners={({ navigation }) => ({
-    tabPress: (e) => {
-      // 기본 동작 그대로 유지
-      e.preventDefault();
-
-      // ✅ Home 탭을 누를 때 항상 HomeMain 화면으로 이동
-      navigation.navigate('Home', { screen: 'HomeMain' });
-
-      // 만약 완전히 스택을 리셋하고 싶다면 아래 주석 해제
-      // navigation.reset({
-      //   index: 0,
-      //   routes: [{ name: 'Home', state: { routes: [{ name: 'HomeMain' }] } }],
-      // });
-    },
-  })}
-/>
+        name="Home"
+        component={HomeNavigator}
+        options={{ tabBarStyle: defaultTabBarStyle }}
+      />
 
       <Tab.Screen
         name="MyTrips"
         component={MyTripsScreen}
         options={{ tabBarStyle: defaultTabBarStyle }}
       />
+
       <Tab.Screen
         name="Chat"
         component={ChatNavigator}
@@ -140,6 +125,7 @@ export default function BottomTabNavigator() {
         })}
         options={{ tabBarStyle: defaultTabBarStyle }}
       />
+
       <Tab.Screen
         name="Community"
         component={CommunityStackNavigator}
@@ -150,4 +136,15 @@ export default function BottomTabNavigator() {
 }
 
 const styles = StyleSheet.create({
+  iconShadowContainer: {
+    shadowColor: '#000',
+    shadowOpacity: 0.08,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 6,
+    elevation: Platform.OS === 'android' ? 1 : 0,
+  },
+  textShadowStyle: {
+    textShadowColor: 'rgba(79,70,229,0.3)',
+    textShadowRadius: 6,
+  },
 });

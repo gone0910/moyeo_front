@@ -70,16 +70,16 @@ function normalize(size, based = 'width') {
 // 도별 시/군 개수에 따른 시트 높이 비율 계산
 function getCitySheetHeightRatio(province) {
   if (province === '선택없음') return 0.30;
-  if (province === '서울') return 0.70;
-  if (province === '제주') return 0.34;
-  if (province === '경기도') return 0.70;
-  if (province === '강원도') return 0.43;
-  if (province === '충청북도') return 0.38;
-  if (province === '충청남도') return 0.44;
-  if (province === '전라북도') return 0.388;
-  if (province === '전라남도') return 0.4;
-  if (province === '경상북도') return 0.4;
-  if (province === '경상남도') return 0.44;
+  if (province === '서울') return 0.72;
+  if (province === '제주') return 0.335;
+  if (province === '경기도') return 0.66;
+  if (province === '강원도') return 0.42;
+  if (province === '충청북도') return 0.36;
+  if (province === '충청남도') return 0.42;
+  if (province === '전라북도') return 0.36;
+  if (province === '전라남도') return 0.36;
+  if (province === '경상북도') return 0.36;
+  if (province === '경상남도') return 0.42;
   return 0.36;
 }
 
@@ -653,7 +653,7 @@ const styleLabel = useMemo(() => {
       </BottomSheet>
 
       {/* ---------- 그룹(인원) 선택 시트 ---------- */}
-      <BottomSheet visible={sheet === 'group'} onClose={() => setSheet(null)} heightRatio={0.33}>
+      <BottomSheet visible={sheet === 'group'} onClose={() => setSheet(null)} heightRatio={0.31}>
         <View style={styles.sheetHeader}>
           <View>
             <Text style={styles.sheetTitle}>몇 명이 좋을까?</Text>
@@ -776,7 +776,7 @@ const styleLabel = useMemo(() => {
       </BottomSheet>
 
       {/* ---------- 성별 선택 시트 ---------- */}
-      <BottomSheet visible={sheet === 'gender'} onClose={() => setSheet(null)} heightRatio={0.33}>
+      <BottomSheet visible={sheet === 'gender'} onClose={() => setSheet(null)} heightRatio={0.31}>
         <View style={styles.sheetHeader}>
           <View>
             <Text style={styles.sheetTitle}>선호하는 동행자의 성별?</Text>
@@ -792,28 +792,28 @@ const styleLabel = useMemo(() => {
         </View>
         <View style={{ paddingHorizontal: normalize(16), paddingBottom: normalize(20, 'height') }}>
           <View style={styles.optionGridLg}>
-            {['선택없음', '남성', '여성'].map((g) => {
-              const sel = g === tmpGender || (!tmpGender && g === '선택없음');
-              return (
-                <TouchableOpacity
-                  key={g}
-                  style={[styles.optionChipLg, sel && styles.optionChipLgSelected]}
-                  onPress={() => setTmpGender(g)}
-                  activeOpacity={0.85}
-                >
-                  <Text style={[styles.optionTextLg, sel && { color: '#4F46E5' }]}>{g}</Text>
-                  {sel && (
-                    <Ionicons
-                      name="checkmark-circle"
-                      size={normalize(18)}
-                      color="#4F46E5"
-                      style={{ marginLeft: normalize(8) }}
-                    />
-                  )}
-                </TouchableOpacity>
-              );
-            })}
-          </View>
+  {['선택없음', '남성', '여성'].map((g) => {
+    const sel = g === tmpGender || (!tmpGender && g === '선택없음');
+    return (
+      <TouchableOpacity
+        key={g}
+        style={[styles.optionChipLg, sel && styles.optionChipLgSelected]}
+        onPress={() => setTmpGender(g)}
+        activeOpacity={0.85}
+      >
+        <Text style={[styles.optionTextLg, sel && styles.optionTextLgSelected]}>{g}</Text>
+        {sel && (
+          <Ionicons
+            name="checkmark-circle"
+            size={normalize(14)}
+            color="#4F46E5"
+            style={{ marginLeft: normalize(6) }}
+          />
+        )}
+      </TouchableOpacity>
+    );
+  })}
+</View>
         </View>
         <View style={styles.sheetFixedCTA}>
     <TouchableOpacity activeOpacity={0.9} onPress={confirmGender} style={styles.sheetCTA}>
@@ -1114,17 +1114,33 @@ const styles = StyleSheet.create({
   },
   pillText: { fontSize: normalize(13), color: '#374151' },
   asterisk: { color:'#EF4444', fontWeight:'bold', fontSize: 18 },
-  optionGridLg: { flexDirection: 'row', flexWrap: 'wrap', gap: normalize(14) },
-  optionChipLg: {
-    flexDirection: 'row', alignItems: 'center',
-    paddingVertical: normalize(14, 'height'),
-    paddingHorizontal: normalize(18),
-    minHeight: normalize(48, 'height'),
-    borderRadius: normalize(14),
-    borderWidth: 1, borderColor: '#E5E7EB', backgroundColor: '#FFFFFF',
+  optionGridLg: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'flex-start',
+    columnGap: normalize(12),
+    rowGap: normalize(12, 'height'),
   },
-  optionChipLgSelected: { borderColor: '#4F46E5', backgroundColor: '#EEF2FF' },
-  optionTextLg: { fontSize: normalize(16), color: '#111111', fontWeight: '400' },
+  optionChipLg: {
+    width: (SCREEN_WIDTH - normalize(16) * 2 - normalize(12) * 3) / 4, // 한 줄 4개 고정
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: normalize(10, 'height'),
+    borderRadius: normalize(12),
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    backgroundColor: '#FFFFFF',
+  },
+  optionChipLgSelected: {
+    borderColor: '#4F46E5',
+    backgroundColor: '#EEF2FF',
+  },
+  optionTextLg: {
+    fontSize: normalize(14),
+    color: '#111111',
+    fontWeight: '400',
+  },
 
   sheetBody: {
     paddingHorizontal: normalize(16),

@@ -5,9 +5,9 @@ import { BASE_URL } from './config/api_Config';
 
 // 한글 → 서버 ENUM 매핑 (필요시 추가)
 const TYPE_MAP = {
-  '관광지': 'TOURIST_SPOT',
-  '식사':   'RESTAURANT',
-  '숙소':   'ACCOMMODATION',
+  TOURIST_SPOT: '관광지',
+  RESTAURANT: '식사',
+  ACCOMMODATION: '숙소',
 };
 
 const norm = (v) => (typeof v === 'string' ? v.trim() : v);
