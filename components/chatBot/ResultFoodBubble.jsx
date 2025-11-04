@@ -1,6 +1,7 @@
 // components/chatBot/ResultFoodBubble.jsx 맛집 카페
 import React from 'react';
-import { View, Text, StyleSheet, Dimensions } from 'react-native';
+// 👇 1. ScrollView를 import 합니다.
+import { View, Text, StyleSheet, Dimensions, ScrollView } from 'react-native';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import ChatBotCardList from './common/ChatBotCardList';
 import ChatBotCard from './common/ChatBotCard';
@@ -30,21 +31,35 @@ const dummyFoodList = [
 ];
 
 function FoodCardContent({ name, menu, hours, priceRange, location }) {
-  // [CHANGED] innerContainer -> cardRoot로 스타일 이름 변경 및 flex:1 설정 유지
   return (
     <View style={styles.cardRoot}>
-      {/* [ADDED] SightBubble처럼 상단 제목 바 스타일 적용 */}
-      <View style={styles.headerBar}>
-        <Text style={styles.headerTitle}>{name}</Text>
+      {/* 👇 2. onTouchStart 이벤트를 View에 추가합니다. */}
+      <View 
+        style={styles.headerBar}
+        onTouchStart={(e) => {
+          // 이 영역에서 터치가 시작되면 부모(FlatList)로
+          // 이벤트가 전파되는 것을 막습니다.
+          e.stopPropagation();
+        }}
+      >
+        {/* 👇 3. Text를 ScrollView로 감쌉니다. */}
+        <ScrollView
+          horizontal={true}
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.headerScrollContent} // ⬅️ 정렬 스타일 적용
+          nestedScrollEnabled={true} // ⬅️ 중첩 스크롤 활성화
+        >
+          <Text style={styles.headerTitle}>{name}</Text>
+        </ScrollView>
       </View>
 
-      {/* [ADDED] 본문 영역 스타일 적용 */}
+      {/* 본문 영역 */}
       <View style={styles.bodyArea}>
         
         {/* 주소 */}
         <View style={styles.addressRow}>
           <MaterialIcons name="location-on" size={scale(12)} color="#4F46E5" style={{ marginRight: scale(4) }} />
-          <Text style={styles.addressText}>{location}</Text> {/* [CHANGED] address -> addressText */}
+          <Text style={styles.addressText}>{location}</Text>
         </View>
 
         {/* 대표메뉴 */}
@@ -82,7 +97,6 @@ export default function ResultFoodBubble({ data }) {
   const foodList = data || dummyFoodList;
 
   return (
-    // [ADDED] SightBubble과 동일한 외부 프레임 적용
     <View style={styles.resultFrame}>
       <ChatBotCardList
         data={foodList}
@@ -97,7 +111,6 @@ export default function ResultFoodBubble({ data }) {
 }
 
 const styles = StyleSheet.create({
-  // [ADDED] SightBubble의 외부 프레임 스타일
   resultFrame: {
     width: scale(359),
     minHeight: vScale(208),
@@ -107,33 +120,37 @@ const styles = StyleSheet.create({
     paddingVertical: vScale(18),
   },
 
-  // [ADDED/CHANGED] SightBubble의 카드 루트 스타일 (233x172 내부 레이아웃)
   cardRoot: {
     flex: 1,
     width: '100%',
     height: '100%',
-    // [REMOVED] 기존 innerContainer의 불필요한 스타일 제거 (minHeight, justify, padding)
   },
 
-  // [ADDED] SightBubble의 헤더 바 스타일 (제목 영역)
+  // 👇 4. headerBar 스타일 수정 (SightBubble/HotelBubble과 동일)
   headerBar: {
-    height: vScale(50),
+    height: vScale(40), // ⬅️ 높이를 40으로 통일
     backgroundColor: '#BCBAEB',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: scale(10), // 제목이 너무 길 때를 대비
+    // justifyContent, alignItems 제거
   },
+
+  // 👇 5. headerScrollContent 스타일 추가 (SightBubble/HotelBubble과 동일)
+  headerScrollContent: {
+    flexGrow: 1,              // (수평) 텍스트가 짧을 때 중앙 정렬을 위해 영역을 채움
+    justifyContent: 'center', // (수평) 텍스트를 수평 중앙 정렬
+    alignItems: 'center',     // (수직) 텍스트를 수직 중앙 정렬
+    height: vScale(40),         // 부모(headerBar)의 높이와 동일하게 지정
+  },
+
+  // 👇 6. headerTitle 스타일 수정 (SightBubble/HotelBubble과 동일)
   headerTitle: {
     fontFamily: 'Roboto',
     fontWeight: '400',
     fontSize: scale(16),
-    lineHeight: scale(25),
     color: '#373737',
-    textAlign: 'center',
-    flexShrink: 1, // 텍스트 줄바꿈 허용
+    paddingHorizontal: scale(10),
+    // lineHeight, textAlign, flexShrink 제거
   },
 
-  // [ADDED] SightBubble의 본문 영역 스타일
   bodyArea: {
     flex: 1,
     paddingHorizontal: scale(10),
@@ -142,14 +159,13 @@ const styles = StyleSheet.create({
     rowGap: vScale(4), // 요소 간 간격
   },
 
-  // [CHANGED] 주소 행 스타일 (SightBubble과 통일)
   addressRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     columnGap: scale(4),
     marginBottom: vScale(6),
+    marginTop: vScale(10),
   },
-  // [CHANGED] 주소 텍스트 스타일 (SightBubble과 통일)
   addressText: {
     fontFamily: 'Roboto',
     fontWeight: '400',
@@ -160,7 +176,6 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
   },
   
-  // [CHANGED] 정보 행 스타일 (SightBubble과 통일)
   infoRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -168,22 +183,19 @@ const styles = StyleSheet.create({
     columnGap: scale(4),
     rowGap: vScale(2),
     marginBottom: vScale(2),
-    // [REMOVED] 기존의 불필요한 마진/패딩 제거
   },
-  // [CHANGED] 라벨 스타일 (SightBubble과 통일)
   infoLabel: {
-    width: scale(57), // SightBubble의 고정폭
+    width: scale(57), // 고정폭
     fontFamily: 'Roboto',
     fontWeight: '400',
-    fontSize: scale(12), // SightBubble과 동일한 글꼴 크기
+    fontSize: scale(12),
     lineHeight: scale(15),
     color: '#333333',
   },
-  // [CHANGED] 값 스타일 (SightBubble과 통일)
   infoValue: {
     fontFamily: 'Roboto',
     fontWeight: '400',
-    fontSize: scale(12), // SightBubble과 동일한 글꼴 크기
+    fontSize: scale(12),
     lineHeight: scale(15),
     color: '#616161',
     flex: 1,

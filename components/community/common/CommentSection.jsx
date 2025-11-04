@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef,forwardRef, useImperativeHandle, } from 'react';
 import {
   View, Text, StyleSheet, TextInput, TouchableOpacity, Image, Dimensions, KeyboardAvoidingView, Platform, FlatList,
-ScrollView, Modal, Alert, RefreshControl } from 'react-native';
+ScrollView, Modal, Alert, RefreshControl, Keyboard } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getCommentList, createComment, editComment, deleteComment } from '../../../api/community'; 
 import { MaterialIcons } from '@expo/vector-icons';
@@ -36,7 +36,8 @@ const mockCommentList = [
   },
 ];
 
-export default function CommentSection({ postId, myNickname = '', comments: propComments, setComments: setPropComments }, ref) {
+export default function CommentSection({ postId, myNickname = '', comments: propComments, setComments: setPropComments, 
+  ListHeaderComponent }, ref) {
   const [input, setInput] = useState('');
   const [editId, setEditId] = useState(null); // 기존 입력란 수정
   const [editContent, setEditContent] = useState(''); // 댓글 직접 수정
@@ -164,7 +165,9 @@ export default function CommentSection({ postId, myNickname = '', comments: prop
       // [댓글 등록/수정 후 하단 자동 스크롤 + 포커스]
       setTimeout(() => {
         flatListRef.current?.scrollToEnd({ animated: true });
-        inputRef.current?.focus();
+        Keyboard.dismiss();           // ⬅️ [추가] 키보드를 내립니다.
+        inputRef.current?.blur();     // ⬅️ [수정] 포커스를 해제합니다.
+
       }, 200);
     } catch (e) {
       alert('댓글 등록/수정 실패');
@@ -252,7 +255,7 @@ export default function CommentSection({ postId, myNickname = '', comments: prop
             >
               <MaterialIcons name="more-horiz" size={scale(22)} color="#7E7E7E" />
             </TouchableOpacity>
-            <Text style={styles.time}>{item.createdDate}</Text>
+            
  {/* ---------- (수정) 댓글 더보기 메뉴 Modal로 변경 시작 ---------- */}
             <Modal
               visible={openMenuId === item.id}
@@ -293,6 +296,7 @@ export default function CommentSection({ postId, myNickname = '', comments: prop
             {/* ---------- (수정) 댓글 더보기 메뉴 Modal로 변경 끝 ---------- */}
           </>
         )}
+        <Text style={styles.time}>{item.createdDate}</Text>{/* {시간표시} */}
       </View>
     </View>
     {/* 두 번째 줄: 댓글 본문 */}
@@ -340,6 +344,7 @@ export default function CommentSection({ postId, myNickname = '', comments: prop
       {/* 댓글 리스트 */}
       <FlatList
         ref={flatListRef}
+        ListHeaderComponent={ListHeaderComponent}
         data={comments}
         renderItem={renderItem}
         keyExtractor={(item, idx) => (item.id ?? idx).toString()}
@@ -353,9 +358,9 @@ export default function CommentSection({ postId, myNickname = '', comments: prop
           paddingTop: vScale(8),
         }}
         ListEmptyComponent={
-          <View style={{ paddingBottom: vScale(120) }}>
+          // <View style={{ paddingBottom: vScale(120) }}>
             <Text style={styles.emptyText}>아직 작성된 댓글이 없어요</Text>
-          </View>
+          // </View>
         }
         // [포커싱 및 키보드 문제 해결용 옵션 추가]
         keyboardShouldPersistTaps="handled"
@@ -372,10 +377,10 @@ export default function CommentSection({ postId, myNickname = '', comments: prop
       />
 
       {/* 하단 입력창만 KeyboardAvoidingView로 분리 */}
-      {/* <KeyboardAvoidingView
+      <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 80 : 0} // iOS는 필요에 따라 조정 (60~120)
-      > */}
+      >
         <View style={styles.inputRow}>
           <TextInput
             ref={inputRef}
@@ -423,7 +428,7 @@ export default function CommentSection({ postId, myNickname = '', comments: prop
             <Text style={styles.submitText}>등록</Text>
           </TouchableOpacity>
         </View>
-      {/* </KeyboardAvoidingView> */}
+      </KeyboardAvoidingView>
 
   </View>
   );

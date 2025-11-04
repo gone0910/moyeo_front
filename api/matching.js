@@ -4,6 +4,7 @@
 
 import axios from 'axios';
 import { BASE_URL } from './config/api_Config'; // apiConfig.js에서 baseUrl 주소 변경
+import api from './AxiosInstance';
 
 
 // const BASE_URL = 'http://ec2-3-35-253-224.ap-northeast-2.compute.amazonaws.com:8080'; // ✅ 실제 서버 주소로 교체 필요
@@ -11,18 +12,12 @@ import { BASE_URL } from './config/api_Config'; // apiConfig.js에서 baseUrl �
 // ─────────────────────────────────────────────
 // ✅ [1] 매칭 정보 입력/수정
 // - API 명세: POST /matching/profile
-// - 요청 데이터: startDate, endDate, province, cities, groupType, ageRange, travelStyles,  preferenceGender
-// - 설명: 사용자가 매칭 조건을 입력하면 서버에 저장됨
-// - 사용 위치: MatchingInfoScreen.jsx (정보 입력 버튼 클릭 시 호출)
-export const submitMatchingProfile = async (data, token) => {
+export const submitMatchingProfile = async (data) => { // ⬅️ token 매개변수 제거
   console.log('📤 [전송할 매칭 데이터]', data);
-  console.log('🔐 [전송할 토큰]', token);
   try {
-    const response = await axios.post(`${BASE_URL}/matching/profile`, data, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json', // 생략 가능 (디폴트가 application/json)
-      },
+    // ⬇️ axios.post -> api.post, headers 제거
+    const response = await api.post(`${BASE_URL}/matching/profile`, data, {
+      // Authorization 헤더는 api 인스턴스가 자동으로 추가함
     });
     console.log('✅ 매칭 정보 입력 성공:', response.data);
     return response.data;
@@ -35,16 +30,10 @@ export const submitMatchingProfile = async (data, token) => {
 // ─────────────────────────────────────────────
 // ✅ [2] 매칭된 사용자 리스트 조회
 // - API 명세: GET /matching/result
-// - 설명: 조건에 맞는 사용자 리스트를 받아옴
-// - 주의: 빈 배열([])과 API 실패(null) 구분 필수
-// - 사용 위치: MatchingInfoScreen.jsx (조건 입력 후 자동 조회 or 수동 버튼)
-export const getMatchingList = async (token) => {
+export const getMatchingList = async () => { // ⬅️ token 매개변수 제거
   try {
-    const response = await axios.get(`${BASE_URL}/matching/result`, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
+    // ⬇️ axios.get -> api.get, headers 제거
+    const response = await api.get(`${BASE_URL}/matching/result`);
     console.log('📦 매칭 리스트:', response.data);
     return response.data;
   } catch (error) {
@@ -58,13 +47,11 @@ export const getMatchingList = async (token) => {
 // - API 명세: GET /matching/profile?nickname={닉네임}
 // - 설명: 리스트에서 특정 사용자를 선택했을 때 상세정보 조회
 // - 사용 위치: MatchingResultDetailScreen.jsx 또는 모달
-export const getUserMatchingDetail = async (nickname, token) => {
+export const getUserMatchingDetail = async (nickname) => { // ⬅️ [변경] token 인자 제거
   try {
-    const response = await axios.get(`${BASE_URL}/matching/profile`, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-      params: { nickname },
+    // ⬇️ [변경] axios.get -> api.get, headers 제거
+    const response = await api.get(`${BASE_URL}/matching/profile`, {
+      params: { nickname }, // 쿼리 파라미터는 그대로 유지
     });
     console.log('📋 사용자 상세정보:', response.data);
     return response.data;

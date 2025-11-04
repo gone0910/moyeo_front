@@ -289,7 +289,7 @@ const ChatRoomScreen = ({ route, navigation }) => {
     const newMessage = {
       sender: user.nickname,   // ✅ 명세서에 정의된 필드
       message: input,          // ✅ 명세서에 정의된 필드
-      timestamp: new Date().toISOString(),  // ✅ 현재 시간 추가 (ISO 문자열)
+      //timestamp: new Date().toISOString(),  // ✅ 현재 시간 추가 (ISO 문자열)
     };
     if (!isConnected) {
       Alert.alert('연결 중입니다', '잠시 후 다시 시도해주세요.');
@@ -414,7 +414,7 @@ const ChatRoomScreen = ({ route, navigation }) => {
 
 
   return (
-  <SafeAreaView style={{ flex: 1, backgroundColor: '#ffffff' }}>
+  <SafeAreaView style={{ flex: 1, backgroundColor: '#FAFAFA' }}>
     <KeyboardAvoidingView
       style={{ flex: 1 }}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'} // ⬅️ 'height'로 수정
@@ -428,19 +428,12 @@ const ChatRoomScreen = ({ route, navigation }) => {
         {/* 뒤로가기 버튼 (Absolute) */}
         <TouchableOpacity
           onPress={() => {
-            if (params.origin === 'Matching') {
-              navigation.navigate('BottomTab', {
-                screen: 'Chat',
-                params: { screen: 'ChatListScreen' },
-              });
-            } else {
-              navigation.goBack();
-            }
+            // ✅ [수정] 모든 조건 분기 삭제
+            navigation.goBack();
           }}
-          style={styles.backButton} // ✅ [수정] backButton 스타일
+          style={styles.backButton}
           accessibilityLabel="뒤로가기"
         >
-          {/* ✅ [수정] CSS 'Vector 66'에 맞는 아이콘 */}
           <MaterialIcons name="arrow-back-ios" size={22} color="#111111" />
         </TouchableOpacity>
 
@@ -525,62 +518,99 @@ const ChatRoomScreen = ({ route, navigation }) => {
               <View style={styles.modalBoxUpdated}>
                 {profileData && (
                   <>
-                    {/* 모달 닫기 버튼 */}
-                    <TouchableOpacity style={styles.modalCloseIcon} onPress={() => setProfileModalVisible(false)}>
-                      <Ionicons name="close" size={24} color="#333" />
-                    </TouchableOpacity>
+                    {/* --- [추가] MatchingList의 목적지 태그 생성 로직 적용 --- */}
+                    {(() => {
+                      let destinationTags = [];
+                      if (profileData.destination) {
+                        // 1. destination 문자열이 통째로 오는 경우 (기존 로직 호환)
+                        destinationTags = [profileData.destination];
+                      } else if (profileData.province && profileData.province !== 'NONE') {
+                        // 2. province와 cities 배열로 오는 경우 (MatchingList 로직)
+                        const provinceName = ENUM_TO_PROVINCE_KOR[profileData.province] || profileData.province;
+                        const cityNames = (profileData.cities || [])
+                          .filter((c) => c !== 'NONE' && !!c)
+                          .map((code) => ENUM_TO_CITY_KOR[code] || code);
 
-                    {/* 프로필 이미지 + 닉네임, 기간 */}
-                    <View style={styles.modalHeader}>
-                      <Image
-                        source={{ uri: profileData.image || profileData.imageUrl }}
-                        style={styles.modalProfileImageUpdated}
-                      />
-                      <View>
-                        <Text style={styles.modalUserName}>
-                          {profileData.name || profileData.nickname}
-                        </Text>
-                        <Text style={styles.modalDate}>
-                          {profileData.date
-                            ? profileData.date.replace(/-/g, '/')
-                            : `${profileData.startDate?.replace(/-/g, '/')} ~ ${profileData.endDate?.replace(/-/g, '/')}`}
-                        </Text>
-                      </View>
-                    </View>
+                        if (cityNames.length === 0) {
+                          // 2-1. 도/특별시만 있는 경우
+                          destinationTags = [provinceName];
+                        } else {
+                          // 2-2. 도시가 여러 개인 경우 (MatchingList 형식)
+                          // ex: ['서울 / 강남구', '강동구', '서초구']
+                          destinationTags.push(`${provinceName} / ${cityNames[0]}`);
+                          destinationTags.push(...cityNames.slice(1));
+                        }
+                      } else {
+                        // 3. 둘 다 없는 경우
+                        destinationTags = ['선택없음'];
+                      }
 
-                    {/* 성별 */}
-                    <View style={styles.infoRow}>
-                      <Text style={styles.infoLabel}>성별</Text>
-                      <Text style={styles.infoTag1}>
-                        {GENDER_ENUM_TO_KOR[profileData.gender] || '선택없음'}
-                      </Text>
-                    </View>
-                    {/* 여행 성향 */}
-                    <View style={styles.infoRow}>
-                      <Text style={styles.infoLabel}>여행 성향</Text>
-                      <View style={styles.tagGroup}>
-                        {(profileData.travelStyle || profileData.travelStyles)?.map((style, idx) =>
-                          style === 'NONE'
-                            ? <Text key={idx} style={styles.infoTag2}>{STYLE_ENUM_TO_KOR[style] || '선택없음'}</Text>
-                            : <Text key={idx} style={styles.infoTag2}>#{STYLE_ENUM_TO_KOR[style] || style}</Text>
-                        )}
-                      </View>
-                    </View>
-                    {/* 목적지 */}
-                    <View style={styles.infoRow}>
-                      <Text style={styles.infoLabel}>목적지</Text>
-                      <Text style={styles.infoTag3}>
-                        {profileData.destination
-                          ? profileData.destination
-                          : formatDestination(profileData.province, profileData.cities)}
-                      </Text>
-                    </View>
-                    {/* MBTI */}
-                    <View style={styles.infoRow}>
-                      <Text style={styles.infoLabel}>MBTI</Text>
-                      <Text style={styles.infoTag4}>{profileData.mbti}</Text>
-                    </View>
-                    {/* "동행 채팅하기" 버튼은 여기서 제외 */}
+                      // --- [변경] 로직을 적용하여 JSX 반환 ---
+                      return (
+                        <>
+                          {/* 🔹 모달 닫기 버튼 */}
+                          <TouchableOpacity style={styles.modalCloseIcon} onPress={() => setProfileModalVisible(false)}>
+                            <Ionicons name="close" size={24} color="#333" />
+                          </TouchableOpacity>
+
+                          {/* 🔹 모달 상단 유저 이미지/닉네임 (MatchingList 스타일 적용) */}
+                          <View style={styles.modalHeader}>
+                            <Image
+                              source={{ uri: profileData.image || profileData.imageUrl }}
+                              style={styles.modalProfileImageUpdated}
+                            />
+                            <View>
+                              <Text style={styles.modalUserName}>
+                                {profileData.name || profileData.nickname}
+                              </Text>
+                              <Text style={styles.modalDate}>
+                                {profileData.date
+                                  ? profileData.date.replace(/-/g, '/')
+                                  : `${profileData.startDate?.replace(/-/g, '/')} ~ ${profileData.endDate?.replace(/-/g, '/')}`}
+                              </Text>
+                            </View>
+                          </View>
+
+                          {/* 🔹 성별 (infoTag1) */}
+                          <View style={styles.infoRow}>
+                            <Text style={styles.infoLabel}>성별</Text>
+                            <Text style={styles.infoTag1}>
+                              {GENDER_ENUM_TO_KOR[profileData.gender] || '선택없음'}
+                            </Text>
+                          </View>
+
+                          {/* 🔹 여행 성향 (tagGroup + infoTag2) */}
+                          <View style={styles.infoRow}>
+                            <Text style={styles.infoLabel}>여행 성향</Text>
+                            <View style={styles.tagGroup}>
+                              {(profileData.travelStyle || profileData.travelStyles)?.map((style, idx) =>
+                                style === 'NONE'
+                                  ? <Text key={idx} style={styles.infoTag2}>{STYLE_ENUM_TO_KOR[style] || '선택없음'}</Text>
+                                  : <Text key={idx} style={styles.infoTag2}>#{STYLE_ENUM_TO_KOR[style] || style}</Text>
+                              )}
+                            </View>
+                          </View>
+
+                          {/* 🔹 목적지 (tagGroup + infoTag3) */}
+                          <View style={styles.infoRow}>
+                            <Text style={styles.infoLabel}>목적지</Text>
+                            <View style={styles.tagGroup}>
+                              {destinationTags.map((tag, idx) => (
+                                <Text key={idx} style={styles.infoTag3}>
+                                  {tag}
+                                </Text>
+                              ))}
+                            </View>
+                          </View>
+
+                          {/* 🔹 MBTI (infoTag4) */}
+                          <View style={styles.infoRow}>
+                            <Text style={styles.infoLabel}>MBTI</Text>
+                            <Text style={styles.infoTag4}>{profileData.mbti || '선택없음'}</Text>
+                          </View>
+                        </>
+                      );
+                    })()}
                   </>
                 )}
               </View>
@@ -598,13 +628,13 @@ const ChatRoomScreen = ({ route, navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#FAFAFA',
   },
   // ----- 상단 헤더 -----
   header: {
     width: '100%', 
     height: vScale(56), 
-    backgroundColor: '#FFFFFF',      
+    backgroundColor: '#FAFAFA',      
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center', 
@@ -643,7 +673,7 @@ const styles = StyleSheet.create({
   headerLine: {
     width: '100%',
     height: StyleSheet.hairlineWidth, // 구분선
-    backgroundColor: '#fff', // (구분선 색상은 임의 지정)
+    backgroundColor: '#FAFAFA', // (구분선 색상은 임의 지정)
   },
   // ----- 채팅 메시지 리스트 -----
   messageList: {
@@ -655,6 +685,7 @@ const styles = StyleSheet.create({
   },
   leftAlign: {
     alignSelf: 'flex-start',
+    alignItems: 'flex-start',
   },
   rightAlign: {
     alignSelf: 'flex-end',
@@ -663,6 +694,7 @@ const styles = StyleSheet.create({
   messageWithTimeWrapper: {
     flexDirection: 'row',
     alignItems: 'flex-end',
+    flexShrink: 1,
   },
   reverseRow: {
     flexDirection: 'row-reverse',
@@ -672,6 +704,7 @@ const styles = StyleSheet.create({
     borderRadius: scale(20),
     paddingVertical: vScale(8),
     paddingHorizontal: scale(14),
+    flexShrink: 1,
   },
   myBubble: {
     backgroundColor: '#D9D7FF',
@@ -723,7 +756,7 @@ const styles = StyleSheet.create({
   // ----- 입력창 -----
   inputBar: {
     minHeight: vScale(85), // 입력 회색영
-    backgroundColor: '#D9D9D9',
+    backgroundColor: '#FAFAFA',
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: scale(15),
@@ -733,12 +766,12 @@ const styles = StyleSheet.create({
   textInput: {
     flex: 1,
     height: vScale(45),
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#E5E5EC',
     borderRadius: scale(25),
     paddingHorizontal: scale(16),
     fontSize: scale(16),
     fontFamily: 'Roboto',
-    color: '#000000',
+    color: '#616161',
     textAlignVertical: 'center', // Android 세로중앙
     paddingVertical: Platform.OS === 'ios' ? vScale(14) : 0, // iOS 세로중앙
   },
@@ -747,7 +780,7 @@ const styles = StyleSheet.create({
     width: scale(33),
     height: scale(33),
     borderRadius: scale(40),
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#E5E5EC',
     justifyContent: 'center',
     alignItems: 'center',
     paddingLeft : scale(3),
@@ -758,20 +791,26 @@ const styles = StyleSheet.create({
     width: '90%',
     maxWidth: scale(400),
     backgroundColor: '#FFF',
-    borderRadius: scale(18), // 변경: scale(20) -> scale(18)
-    paddingVertical: vScale(12), // 변경: scale(26) -> vScale(12)
-    paddingHorizontal: scale(16), // 변경: scale(26) -> scale(16)
+    borderRadius: scale(18), 
+    paddingVertical: vScale(12), 
+    paddingHorizontal: scale(16), 
     alignItems: 'center',
-    // 그림자 속성 제거됨
+    shadowColor: '#888',
+    shadowOffset: { width: 0, height: vScale(10) },
+    shadowOpacity: 0.14,
+    shadowRadius: scale(22),
+    elevation: 9,
     position: 'relative',
   },
-  modalProfileImageUpdated: {
-    width: scale(68), // 변경: scale(86) -> scale(68)
-    height: scale(68), // 변경: scale(86) -> scale(68)
-    borderRadius: scale(21), // 변경: scale(14) -> scale(21)
+  modalProfileImageUpdated: {  // 프로필 이미지
+    width: scale(68), 
+    height: scale(68), 
+    borderRadius: scale(21),
     backgroundColor: '#ECECEC',
-    borderWidth: 2,
-    borderColor: '#E0E7FF',
+    // borderWidth: 2,
+    // borderColor: '#E0E7FF',
+    marginLeft: scale(0), 
+
   },
   modalCenter: {
     flex: 1,
@@ -788,98 +827,98 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: vScale(18),
+    marginTop: vScale(10),
     width: '100%',
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
   },
   modalUserName: {
-    fontSize: scale(20), // 변경: scale(22) -> scale(20)
-    fontWeight: '400', // 변경: bold -> 400
-    color: '#111111', // 변경: #4F46E5 -> #111111
+    fontSize: scale(20),
+    color: '#111111', 
     marginLeft: scale(20),
   },
   modalDate: {
-    fontSize: scale(18), // 변경: scale(15) -> scale(18)
-    color: '#7E7E7E', // 변경: #888 -> #7E7E7E
-    marginTop: vScale(0), // 변경: vScale(6) -> vScale(0)
+    fontSize: scale(18), 
+    color: '#7E7E7E', 
+    marginTop: vScale(0),
     marginLeft: scale(20),
   },
   infoRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     width: '100%',
-    height: scale(35),
     marginLeft: scale(24),
-    marginTop: scale(8), // 위 요소와의 간격
+    marginTop: scale(10),
+    marginBottom: scale(4),
+    paddingRight: scale(12),
   },
   infoLabel: {
-    width: scale(77), // ex. 성별: 40, 여행성향: 77
-    fontFamily: 'Roboto',
+    width: scale(77),
+    fontSize: scale(15),
     fontWeight: '400',
-    fontSize: scale(18),
     color: '#1E1E1E',
-    textAlignVertical: 'center',
-    backgroundColor: '#FFFFFF',
+    textAlignVertical: 'top',
+    lineHeight: scale(22),
+    marginTop: scale(0),
   },
   tagGroup: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: scale(6),
     flex: 1,
-    // marginLeft: scale(8), // ← 반드시 삭제 또는 주석!
+    alignItems: 'flex-start', // 추가: 줄 시작에 맞춤
+    rowGap: scale(6),
   },
   infoTag1: {
     MaxWidth: scale(69),
-    height: scale(29), // 변경: scale(30) -> scale(29)
+    height: scale(30),
     marginLeft: scale(10),
     borderRadius: scale(8),
     backgroundColor: '#ADB3DD',
     color: '#fff',
-    fontSize: scale(14), // 변경: scale(16) -> scale(14)
+    fontSize: scale(14), // 기존 태그 내 폰트박스 크기 14
     textAlign: 'center',
     textAlignVertical: 'center',
-    lineHeight: scale(29), // 변경: scale(30) -> scale(29)
-    paddingHorizontal: scale(8),
+    lineHeight: scale(28),  // height와 lineHeight를 같게 해야 중앙정렬, ios 꼼수로 2 삭감
+    paddingHorizontal: scale(16),
   },
   infoTag2: {
-    minWidth: scale(63),
-    height: scale(29), // 변경: scale(30) -> scale(29)
+    MaxWidth: scale(68),
+    height: scale(30),
     marginLeft: scale(10),
     borderRadius: scale(8),
-    backgroundColor: '#B3A4F7',
+    backgroundColor: '#C4A8E2',
     color: '#fff',
-    fontSize: scale(14), // 변경: scale(16) -> scale(14)
+    fontSize: scale(14),
     textAlign: 'center',
     textAlignVertical: 'center',
-    lineHeight: scale(29), // 변경: scale(30) -> scale(29)
-    paddingHorizontal: scale(8),
-    marginBottom: scale(5),
+    lineHeight: scale(28),
+    paddingHorizontal: scale(11),
   },
   infoTag3: {
     MaxWidth: scale(98),
-    height: scale(29), 
+    height: scale(30),
     marginLeft: scale(10),
     borderRadius: scale(8),
     backgroundColor: '#B3A4F7',
     color: '#fff',
-    fontSize: scale(14), 
+    fontSize: scale(14),
     textAlign: 'center',
     textAlignVertical: 'center',
-    lineHeight: scale(29), 
+    lineHeight: scale(28),
     paddingHorizontal: scale(11),
   },
   infoTag4: {
     width: scale(83),
-    height: scale(29), 
+    height: scale(30),
     marginLeft: scale(10),
     borderRadius: scale(8),
     backgroundColor: '#FAF4FF',
     color: '#7E7E7E',
-    fontSize: scale(14), 
+    fontSize: scale(14),
     borderWidth: 1,
     borderColor: '#D6C9DF',
     textAlign: 'center',
     textAlignVertical: 'center',
-    lineHeight: scale(29), 
+    lineHeight: scale(28),
   },
 });
 

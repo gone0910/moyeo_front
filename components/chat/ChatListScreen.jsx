@@ -33,7 +33,7 @@ const colors = {
   bg: '#FAFAFA',
   text: '#111111',
   brand: '#4F46E5',
-  divider: '#E5E5EC',
+  divider: '#FAFAFA',
   gray600: '#4B5563',
   gray400: '#9CA3AF',
   gray200: '#E5E7EB',
@@ -282,13 +282,13 @@ export default function ChatListScreen() {
     ]);
   };
 
-  // [REFACTORED] isEditing, requestExitRoom이 변경될 때만 renderItem 함수를 재생성
+  // isEditing, requestExitRoom이 변경될 때만 renderItem 함수를 재생성
   const memoizedRenderItem = React.useCallback(
     ({ item }) => renderItem({ item, isEditing, requestExitRoom }),
     [isEditing] // requestExitRoom은 함수이므로 의존성에서 제외 가능 (useCallback으로 감싸지 않았다면 포함)
   );
 
-  // [REFACTORED] ListEmptyComponent에 navigation prop 전달
+  // ListEmptyComponent에 navigation prop 전달
   const memoizedListEmptyComponent = React.useCallback(
     () => <ListEmptyComponent navigation={navigation} />,
     [navigation]
@@ -319,9 +319,10 @@ export default function ChatListScreen() {
         renderItem={memoizedRenderItem}
         ItemSeparatorComponent={Separator} // [REFACTORED]
         ListEmptyComponent={memoizedListEmptyComponent} // [REFACTORED]
-        contentContainerStyle={{ paddingBottom: normalize(40, 'height') }}
+        contentContainerStyle={{ paddingBottom: normalize(40, 'height'), paddingTop: normalize(15, 'height') }} // 상단헤더, card사이 공백
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         keyboardShouldPersistTaps="handled"
+        alwaysBounceVertical={true} // 아이폰에서도 제스쳐를 통한 갱신 영역 확장
       />
     </SafeAreaView>
   );
@@ -373,7 +374,7 @@ const styles = StyleSheet.create({
   emptyWrapper: {
     alignSelf: 'center',
     width: normalize(338),
-    marginTop: normalize(144, 'height'),
+    marginTop: normalize(200, 'height'),
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: colors.bg,

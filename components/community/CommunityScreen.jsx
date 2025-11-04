@@ -10,6 +10,7 @@ import { useNavigation } from '@react-navigation/native';
 import { fetchCommunityPosts } from '../../api/community_list';
 import { fetchFilteredPostList } from '../../api/community_filter';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 // === 반응형 유틸 함수 ===
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -251,7 +252,7 @@ const CommunityScreen = () => {
 
   return (
     <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
-      <View style={styles.screen}>
+      <SafeAreaView style={styles.screen}>
         <HeaderBar />
         <View style={{ height: normalize(14) }} /> 
 
@@ -536,7 +537,7 @@ const CommunityScreen = () => {
           onEndReachedThreshold={0.8}
           ListEmptyComponent={<Text style={{ textAlign: 'center', marginTop: 40, color: '#aaa' }}>게시글이 없습니다.</Text>}
         />
-      </View>
+      </SafeAreaView>
     </TouchableWithoutFeedback>
   );
 };

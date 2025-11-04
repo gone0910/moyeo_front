@@ -10,7 +10,7 @@ import * as Linking from 'expo-linking';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { isMockMode } from '../utils/MockMode'; // 테스트용 로그인, api 영향을 받지않는.
 import { BASE_URL } from './config/api_Config'; // apiConfig.js에서 baseUrl 주소 변경
-
+import api from './AxiosInstance';
 
 // ✅ 백엔드 주소 설정 (배포 서버 또는 EC2 주소로 반드시 수정)
 //const BASE_URL = 'http://ec2-3-35-253-224.ap-northeast-2.compute.amazonaws.com:8080';
@@ -176,7 +176,7 @@ export const registerUser = async (userData, image, token) => {
 // ---------------------------------------------------
 // 5. [사용자 정보 조회 - JWT 기반] + 홈화면에서 프로필 사진 요청
 // ---------------------------------------------------
-export const getUserInfo = async (token) => {
+export const getUserInfo = async () => {
 
 
   if (await isMockMode()) {  // 테스트용 mock 전용 함수.
@@ -188,11 +188,8 @@ export const getUserInfo = async (token) => {
 
  
   try {
-    const response = await axios.get(`${BASE_URL}/user/profile`, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
+    // ⬇️ axios.get을 api.get으로 변경, headers 객체 제거
+    const response = await api.get(`${BASE_URL}/user/profile`); 
     return response.data;
   } catch (error) {
     if (error.response?.status === 400) {

@@ -1,6 +1,6 @@
 // components/chatBot/ResultHotelBubble.jsx  숙소
 import React from 'react';
-import { View, Text, StyleSheet, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, Dimensions, ScrollView } from 'react-native';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import ChatBotCardList from './common/ChatBotCardList';
 import ChatBotCard from './common/ChatBotCard';
@@ -33,21 +33,33 @@ const dummyHotelList = [
 
 
 function HotelCardContent({ name, address, priceRange, phone, checkIn, checkOut }) {
-  // [CHANGED] innerContainer를 cardRoot와 bodyArea로 대체
   return (
     <View style={styles.cardRoot}>
-      {/* [ADDED] Sight/Food/Event Bubble과 동일한 상단 제목 바 스타일 적용 */}
-      <View style={styles.headerBar}>
-        <Text style={styles.headerTitle}>{name}</Text> {/* [CHANGED] title -> headerTitle */}
+      {/* 👇 [수정] onTouchStart 이벤트 추가 */}
+      <View 
+        style={styles.headerBar}
+        onTouchStart={(e) => {
+          // 이 영역에서 터치가 시작되면 부모(FlatList)로
+          // 이벤트가 전파되는 것을 막습니다.
+          e.stopPropagation();
+        }}
+      >
+        <ScrollView
+          horizontal={true}
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.headerScrollContent} // ⬅️ 정렬 스타일 적용
+          nestedScrollEnabled={true} // ⬅️ [수정] 중첩 스크롤 활성화
+        >
+          <Text style={styles.headerTitle}>{name}</Text>
+        </ScrollView>
       </View>
 
-      {/* [ADDED] 본문 영역 스타일 적용 */}
       <View style={styles.bodyArea}>
         
         {/* 주소 */}
         <View style={styles.addressRow}>
           <MaterialIcons name="location-on" size={scale(12)} color="#4F46E5" style={{ marginRight: scale(4) }} />
-          <Text style={styles.addressText}>{address}</Text> {/* [CHANGED] address -> addressText */}
+          <Text style={styles.addressText}>{address}</Text>
         </View>
 
         {/* 숙박비 */}
@@ -62,7 +74,7 @@ function HotelCardContent({ name, address, priceRange, phone, checkIn, checkOut 
           <Text style={styles.infoValue}>{phone || '-'}</Text>
         </View>
 
-        {/* [PRESERVED] 체크인/체크아웃 컨테이너 - 기존 레이아웃을 보존 */}
+        {/* 체크인/체크아웃 컨테이너 */}
         <View style={styles.checkContainer}>
           <View style={styles.checkColumn}>
             <Text style={styles.checkInLabel}>Check In</Text>
@@ -86,7 +98,6 @@ export default function ResultHotelBubble({ data }) {
   const hotelList = data || dummyHotelList;
 
   return (
-    // [ADDED] Sight/Food/Event Bubble과 동일한 외부 프레임 적용
     <View style={styles.resultFrame}>
       <ChatBotCardList
         data={hotelList}
@@ -101,7 +112,6 @@ export default function ResultHotelBubble({ data }) {
 }
 
 const styles = StyleSheet.create({
-  // [ADDED] Sight/Food/Event Bubble의 외부 프레임 스타일
   resultFrame: {
     width: scale(359),
     minHeight: vScale(208),
@@ -111,32 +121,35 @@ const styles = StyleSheet.create({
     paddingVertical: vScale(18),
   },
 
-  // [ADDED/CHANGED] Sight/Food/Event Bubble의 카드 루트 스타일 (233x172 내부 레이아웃)
   cardRoot: {
     flex: 1,
     width: '100%',
     height: '100%',
   },
 
-  // [ADDED] Sight/Food/Event Bubble의 헤더 바 스타일 (제목 영역)
+  // headerBar 스타일 (SightBubble과 동일)
   headerBar: {
     height: vScale(40),
     backgroundColor: '#BCBAEB',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: scale(10),
   },
-  headerTitle: { // [CHANGED] title -> headerTitle로 이름 변경 및 스타일 조정
+  
+  // headerScrollContent 스타일 (SightBubble과 동일)
+  headerScrollContent: {
+    flexGrow: 1,              // (수평) 텍스트가 짧을 때 중앙 정렬을 위해 영역을 채움
+    justifyContent: 'center', // (수평) 텍스트를 수평 중앙 정렬
+    alignItems: 'center',     // (수직) 텍스트를 수직 중앙 정렬
+    height: vScale(40),         // 부모(headerBar)의 높이와 동일하게 지정
+  },
+  
+  // headerTitle 스타일 (SightBubble과 동일)
+  headerTitle: {
     fontFamily: 'Roboto',
     fontWeight: '400',
     fontSize: scale(16),
-    lineHeight: scale(25),
     color: '#373737',
-    textAlign: 'center',
-    flexShrink: 1,
+    paddingHorizontal: scale(10),
   },
 
-  // [ADDED] Sight/Food/Event Bubble의 본문 영역 스타일
   bodyArea: {
     flex: 1,
     paddingHorizontal: scale(10),
@@ -145,16 +158,15 @@ const styles = StyleSheet.create({
     rowGap: vScale(4), // 요소 간 간격
   },
 
-  // [CHANGED] 주소 행 스타일 (Sight/Food/Event Bubble과 통일)
   addressRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     columnGap: scale(4),
-    marginBottom: vScale(6), // Sight/Food/Event Bubble과 통일
-    marginLeft: scale(0),    // 기존 마진 제거
-    width: 'auto',           // 기존 고정 너비 제거
+    marginBottom: vScale(6),
+    marginLeft: scale(0),
+    marginTop: vScale(10),
+    width: 'auto',
   },
-  // [CHANGED] 주소 텍스트 스타일 (Sight/Food/Event Bubble과 통일)
   addressText: {
     fontFamily: 'Roboto',
     fontWeight: '400',
@@ -165,7 +177,6 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
   },
   
-  // [CHANGED] 정보 행 스타일 (Sight/Food/Event Bubble과 통일)
   infoRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -173,23 +184,21 @@ const styles = StyleSheet.create({
     columnGap: scale(4),
     rowGap: vScale(2),
     marginBottom: vScale(2),
-    marginLeft: scale(0), // 기존 마진 제거
+    marginLeft: scale(0),
   },
-  // [CHANGED] 라벨 스타일 (Sight/Food/Event Bubble과 통일)
   infoLabel: {
     width: scale(57), // 고정폭
     fontFamily: 'Roboto',
     fontWeight: '400',
     fontSize: scale(12),
-    lineHeight: scale(15), // Sight/Food/Event Bubble과 통일
+    lineHeight: scale(15),
     color: '#333333',
   },
-  // [CHANGED] 값 스타일 (Sight/Food/Event Bubble과 통일)
   infoValue: {
     fontFamily: 'Roboto',
     fontWeight: '400',
     fontSize: scale(12),
-    lineHeight: scale(15), // Sight/Food/Event Bubble과 통일
+    lineHeight: scale(15),
     color: '#616161',
     flex: 1,
     flexWrap: 'wrap',
@@ -200,15 +209,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: vScale(10), // 마진 조정
+    marginTop: vScale(10),
     marginLeft: scale(15),
     marginRight: scale(15),
-    height: vScale(42), // 높이 유지
+    height: vScale(42),
   },
   checkColumn: {
     alignItems: 'center',
     flex: 1,
-    // [REMOVED] marginBottom: vScale(20) 제거 (bodyArea의 flex와 충돌 방지)
   },
   checkInLabel: {
     fontFamily: 'Roboto',
@@ -244,6 +252,5 @@ const styles = StyleSheet.create({
     height: vScale(36),
     backgroundColor: '#999999',
     alignSelf: 'center',
-    // [REMOVED] marginBottom: vScale(16) 제거 (bodyArea의 flex와 충돌 방지)
   },
 });

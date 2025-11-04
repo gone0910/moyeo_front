@@ -345,8 +345,9 @@ export default function PostDetailScreen({ route, navigation }) {
           </View>
         </View>
       </View>
+      {/* 구분선 */}
+      <View style={styles.divider} />
 
-      <View style={{ height: vScale(10) }} />
       {/* 이미지 슬라이더 */}
       <PostImageCarousel images={post.postImages} />
 
@@ -359,8 +360,7 @@ export default function PostDetailScreen({ route, navigation }) {
       >
         {post.content}
       </Text>
-      {/* 구분선 */}
-      <View style={styles.divider} />
+
     </View>
   );
 
@@ -497,6 +497,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#E1E1E1', // ⬅️ 시안 값
     marginTop: vScale(18),
-    marginBottom: vScale(6),
+    marginBottom: vScale(18),
+
   },
 });

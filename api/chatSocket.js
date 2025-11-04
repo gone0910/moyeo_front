@@ -104,11 +104,11 @@ export const connectStompClient = (roomId, onMessage, token, onConnected, onRead
     },
 
     // 💡 [최종 추가 로그] WebSocket/SockJS 종료 시 상세 정보 기록
-    onWebSocketClose: (event) => {
-      console.error('🛑 [WebSocket Close] SockJS/WS 연결이 예기치 않게 종료됨!');
-      console.error('🔥 종료 코드:', event.code); // 1006 (비정상), 1000 (정상 또는 서버 인증 실패) 등
-      console.error('🔥 종료 이유:', event.reason);
-    },
+    // onWebSocketClose: (event) => {
+    //   console.error('🛑 [WebSocket Close] SockJS/WS 연결이 예기치 않게 종료됨!');
+    //   console.error('🔥 종료 코드:', event.code); // 1006 (비정상), 1000 (정상 또는 서버 인증 실패) 등
+    //   console.error('🔥 종료 이유:', event.reason);
+    // },
 
     // 💡 [수정] onDisconnect 콜백에 프레임 객체를 받아 상세 정보 로그 추가
     onDisconnect: (frame) => {
@@ -122,10 +122,6 @@ export const connectStompClient = (roomId, onMessage, token, onConnected, onRead
         headers: frame?.headers,
         body: frame?.body,
       });
-
-      if (!frame || frame.command !== 'DISCONNECT') {
-        console.error('❗ [심각 경고] 서버에 의한 예상치 못한 연결 종료 의심!');
-      }
     },
   });
   
