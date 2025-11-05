@@ -61,6 +61,7 @@ export default function CommonHeader({ showDivider = true, showChatBot = false }
 const styles = StyleSheet.create({
   headerContainer: {
     backgroundColor: '#FAFAFA',
+    paddingTop: 24,
     paddingHorizontal: 16,
   },
   headerRow: {

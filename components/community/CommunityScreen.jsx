@@ -251,10 +251,10 @@ const CommunityScreen = () => {
 
 
   return (
+    <SafeAreaView style={styles.screen} edges={['left','right','bottom']}>
     <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
-      <SafeAreaView style={styles.screen}>
-        <HeaderBar />
-        <View style={{ height: normalize(14) }} /> 
+      <View style={{ flex: 1 }}>
+        <HeaderBar/>
 
         {/* 검색 + 연필 아이콘 라인 */}
         <View style={styles.searchRow}>
@@ -537,8 +537,9 @@ const CommunityScreen = () => {
           onEndReachedThreshold={0.8}
           ListEmptyComponent={<Text style={{ textAlign: 'center', marginTop: 40, color: '#aaa' }}>게시글이 없습니다.</Text>}
         />
-      </SafeAreaView>
+        </View>
     </TouchableWithoutFeedback>
+    </SafeAreaView>
   );
 };
 
@@ -553,7 +554,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: SCREEN_WIDTH * 0.03, // 20px -> 반응형
-    marginTop: normalize(8),
     marginBottom: normalize(2),
   },
   searchBox: {

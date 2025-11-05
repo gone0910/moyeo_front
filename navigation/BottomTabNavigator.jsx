@@ -19,9 +19,6 @@ export const defaultTabBarStyle = {
   paddingBottom: 6,
   paddingTop: 6,
   backgroundColor: '#FFFFFF',
-  borderTopWidth: 0,
-  borderTopLeftRadius: 20,
-  borderTopRightRadius: 20,
 };
 
 // (참고) 스타일 숨김 세트 — 커스텀 tabBar(null)로 가리므로 보조용
@@ -48,37 +45,33 @@ export default function BottomTabNavigator() {
         tabBarLabel: ({ focused, color }) => {
           const labels = { Home: '홈 화면', MyTrips: '내 여행', Chat: '채팅', Community: '커뮤니티' };
           return (
-            <Text
-              style={[
-                { fontSize: 12, color, textAlign: 'center' },
-                focused && styles.textShadowStyle,
-              ]}
-            >
+            <Text style={[styles.tabLabelText, { color }]}>
               {labels[route.name]}
             </Text>
           );
         },
         tabBarIcon: ({ color, focused }) => {
-          let iconName;
-          let IconComponent = Ionicons;
-          if (route.name === 'Home') {
-            iconName = focused ? 'home' : 'home-outline';
-          } else if (route.name === 'MyTrips') {
-            iconName = 'briefcase';
-            IconComponent = Feather;
-          } else if (route.name === 'Chat') {
-            iconName = focused ? 'chatbox' : 'chatbox-outline';
-          } else if (route.name === 'Community') {
-            iconName = focused ? 'people' : 'people-outline';
-          }
-          return (
-            <View style={styles.iconShadowContainer}>
-              <IconComponent name={iconName} size={28} color={color} />
-            </View>
-          );
-        },
-        tabBarActiveTintColor: '#4F46E5',
-        tabBarInactiveTintColor: '#A1A1AA',
+  let iconName;
+  let IconComponent = Ionicons; // Ionicons만 사용해서 outline/fill 통일
+
+  if (route.name === 'Home') {
+    iconName = focused ? 'home' : 'home-outline';
+  } else if (route.name === 'MyTrips') {
+    iconName = focused ? 'briefcase' : 'briefcase-outline';
+  } else if (route.name === 'Chat') {
+    iconName = focused ? 'chatbubble' : 'chatbubble-outline';
+  } else if (route.name === 'Community') {
+    iconName = focused ? 'people' : 'people-outline';
+  }
+
+  return (
+    <View style={styles.iconBox}>
+      <IconComponent name={iconName} size={28} color={color} />
+    </View>
+  );
+},
+tabBarActiveTintColor: '#111111',     // 활성: 진한 검정
+tabBarInactiveTintColor: '#76758B',   // 비활성: 회색
       })}
       // ✅ 커스텀 tabBar: Home 탭의 중첩 라우트가 숨김 대상이면 탭바 자체를 렌더하지 않음
       tabBar={(props) => {
@@ -136,6 +129,23 @@ export default function BottomTabNavigator() {
 }
 
 const styles = StyleSheet.create({
+  iconBox: {
+   width: 32,            // 고정 폭
+   height: 28,           // 고정 높이
+   justifyContent: 'center',
+   alignItems: 'center',
+   // 필요시 그림자 유지하려면 아래 4줄을 그대로 옮겨도 됩니다.
+   shadowColor: '#000',
+   shadowOpacity: 0.08,
+   shadowOffset: { width: 0, height: 2 },
+   shadowRadius: 6,
+   elevation: Platform.OS === 'android' ? 1 : 0,
+ },
+ tabLabelText: {
+   fontSize: 12,
+   lineHeight: 14,       // 고정 lineHeight로 라벨 높이 흔들림 방지
+   textAlign: 'center',
+ },
   iconShadowContainer: {
     shadowColor: '#000',
     shadowOpacity: 0.08,

@@ -77,10 +77,22 @@ function getCitySheetHeightRatio(province) {
   if (province === '충청북도') return 0.36;
   if (province === '충청남도') return 0.42;
   if (province === '전라북도') return 0.36;
-  if (province === '전라남도') return 0.36;
-  if (province === '경상북도') return 0.36;
+  if (province === '전라남도') return 0.42;
+  if (province === '경상북도') return 0.42;
   if (province === '경상남도') return 0.42;
   return 0.36;
+}
+
+/* ===== 공통 섹션 컴포넌트 (CTA 위 여백 자동 보정) ===== */
+function BottomSheetSection({ heightRatio, children, base = 72, scale = 90 }) {
+  // heightRatio(시트 높이 비율)에 따라 CTA 위 여백(= paddingBottom) 자동 보정
+  // base/scale는 필요시 미세 조정만 하세요. (둘 다 'height' 기준)
+  const dynamicPadding = normalize(base + heightRatio * scale, 'height');
+  return (
+    <View style={{ paddingHorizontal: normalize(16), paddingBottom: dynamicPadding }}>
+      {children}
+    </View>
+  );
 }
 
 function formatProvinceCitySummary(province, cities) {
@@ -217,15 +229,20 @@ const styleLabel = useMemo(() => {
   };
 
   /* ---------- 지역 시트(도 → 시/군 다중선택) ---------- */
-  const [regionStep, setRegionStep] = useState('province'); // 'province' | 'city'
-  const [tmpProvince, setTmpProvince] = useState('선택없음');
-  const [tmpCities, setTmpCities] = useState([]);
-  const openRegionSheet = () => {
-    setTmpProvince(selected.province);
-    setTmpCities(selected.cities);
-    setRegionStep('province');
-    setSheet('region');
-  };
+const [regionStep, setRegionStep] = useState('province'); // 'province' | 'city'
+const [tmpProvince, setTmpProvince] = useState('선택없음');
+const [tmpCities, setTmpCities] = useState([]);
+
+const openRegionSheet = () => {
+  // ✅ 기존 selected 값이 비어있으면 자동으로 '선택없음' 적용
+  const provinceToSet = selected.province || '선택없음';
+  const citiesToSet = Array.isArray(selected.cities) ? selected.cities : [];
+
+  setTmpProvince(provinceToSet);
+  setTmpCities(provinceToSet === '선택없음' ? [] : citiesToSet);
+  setRegionStep('province');
+  setSheet('region');
+};
 
   // ✅ 변경: 시/군 다중 토글
   const toggleCity = (c) => {
@@ -250,9 +267,10 @@ const styleLabel = useMemo(() => {
   const GROUP_OPTIONS = ['선택없음', '단둘이', '여럿이'];
   const [tmpGroup, setTmpGroup] = useState('선택없음');
   const openGroupSheet = () => {
-    setTmpGroup(selected.group);
-    setSheet('group');
-  };
+  // 기본값이 없으면 자동으로 '선택없음'
+  setTmpGroup(selected.group || '선택없음');
+  setSheet('group');
+};
   const confirmGroup = () => {
     setSelected((s) => ({ ...s, group: tmpGroup }));
     setSheet(null);
@@ -464,140 +482,151 @@ const styleLabel = useMemo(() => {
       </BottomSheet>
 
       {/* ---------- 지역 선택 시트 ---------- */}
-      <BottomSheet
-        visible={sheet === 'region'}
-        onClose={() => setSheet(null)}
-        heightRatio={regionStep === 'province' ? 0.48 : getCitySheetHeightRatio(tmpProvince)}
-      >
-        <View style={styles.sheetHeader}>
-          <View>
-            <Text style={styles.sheetTitle}>이번 여행, 어디로?</Text>
-            <Text style={styles.sheetSub}>
-              {regionStep === 'province' ? '먼저 도(광역)를 선택하세요' : '시/군을 자유롭게 선택하세요 (복수 선택 가능)'}
-            </Text>
-          </View>
-          <TouchableOpacity
-  onPress={() => setSheet(null)}
-  hitSlop={8}
-  style={{ marginTop: normalize(-55, 'height') }}  // ✅ 여기에!
+<BottomSheet
+  visible={sheet === 'region'}
+  onClose={() => setSheet(null)}
+  heightRatio={regionStep === 'province' ? 0.48 : getCitySheetHeightRatio(tmpProvince)}
 >
-  <Ionicons name="close" size={normalize(22)} color="#111" />
-</TouchableOpacity>
-        </View>
-
-        {/* 단계 전환 탭 표시 */}
-        <View style={{ flexDirection: 'row', gap: normalize(8), paddingHorizontal: normalize(16), paddingBottom: normalize(20,'height') }}>
-          <View style={[styles.stepBadge, regionStep === 'province' && styles.stepBadgeActive]}>
-            <Text style={[styles.stepBadgeText, regionStep === 'province' && styles.stepBadgeTextActive]}>도 선택</Text>
-          </View>
-          <View style={[styles.stepBadge, regionStep === 'city' && styles.stepBadgeActive]}>
-            <Text style={[styles.stepBadgeText, regionStep === 'city' && styles.stepBadgeTextActive]}>시/군 선택</Text>
-          </View>
-        </View>
-
-{regionStep === 'city' ? (
-  // 서울/경기도만 스크롤
-  (tmpProvince === '서울' || tmpProvince === '경기도') ? (
-    <ScrollView
-      style={{ paddingHorizontal: normalize(16) }}
-      contentContainerStyle={{ paddingBottom: normalize(20, 'height') }}
-      showsVerticalScrollIndicator={false}
+  <View style={styles.sheetHeader}>
+    <View>
+      <Text style={styles.sheetTitle}>이번 여행, 어디로?</Text>
+      <Text style={styles.sheetSub}>
+        {regionStep === 'province'
+          ? '먼저 도(광역)를 선택하세요'
+          : '시/군을 자유롭게 선택하세요 (복수 선택 가능)'}
+      </Text>
+    </View>
+    <TouchableOpacity
+      onPress={() => setSheet(null)}
+      hitSlop={8}
+      style={{ marginTop: normalize(-55, 'height') }}
     >
-      <View style={styles.regionGrid}>
-        {/* 선택없음 */}
-        <TouchableOpacity
-          key="선택없음"
-          style={[styles.regionChip, (tmpCities.length === 0) && styles.regionChipSelected]}
-          onPress={() => setTmpCities([])}
-          activeOpacity={0.85}
-        >
-          <Text style={[styles.regionChipText, (tmpCities.length === 0) && styles.regionChipTextSelected]}>
-            선택없음
-          </Text>
-          {tmpCities.length === 0 && (
-            <Ionicons name="checkmark-circle" size={normalize(14)} color="#4F46E5" style={{ marginLeft: normalize(6) }} />
-          )}
-        </TouchableOpacity>
-
-        {(CitiesByProvince[tmpProvince] ?? []).map((c) => {
-          const sel = tmpCities.includes(c);
-          return (
-            <TouchableOpacity
-              key={c}
-              style={[styles.regionChip, sel && styles.regionChipSelected]}
-              onPress={() => toggleCity(c)}
-              activeOpacity={0.85}
-            >
-              <Text style={[styles.regionChipText, sel && styles.regionChipTextSelected]}>{c}</Text>
-              {sel && (
-                <Ionicons name="checkmark-circle" size={normalize(14)} color="#4F46E5" style={{ marginLeft: normalize(6) }} />
-              )}
-            </TouchableOpacity>
-          );
-        })}
-      </View>
-    </ScrollView>
-  ) : (
-    // 그 외 도는 고정 View
-    <View style={{ paddingHorizontal: normalize(16), paddingBottom: normalize(20, 'height') }}>
-      <View style={styles.regionGrid}>
-        {/* 선택없음 */}
-        <TouchableOpacity
-          key="선택없음"
-          style={[styles.regionChip, (tmpCities.length === 0) && styles.regionChipSelected]}
-          onPress={() => setTmpCities([])}
-          activeOpacity={0.85}
-        >
-          <Text style={[styles.regionChipText, (tmpCities.length === 0) && styles.regionChipTextSelected]}>
-            선택없음
-          </Text>
-          {tmpCities.length === 0 && (
-            <Ionicons name="checkmark-circle" size={normalize(14)} color="#4F46E5" style={{ marginLeft: normalize(6) }} />
-          )}
-        </TouchableOpacity>
-
-        {(CitiesByProvince[tmpProvince] ?? []).map((c) => {
-          const sel = tmpCities.includes(c);
-          return (
-            <TouchableOpacity
-              key={c}
-              style={[styles.regionChip, sel && styles.regionChipSelected]}
-              onPress={() => toggleCity(c)}
-              activeOpacity={0.85}
-            >
-              <Text style={[styles.regionChipText, sel && styles.regionChipTextSelected]}>{c}</Text>
-              {sel && (
-                <Ionicons name="checkmark-circle" size={normalize(14)} color="#4F46E5" style={{ marginLeft: normalize(6) }} />
-              )}
-            </TouchableOpacity>
-          );
-        })}
-      </View>
-    </View>
-  )
-) : (
-  // 'province' 단계
-  <View style={{ paddingHorizontal: normalize(16), paddingBottom: normalize(100, 'height') }}>
-    <View style={styles.regionGrid}>
-      {PROVINCE_LABELS.map((p) => {
-        const sel = p === tmpProvince;
-        return (
-          <TouchableOpacity
-            key={p}
-            style={[styles.regionChip, sel && styles.regionChipSelected]}
-            onPress={() => { setTmpProvince(p); setTmpCities([]); }} // 도 바꾸면 시/군 초기화
-            activeOpacity={0.85}
-          >
-            <Text style={[styles.regionChipText, sel && styles.regionChipTextSelected]}>{p}</Text>
-            {sel && (
-              <Ionicons name="checkmark-circle" size={normalize(14)} color="#4F46E5" style={{ marginLeft: normalize(6) }} />
-            )}
-          </TouchableOpacity>
-        );
-      })}
-    </View>
+      <Ionicons name="close" size={normalize(22)} color="#111" />
+    </TouchableOpacity>
   </View>
-)}
+
+  {/* ✅ BottomSheetSection으로 감싸서 CTA 위 여백 자동 보정 */}
+  <BottomSheetSection
+    heightRatio={regionStep === 'province' ? 0.48 : getCitySheetHeightRatio(tmpProvince)}
+  >
+    {/* 단계 전환 탭 표시 */}
+    <View style={{ flexDirection: 'row', gap: normalize(8), paddingBottom: normalize(20, 'height') }}>
+      <View style={[styles.stepBadge, regionStep === 'province' && styles.stepBadgeActive]}>
+        <Text style={[styles.stepBadgeText, regionStep === 'province' && styles.stepBadgeTextActive]}>
+          도 선택
+        </Text>
+      </View>
+      <View style={[styles.stepBadge, regionStep === 'city' && styles.stepBadgeActive]}>
+        <Text style={[styles.stepBadgeText, regionStep === 'city' && styles.stepBadgeTextActive]}>
+          시/군 선택
+        </Text>
+      </View>
+    </View>
+
+    {regionStep === 'city' ? (
+      // 서울/경기도만 스크롤
+      (tmpProvince === '서울' || tmpProvince === '경기도') ? (
+        <ScrollView
+          contentContainerStyle={{ paddingBottom: normalize(8, 'height') }}
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.regionGrid}>
+            {/* 선택없음 */}
+            <TouchableOpacity
+              key="선택없음"
+              style={[styles.regionChip, (tmpCities.length === 0) && styles.regionChipSelected]}
+              onPress={() => setTmpCities([])}
+              activeOpacity={0.85}
+            >
+              <Text style={[styles.regionChipText, (tmpCities.length === 0) && styles.regionChipTextSelected]}>
+                선택없음
+              </Text>
+              {tmpCities.length === 0 && (
+                <Ionicons name="checkmark-circle" size={normalize(14)} color="#4F46E5" style={{ marginLeft: normalize(6) }} />
+              )}
+            </TouchableOpacity>
+
+            {(CitiesByProvince[tmpProvince] ?? []).map((c) => {
+              const sel = tmpCities.includes(c);
+              return (
+                <TouchableOpacity
+                  key={c}
+                  style={[styles.regionChip, sel && styles.regionChipSelected]}
+                  onPress={() => toggleCity(c)}
+                  activeOpacity={0.85}
+                >
+                  <Text style={[styles.regionChipText, sel && styles.regionChipTextSelected]}>{c}</Text>
+                  {sel && (
+                    <Ionicons name="checkmark-circle" size={normalize(14)} color="#4F46E5" style={{ marginLeft: normalize(6) }} />
+                  )}
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </ScrollView>
+      ) : (
+        // 그 외 도는 고정 View
+        <View>
+          <View style={styles.regionGrid}>
+            {/* 선택없음 */}
+            <TouchableOpacity
+              key="선택없음"
+              style={[styles.regionChip, (tmpCities.length === 0) && styles.regionChipSelected]}
+              onPress={() => setTmpCities([])}
+              activeOpacity={0.85}
+            >
+              <Text style={[styles.regionChipText, (tmpCities.length === 0) && styles.regionChipTextSelected]}>
+                선택없음
+              </Text>
+              {tmpCities.length === 0 && (
+                <Ionicons name="checkmark-circle" size={normalize(14)} color="#4F46E5" style={{ marginLeft: normalize(6) }} />
+              )}
+            </TouchableOpacity>
+
+            {(CitiesByProvince[tmpProvince] ?? []).map((c) => {
+              const sel = tmpCities.includes(c);
+              return (
+                <TouchableOpacity
+                  key={c}
+                  style={[styles.regionChip, sel && styles.regionChipSelected]}
+                  onPress={() => toggleCity(c)}
+                  activeOpacity={0.85}
+                >
+                  <Text style={[styles.regionChipText, sel && styles.regionChipTextSelected]}>{c}</Text>
+                  {sel && (
+                    <Ionicons name="checkmark-circle" size={normalize(14)} color="#4F46E5" style={{ marginLeft: normalize(6) }} />
+                  )}
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
+      )
+    ) : (
+      /* 'province' 단계 — 기존 paddingHorizontal/paddingBottom 제거 */
+      <View>
+        <View style={styles.regionGrid}>
+          {PROVINCE_LABELS.map((p) => {
+            const sel = p === tmpProvince;
+            return (
+              <TouchableOpacity
+                key={p}
+                style={[styles.regionChip, sel && styles.regionChipSelected]}
+                onPress={() => { setTmpProvince(p); setTmpCities([]); }} // 도 바꾸면 시/군 초기화
+                activeOpacity={0.85}
+              >
+                <Text style={[styles.regionChipText, sel && styles.regionChipTextSelected]}>{p}</Text>
+                {sel && (
+                  <Ionicons name="checkmark-circle" size={normalize(14)} color="#4F46E5" style={{ marginLeft: normalize(6) }} />
+                )}
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      </View>
+    )}
+  </BottomSheetSection>
+  {/* ✅ 여기까지 Section */}
 
 
         {/* 하단 고정 CTA */}
@@ -653,51 +682,54 @@ const styleLabel = useMemo(() => {
       </BottomSheet>
 
       {/* ---------- 그룹(인원) 선택 시트 ---------- */}
-      <BottomSheet visible={sheet === 'group'} onClose={() => setSheet(null)} heightRatio={0.31}>
-        <View style={styles.sheetHeader}>
-          <View>
-            <Text style={styles.sheetTitle}>몇 명이 좋을까?</Text>
-            <Text style={styles.sheetSub}>그룹 유형을 선택하세요</Text>
-          </View>
-        <TouchableOpacity
-  onPress={() => setSheet(null)}
-  hitSlop={8}
-  style={{ marginTop: normalize(-55, 'height') }}  // ✅ 여기에!
->
-  <Ionicons name="close" size={normalize(22)} color="#111" />
-</TouchableOpacity>
-        </View>
-        <View style={{ paddingHorizontal: normalize(16), paddingBottom: normalize(20, 'height') }}>
-          <View style={styles.optionGridLg}>
-            {['선택없음', '단둘이', '여럿이'].map((g) => {
-              const sel = g === tmpGroup;
-              return (
-                <TouchableOpacity
-                  key={g}
-                  style={[styles.optionChipLg, sel && styles.optionChipLgSelected]}
-                  onPress={() => setTmpGroup(g)}
-                  activeOpacity={0.85}
-                >
-                  <Text style={[styles.optionTextLg, sel && { color: '#4F46E5' }]}>{g}</Text>
-                  {sel && (
-                    <Ionicons
-                      name="checkmark-circle"
-                      size={normalize(18)}
-                      color="#4F46E5"
-                      style={{ marginLeft: normalize(8) }}
-                    />
-                  )}
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        </View>
-        <View style={styles.sheetFixedCTA}>
+<BottomSheet visible={sheet === 'group'} onClose={() => setSheet(null)} heightRatio={0.31}>
+  <View style={styles.sheetHeader}>
+    <View>
+      <Text style={styles.sheetTitle}>몇 명이 좋을까?</Text>
+      <Text style={styles.sheetSub}>그룹 유형을 선택하세요</Text>
+    </View>
+    <TouchableOpacity
+      onPress={() => setSheet(null)}
+      hitSlop={8}
+      style={{ marginTop: normalize(-55, 'height') }}
+    >
+      <Ionicons name="close" size={normalize(22)} color="#111" />
+    </TouchableOpacity>
+  </View>
+
+  {/* ✅ 여행 스타일 시트 박스 기준으로 수정 */}
+  <View style={{ paddingHorizontal: normalize(16), paddingBottom: normalize(20, 'height') }}>
+    <View style={styles.regionGrid}>
+      {['선택없음', '단둘이', '여럿이'].map((g) => {
+        const sel = g === tmpGroup;
+        return (
+          <TouchableOpacity
+            key={g}
+            style={[styles.regionChip, sel && styles.regionChipSelected]}
+            onPress={() => setTmpGroup(g)}
+            activeOpacity={0.85}
+          >
+            <Text style={[styles.regionChipText, sel && styles.regionChipTextSelected]}>{g}</Text>
+            {sel && (
+              <Ionicons
+                name="checkmark-circle"
+                size={normalize(14)}
+                color="#4F46E5"
+                style={{ marginLeft: normalize(6) }}
+              />
+            )}
+          </TouchableOpacity>
+        );
+      })}
+    </View>
+  </View>
+
+  <View style={styles.sheetFixedCTA}>
     <TouchableOpacity activeOpacity={0.9} onPress={confirmGroup} style={styles.sheetCTA}>
       <Text style={styles.sheetCTAText}>{tmpGroup || '선택없음'}</Text>
     </TouchableOpacity>
   </View>
-      </BottomSheet>
+</BottomSheet>
 
       {/* ---------- 여행 스타일 선택 시트 (다중) ---------- */}
       <BottomSheet visible={sheet === 'style'} onClose={() => setSheet(null)} heightRatio={0.37}>
@@ -1141,6 +1173,10 @@ const styles = StyleSheet.create({
     color: '#111111',
     fontWeight: '400',
   },
+  optionTextLgSelected: {
+  color: '#4F46E5',
+  fontWeight: '600',
+},
 
   sheetBody: {
     paddingHorizontal: normalize(16),
