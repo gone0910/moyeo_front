@@ -203,8 +203,17 @@ function getCitySheetHeightRatio(province) {
   return 0.36;
 }
 
-
-
+/* ===== 공통 섹션 컴포넌트 (CTA 위 여백 자동 보정) ===== */
+function BottomSheetSection({ heightRatio, children, base = 72, scale = 90 }) {
+  // heightRatio(시트 높이 비율)에 따라 CTA 위 여백(= paddingBottom) 자동 보정
+  // base/scale는 필요시 미세 조정만 하세요. (둘 다 'height' 기준)
+  const dynamicPadding = normalize(base + heightRatio * scale, 'height');
+  return (
+    <View style={{ paddingHorizontal: normalize(16), paddingBottom: dynamicPadding }}>
+      {children}
+    </View>
+  );
+}
 
 /* ===== 메인 ===== */
 export default function PlannerInfoScreen() {
@@ -599,138 +608,145 @@ export default function PlannerInfoScreen() {
       </BottomSheet>
 
       {/* ===== 바텀시트: 목적지 ===== */}
-      <BottomSheet
-        visible={sheet==='region'}
-        onClose={()=>setSheet(null)}
-        heightRatio={regionStep==='province' ? 0.48 : getCitySheetHeightRatio(tmpProvince)}
-      >
-        <SheetHeader
-          title="이번 여행, 어디로?"
-          subtitle={regionStep==='province' ? '먼저 도(광역)를 선택하세요' : '시/군을 선택하세요 (단일 선택)'}
-          onClose={()=>setSheet(null)}
-        />
+<BottomSheet
+  visible={sheet==='region'}
+  onClose={()=>setSheet(null)}
+  heightRatio={regionStep==='province' ? 0.48 : getCitySheetHeightRatio(tmpProvince)}
+>
+  <SheetHeader
+    title="이번 여행, 어디로?"
+    subtitle={regionStep==='province' ? '먼저 도(광역)를 선택하세요' : '시/군을 선택하세요 (단일 선택)'}
+    onClose={()=>setSheet(null)}
+  />
 
-        {/* 단계 전환 탭 표시 */}
-<View style={{ flexDirection: 'row', gap: normalize(8), paddingHorizontal: normalize(16), paddingBottom: normalize(20,'height') }}>
-  <View style={[styles.stepBadge, regionStep === 'province' && styles.stepBadgeActive]}>
-    <Text style={[styles.stepBadgeText, regionStep === 'province' && styles.stepBadgeTextActive]}>도 선택</Text>
-  </View>
-  <View style={[styles.stepBadge, regionStep === 'city' && styles.stepBadgeActive]}>
-    <Text style={[styles.stepBadgeText, regionStep === 'city' && styles.stepBadgeTextActive]}>시/군 선택</Text>
-  </View>
-</View>
+  {/* ✅ 여기부터 BottomSheetSection으로 감싸서 CTA 위 여백 자동 보정 */}
+  <BottomSheetSection
+    heightRatio={regionStep==='province' ? 0.48 : getCitySheetHeightRatio(tmpProvince)}
+  >
+    {/* 단계 전환 탭 표시 */}
+    <View style={{ flexDirection: 'row', gap: normalize(8), paddingBottom: normalize(20,'height') }}>
+      <View style={[styles.stepBadge, regionStep === 'province' && styles.stepBadgeActive]}>
+        <Text style={[styles.stepBadgeText, regionStep === 'province' && styles.stepBadgeTextActive]}>도 선택</Text>
+      </View>
+      <View style={[styles.stepBadge, regionStep === 'city' && styles.stepBadgeActive]}>
+        <Text style={[styles.stepBadgeText, regionStep === 'city' && styles.stepBadgeTextActive]}>시/군 선택</Text>
+      </View>
+    </View>
 
-        {regionStep==='city' ? (
-          // 서울/경기도만 ScrollView
-          (tmpProvince === '서울' || tmpProvince === '경기도') ? (
-            <ScrollView
-              style={{ paddingHorizontal: normalize(16) }}
-              contentContainerStyle={{ paddingBottom: normalize(20, 'height') }}
-              showsVerticalScrollIndicator={false}
-            >
-              <View style={styles.regionGrid}>
-
-                {(CitiesByProvince[tmpProvince] ?? []).map((c) => {
-                  const sel = tmpCity === c;
-                  return (
-                    <TouchableOpacity
-                      key={c}
-                      style={[styles.regionChip, sel && styles.regionChipSelected]}
-                      onPress={()=>selectTmpCity(c)}
-                      activeOpacity={0.85}
-                    >
-                      <Text style={[styles.regionChipText, sel && styles.regionChipTextSelected]}>{c}</Text>
-                      {sel && <Ionicons name="checkmark-circle" size={normalize(14)} color="#4F46E5" style={{ marginLeft: normalize(6) }} />}
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-            </ScrollView>
-          ) : (
-            // 그 외 도는 고정 View
-            <View style={{ paddingHorizontal: normalize(16), paddingBottom: normalize(20, 'height') }}>
-              <View style={styles.regionGrid}>
-
-                {(CitiesByProvince[tmpProvince] ?? []).map((c) => {
-                  const sel = tmpCity === c;
-                  return (
-                    <TouchableOpacity
-                      key={c}
-                      style={[styles.regionChip, sel && styles.regionChipSelected]}
-                      onPress={()=>selectTmpCity(c)}
-                      activeOpacity={0.85}
-                    >
-                      <Text style={[styles.regionChipText, sel && styles.regionChipTextSelected]}>{c}</Text>
-                      {sel && <Ionicons name="checkmark-circle" size={normalize(14)} color="#4F46E5" style={{ marginLeft: normalize(6) }} />}
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-            </View>
-          )
-        ) : (
-          // 'province' 단계
-          <View style={{ paddingHorizontal: normalize(16), paddingBottom: normalize(100, 'height') }}>
-            <View style={styles.regionGrid}>
-              {PROVINCE_LABELS.map((p) => {
-                const sel = p === tmpProvince;
-                return (
-                  <TouchableOpacity
-                    key={p}
-                    style={[styles.regionChip, sel && styles.regionChipSelected]}
-                    onPress={()=>{ setTmpProvince(p); setTmpCity(''); }}
-                    activeOpacity={0.85}
-                  >
-                    <Text style={[styles.regionChipText, sel && styles.regionChipTextSelected]}>{p}</Text>
-                    {sel && <Ionicons name="checkmark-circle" size={normalize(14)} color="#4F46E5" style={{ marginLeft: normalize(6) }} />}
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
+    {regionStep==='city' ? (
+      // 서울/경기도만 ScrollView
+      (tmpProvince === '서울' || tmpProvince === '경기도') ? (
+        <ScrollView
+          // ⬇️ Section이 paddingHorizontal을 제공하므로 여기선 padding 제거
+          contentContainerStyle={{ paddingBottom: normalize(8, 'height') }}
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.regionGrid}>
+            {(CitiesByProvince[tmpProvince] ?? []).map((c) => {
+              const sel = tmpCity === c;
+              return (
+                <TouchableOpacity
+                  key={c}
+                  style={[styles.regionChip, sel && styles.regionChipSelected]}
+                  onPress={()=>selectTmpCity(c)}
+                  activeOpacity={0.85}
+                >
+                  <Text style={[styles.regionChipText, sel && styles.regionChipTextSelected]}>{c}</Text>
+                  {sel && <Ionicons name="checkmark-circle" size={normalize(14)} color="#4F46E5" style={{ marginLeft: normalize(6) }} />}
+                </TouchableOpacity>
+              );
+            })}
           </View>
-        )}
-
-        {/* 하단 고정 2버튼 영역 */}
-        <View style={styles.sheetFixedRow}>
-          {regionStep==='city' ? (
-            <>
-              <TouchableOpacity
-                style={[styles.sheetCTA, { flex:1, backgroundColor:'#E5E7EB' }]}
-                onPress={()=>setRegionStep('province')}
-                activeOpacity={0.9}
-              >
-                <Text style={[styles.sheetCTAText,{ color:'#111'}]}>이전(도 선택)</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={[styles.sheetCTA,{ flex:1 }, !canConfirmCity && { opacity: 0.5 }]} onPress={canConfirmCity ? confirmRegion : undefined} disabled={!canConfirmCity} activeOpacity={0.9}>
-                <Text style={styles.sheetCTAText} numberOfLines={1} ellipsizeMode="tail">
-                  {tmpProvince==='선택없음'
-                    ? '도: 선택없음'
-                    : `${tmpProvince} · ${tmpCity || '선택없음'}`}
-                </Text>
-              </TouchableOpacity>
-            </>
-          ) : (
-            <>
-              <TouchableOpacity
-                style={[styles.sheetCTA, { flex:1, backgroundColor:'#E5E7EB' }]}
-                onPress={()=>setSheet(null)}
-                activeOpacity={0.9}
-              >
-                <Text style={[styles.sheetCTAText,{ color:'#111'}]}>취소</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.sheetCTA,{ flex:1 }]}
-                onPress={()=>{ if (tmpProvince==='선택없음') confirmRegion(); else setRegionStep('city'); }}
-                activeOpacity={0.9}
-              >
-                <Text style={styles.sheetCTAText}>
-                  {tmpProvince==='선택없음' ? '확인' : '다음(시/군 선택)'}
-                </Text>
-              </TouchableOpacity>
-            </>
-          )}
+        </ScrollView>
+      ) : (
+        // 그 외 도는 고정 View
+        <View>
+          <View style={styles.regionGrid}>
+            {(CitiesByProvince[tmpProvince] ?? []).map((c) => {
+              const sel = tmpCity === c;
+              return (
+                <TouchableOpacity
+                  key={c}
+                  style={[styles.regionChip, sel && styles.regionChipSelected]}
+                  onPress={()=>selectTmpCity(c)}
+                  activeOpacity={0.85}
+                >
+                  <Text style={[styles.regionChipText, sel && styles.regionChipTextSelected]}>{c}</Text>
+                  {sel && <Ionicons name="checkmark-circle" size={normalize(14)} color="#4F46E5" style={{ marginLeft: normalize(6) }} />}
+                </TouchableOpacity>
+              );
+            })}
+          </View>
         </View>
-      </BottomSheet>
+      )
+    ) : (
+      // 'province' 단계
+      <View /* ⬇️ 기존 paddingBottom(100) 제거 → Section이 자동 계산 */>
+        <View style={styles.regionGrid}>
+          {PROVINCE_LABELS.map((p) => {
+            const sel = p === tmpProvince;
+            return (
+              <TouchableOpacity
+                key={p}
+                style={[styles.regionChip, sel && styles.regionChipSelected]}
+                onPress={()=>{ setTmpProvince(p); setTmpCity(''); }}
+                activeOpacity={0.85}
+              >
+                <Text style={[styles.regionChipText, sel && styles.regionChipTextSelected]}>{p}</Text>
+                {sel && <Ionicons name="checkmark-circle" size={normalize(14)} color="#4F46E5" style={{ marginLeft: normalize(6) }} />}
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      </View>
+    )}
+  </BottomSheetSection>
+  {/* ✅ 여기까지 Section */}
+
+  {/* 하단 고정 2버튼 영역 (변경 없음) */}
+  <View style={styles.sheetFixedRow}>
+    {regionStep==='city' ? (
+      <>
+        <TouchableOpacity
+          style={[styles.sheetCTA, { flex:1, backgroundColor:'#E5E7EB' }]}
+          onPress={()=>setRegionStep('province')}
+          activeOpacity={0.9}
+        >
+          <Text style={[styles.sheetCTAText,{ color:'#111'}]}>이전(도 선택)</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.sheetCTA,{ flex:1 }, !canConfirmCity && { opacity: 0.5 }]}
+          onPress={canConfirmCity ? confirmRegion : undefined}
+          disabled={!canConfirmCity}
+          activeOpacity={0.9}
+        >
+          <Text style={styles.sheetCTAText} numberOfLines={1} ellipsizeMode="tail">
+            {tmpProvince==='선택없음' ? '도: 선택없음' : `${tmpProvince} · ${tmpCity || '선택없음'}`}
+          </Text>
+        </TouchableOpacity>
+      </>
+    ) : (
+      <>
+        <TouchableOpacity
+          style={[styles.sheetCTA, { flex:1, backgroundColor:'#E5E7EB' }]}
+          onPress={()=>setSheet(null)}
+          activeOpacity={0.9}
+        >
+          <Text style={[styles.sheetCTAText,{ color:'#111'}]}>취소</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.sheetCTA,{ flex:1 }]}
+          onPress={()=>{ if (tmpProvince==='선택없음') confirmRegion(); else setRegionStep('city'); }}
+          activeOpacity={0.9}
+        >
+          <Text style={styles.sheetCTAText}>
+            {tmpProvince==='선택없음' ? '확인' : '다음(시/군 선택)'}
+          </Text>
+        </TouchableOpacity>
+      </>
+    )}
+  </View>
+</BottomSheet>
 
       {/* ===== 바텀시트: 예산 (0.33) ===== */}
       <BottomSheet visible={sheet==='budget'} onClose={()=>setSheet(null)} heightRatio={0.37}>
@@ -770,7 +786,7 @@ export default function PlannerInfoScreen() {
     onClose={()=>setSheet(null)}
     offset={normalize(-35, 'height')}  // ✅ 다른 시트와 동일 오프셋
   />
-        <View style={{ paddingHorizontal: normalize(16), paddingBottom: normalize(100,'height') }}>
+        <BottomSheetSection heightRatio={0.51}>
   <View style={styles.regionGrid}>
     {[
       { label: '선택없음', value: 'NONE' },
@@ -806,7 +822,7 @@ export default function PlannerInfoScreen() {
       );
     })}
   </View>
-        </View>
+        </BottomSheetSection>
         <View style={styles.sheetFixedCTA}>
           <TouchableOpacity style={styles.sheetCTA} onPress={confirmMbti} activeOpacity={0.9}>
             <Text style={styles.sheetCTAText}>{tmpMbti === 'NONE' ? '선택없음' : (tmpMbti || '선택없음')}</Text>
@@ -817,7 +833,7 @@ export default function PlannerInfoScreen() {
       {/* ===== 바텀시트: 여행 스타일 (0.33) ===== */}
       <BottomSheet visible={sheet==='style'} onClose={()=>setSheet(null)} heightRatio={0.37}>
         <SheetHeader title="나의 여행 스타일은?" subtitle="여러 개를 골라도 좋아요" onClose={()=>setSheet(null)} />
-        <View style={{ paddingHorizontal: normalize(16), paddingBottom: normalize(100,'height') }}>
+        <BottomSheetSection heightRatio={0.37}>
           <View style={styles.regionGrid}>
             {/* 선택없음 */}
             <TouchableOpacity
@@ -844,7 +860,7 @@ export default function PlannerInfoScreen() {
               </TouchableOpacity>
             ))}
           </View>
-        </View>
+        </BottomSheetSection>
         <View style={styles.sheetFixedCTA}>
           <TouchableOpacity style={styles.sheetCTA} onPress={confirmStyles} activeOpacity={0.9}>
             <Text style={styles.sheetCTAText}>
@@ -857,7 +873,7 @@ export default function PlannerInfoScreen() {
       {/* ===== 바텀시트: 인원(그룹) (0.29) ===== */}
       <BottomSheet visible={sheet==='group'} onClose={()=>setSheet(null)} heightRatio={0.32}>
         <SheetHeader title="인원" subtitle="여행 인원을 선택하세요" onClose={()=>setSheet(null)} />
-        <View style={{ paddingHorizontal: normalize(16), paddingBottom: normalize(100,'height') }}>
+        <BottomSheetSection heightRatio={0.32}>
   <View style={styles.regionGrid}>
     {["선택없음", "혼자", "단둘이", "여럿이"].map((g) => {
       const sel = g === tmpGroup;
@@ -881,7 +897,7 @@ export default function PlannerInfoScreen() {
       );
     })}
   </View>
-        </View>
+        </BottomSheetSection>
         <View style={styles.sheetFixedCTA}>
           <TouchableOpacity style={styles.sheetCTA} onPress={confirmGroup} activeOpacity={0.9}>
             <Text style={styles.sheetCTAText}>{tmpGroup}</Text>

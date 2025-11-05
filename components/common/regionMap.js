@@ -63,17 +63,17 @@ export const REGION_MAP = {
       { name: '평택시', code: 'PYEONGTAEK_SI' },
       { name: '의정부시', code: 'UIJEONGBU_SI' },
       { name: '파주시', code: 'PAJU_SI' },
-      // { name: '김포시', code: 'GIMPO_SI' }, // ❌ 백엔드 목록에 없어 제거됨
+       { name: '김포시', code: 'GIMPO_SI' }, 
       { name: '시흥시', code: 'SIHEUNG_SI' },
       { name: '광명시', code: 'GWANGMYEONG_SI' },
-      // { name: '광주시', code: 'GWANGJU_SI_GYEONGGI' }, // ❌ 백엔드 목록에 없어 제거됨
+       { name: '광주시', code: 'GWANGJU_SI_GYEONGGI' }, 
       { name: '군포시', code: 'GUNPO_SI' },
       { name: '오산시', code: 'OSAN_SI' },
       { name: '이천시', code: 'ICHEON_SI' },
       { name: '안성시', code: 'ANSEONG_SI' },
-      // { name: '의왕시', code: 'UIWANG_SI' }, // ❌ 백엔드 목록에 없어 제거됨
+       { name: '의왕시', code: 'UIWANG_SI' }, 
       { name: '하남시', code: 'HANAM_SI' },
-      // { name: '여주시', code: 'YEOJU_SI' } // ❌ 백엔드 목록에 없어 제거됨
+       { name: '여주시', code: 'YEOJU_SI' } 
     ],
     강원도: [
       { name: '춘천시', code: 'CHUNCHEON_SI' },
@@ -92,7 +92,7 @@ export const REGION_MAP = {
     충청남도: [
       { name: '천안시', code: 'CHEONAN_SI' },
       { name: '공주시', code: 'GONGJU_SI' },
-      // { name: '보령시', code: 'BOREONG_SI' }, // ❌ 백엔드 목록에 없어 제거됨 (오류 원인)
+      { name: '보령시', code: 'BOREONG_SI' }, 
       { name: '아산시', code: 'ASAN_SI' },
       { name: '서산시', code: 'SEOSAN_SI' },
       { name: '논산시', code: 'NONSAN_SI' },
@@ -107,7 +107,7 @@ export const REGION_MAP = {
       { name: '목포시', code: 'MOKPO_SI' },
       { name: '여수시', code: 'YEOSU_SI' },
       { name: '순천시', code: 'SUNCHEON_SI' },
-      // { name: '나주시', code: 'NAJU_SI' } // ❌ 백엔드 목록에 없어 제거됨
+      { name: '나주시', code: 'NAJU_SI' }
     ],
     경상북도: [
       { name: '포항시', code: 'POHANG_SI' },
@@ -118,7 +118,7 @@ export const REGION_MAP = {
     경상남도: [
       { name: '창원시', code: 'CHANGWON_SI' },
       { name: '진주시', code: 'JINJU_SI' },
-      // { name: '통영시', code: 'TONGYEONG_SI' }, // ❌ 백엔드 목록에 없어 제거됨
+      { name: '통영시', code: 'TONGYEONG_SI' },
       { name: '사천시', code: 'SACHEON_SI' },
       { name: '김해시', code: 'GIMHAE_SI' },
       { name: '양산시', code: 'YANGSAN_SI' }

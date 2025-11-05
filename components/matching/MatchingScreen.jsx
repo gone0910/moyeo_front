@@ -1,7 +1,8 @@
 // 📁 /components/matching/MatchingScreen.jsx
-import React, { useContext } from 'react';
+import React, { useContext, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image, Dimensions, PixelRatio, Platform } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect,  } from '@react-navigation/native';
+import { defaultTabBarStyle } from '../../navigation/BottomTabNavigator';
 import { UserContext } from '../../contexts/UserContext';
 import { KaushanScript_400Regular } from '@expo-google-fonts/kaushan-script';
 import { useFonts } from 'expo-font';
@@ -22,6 +23,18 @@ export default function MatchingScreen() {
   const navigation = useNavigation();
   const { user } = useContext(UserContext);
   const [fontsLoaded] = useFonts({ KaushanScript: KaushanScript_400Regular });
+
+// 이 화면이 보일 때마다 탭바 스타일 복원
+  useFocusEffect(
+    useCallback(() => {
+      const parent = navigation.getParent();
+      parent?.setOptions({ tabBarStyle: defaultTabBarStyle });
+      return () => {};
+    }, [navigation])
+  );
+
+
+
   if (!fontsLoaded) return null;
 
   return (

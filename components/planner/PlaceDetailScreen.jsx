@@ -280,7 +280,7 @@ export default function PlaceDetailScreen() {
         </TouchableOpacity>
 
         {/* 카드 */}
-        <View style={[styles.infoCard, { height: CARD_HEIGHT, marginBottom: normalize(30) }]}>
+        <View style={[styles.infoCard, { height: CARD_HEIGHT, marginBottom: 0 }]}>
           {error ? (
             <Text style={{ color: '#888', marginBottom: normalize(6) }}>
               {String(error)}

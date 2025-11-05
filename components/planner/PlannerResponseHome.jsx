@@ -932,7 +932,7 @@ const handleAddPlace = (insertIndex) => {
 
                   <View style={styles.placeRow}>
                     <View style={styles.timeline}>
-                      <View style={[styles.dot, { backgroundColor: place.type === '식사' ? '#1270B0' : '#4F46E5' }, { width: normalize(20), height: normalize(20), borderRadius: normalize(10), top: normalize(40) }]} />
+                      <View style={[styles.dot, { backgroundColor: place.type === '식사' ? '#1270B0' : '#4F46E5' }, { width: normalize(20), height: normalize(20), borderRadius: normalize(10), top: normalize(31) }]} />
                       {idx !== places.length - 1 && <View style={[styles.verticalLine, { left: normalize(13), width: normalize(4), height: normalize(330, 'height') }]} />}
                     </View>
 
@@ -1153,8 +1153,18 @@ const styles = StyleSheet.create({
   tabTextSelected: { color: '#4F46E5', fontWeight: 'bold' },
   activeBar: { marginTop: normalize(5), height: normalize(4), width: normalize(80), backgroundColor: '#4F46E5', borderRadius: 2 },
   container: { paddingHorizontal: normalize(16), marginBottom: -normalize(70), marginTop: normalize(0), backgroundColor: '#FAFAFA' },
-  bottomButtonContainer1: { flexDirection: 'row', backgroundColor: '#fafafa', paddingVertical: normalize(20), paddingHorizontal: normalize(16), borderRadius: normalize(12), marginBottom: -normalize(20) },
-  bottomButtonContainer: { flexDirection: 'row', backgroundColor: '#fafafa', paddingVertical: normalize(18), paddingHorizontal: normalize(20), top: normalize(10), borderRadius: normalize(12), paddingBottom: normalize(20) },
+  bottomButtonContainer1: {
+    flexDirection: 'row',
+    paddingVertical: 0,                 
+    paddingHorizontal: normalize(16),
+    borderRadius: 0,                    
+    marginBottom: normalize(8)          
+  },
+  bottomButtonContainer: {
+  flexDirection: 'row',
+  justifyContent: 'space-evenly', 
+  paddingVertical: normalize(10),
+},
   placeRow: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: normalize(32) },
   timeline: { width: normalize(30), alignItems: 'center', position: 'relative' },
   dot: { width: normalize(20), height: normalize(20), borderRadius: normalize(10), backgroundColor: '#6366F1', position: 'absolute', top: normalize(40), zIndex: 2 },
@@ -1182,11 +1192,28 @@ const styles = StyleSheet.create({
   iconSlot: { width: normalize(22), alignItems: 'center', marginRight: normalize(6) },
   timeText: { fontSize: normalize(14), width: normalize(44), textAlign: 'left', color: '#000' },
   dragHandle: { position: 'absolute', left: -normalize(45), top: normalize(25), padding: normalize(4), zIndex: 5 },
-  editButton: { flex: 1, height: normalize(45), borderRadius: normalize(12), borderWidth: 1, borderColor: '#4F46E5', backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center' },
+  editButton: {
+  flex: 1,
+  height: normalize(45),
+  borderRadius: normalize(12),
+  borderWidth: 1,
+  borderColor: '#4F46E5',
+  backgroundColor: '#fff',
+  alignItems: 'center',
+  justifyContent: 'center',
+  paddingHorizontal: normalize(8),
+},
   editButtonText: { fontSize: normalize(16), color: '#4F46E5' },
   saveButton: { flex: 1, height: normalize(45), borderRadius: normalize(12), borderWidth: 1, borderColor: '#4F46E5', backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center' },
   saveButtonText: { textAlign: 'center', color: '#4F46E5', fontSize: normalize(16) },
-  regenerateButtonWrapper: { position: 'absolute', bottom: normalize(50), left: normalize(16), right: normalize(16), backgroundColor: '#fafafa', paddingVertical: normalize(5), borderRadius: normalize(12) },
+  regenerateButtonWrapper: {
+    position: 'absolute',
+    bottom: normalize(60),
+    left: normalize(16),
+    right: normalize(16),
+    paddingVertical: 0,                 // 배경 제거 -> 여백도 최소화
+    borderRadius: 0
+  },
   regenerateButton: { backgroundColor: '#4F46E5', borderRadius: normalize(10), paddingVertical: normalize(12), alignItems: 'center', borderWidth: 1, borderColor: '#4F46E5' },
   regenerateButtonText: { color: '#fff', fontSize: normalize(16) },
   fixedDoneButtonWrapper: { position: 'absolute', bottom: normalize(5), left: normalize(20), right: normalize(20), backgroundColor: '#4F46E5', borderRadius: normalize(12), paddingVertical: normalize(14), alignItems: 'center' },
