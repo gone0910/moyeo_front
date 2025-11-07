@@ -1,4 +1,4 @@
-// components/planner/PlannerInfoScreen.jsx
+// ﻿// components/planner/PlannerInfoScreen.jsx
 import React, { useState, useContext, useRef, useEffect, useMemo, useCallback } from 'react';
 import {
   View,
@@ -20,7 +20,7 @@ import { UserContext } from '../../contexts/UserContext';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import Slider from '@react-native-community/slider';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { saveCacheData, CACHE_KEYS } from '../../caching/cacheService';
+import { saveCacheData, CACHE_KEYS, beginNewDraft } from '../../caching/cacheService';
 import axios from 'axios';
 import { Ionicons } from '@expo/vector-icons';
 import uuid from 'react-native-uuid';
@@ -484,23 +484,25 @@ export default function PlannerInfoScreen() {
         Number(budget || 0)
       );
 
-       // ✅ 생성 때 사용한 요청 스냅샷을 저장 (재생성 시 최우선 참조)
- const requestSnapshot = {
-   startDate,
-   endDate,
-   destination: cityEnum,
-   mbti: mbtiEnum,
-   travelStyle: styleEnum,
-   peopleGroup: groupEnum,
-   budget: Number(budget || 0),
- };
- try { await saveCacheData(CACHE_KEYS.PLAN_REQUEST, requestSnapshot); } catch {}
+      // ✅ 생성 때 사용한 요청 스냅샷을 저장 (재생성 시 최우선 참조)
+      const requestSnapshot = {
+        startDate,
+        endDate,
+        destination: cityEnum,
+        mbti: mbtiEnum,
+        travelStyle: styleEnum,
+        peopleGroup: groupEnum,
+        budget: Number(budget || 0),
+      };
+      try { await saveCacheData(CACHE_KEYS.PLAN_REQUEST, requestSnapshot); } catch {}
 
- // ✅ 생성 응답 객체에도 조건 주입 (혹시 응답에 destination 등 없을 때 대비)
- const enriched = { ...data, ...requestSnapshot };
+      // ✅ 생성 응답 객체에도 조건 주입 (혹시 응답에 destination 등 없을 때 대비)
+      const enriched = { ...data, ...requestSnapshot };
+
+      // ✅ 핵심: 새 드래프트 세션 시작(이전 캐시 제거 + 이번 생성본으로 초기화)
+      try { await beginNewDraft(enriched); } catch {}
 
       const scheduleId = data?.id ?? data?.scheduleId ?? null;
-      try { await saveCacheData(CACHE_KEYS.PLAN_INITIAL, enriched); } catch {}
 
       navigation.replace('PlannerResponse', {
         from: 'create',
