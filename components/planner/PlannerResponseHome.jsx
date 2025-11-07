@@ -1,5 +1,9 @@
-// 📄 components/planner/PlannerResponseHome2.jsx
-// (기존 로직/스타일 유지, 해시태그 증가 버그만 차단)
+// 📄 components/planner/PlannerResponseHome.jsx
+// 로컬 편집 보존 + 캐시 기반 저장 + /schedule/resave/{id} 반영 버전
+// - 편집 중 추가/삭제/수정은 전부 PLAN_EDITED에 저장
+// - '플랜 수정 완료' 시 캐시 최신본을 화면에 확정 반영하고, 숫자 id가 있으면 resave 호출
+// - '내 여행으로 저장'은 PLAN_EDITED(또는 working draft) 최신본을 사용하여 저장
+// - 저장/재조회 직후에 이전 스냅샷으로 덮어쓰지 않도록 버전/시그니처 가드
 
 import React, { useEffect, useState, useRef, useCallback, useLayoutEffect } from 'react';
 import {
@@ -26,13 +30,24 @@ import DraggableFlatList from 'react-native-draggable-flatlist';
 import uuid from 'react-native-uuid';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// ===== API & cache (프로젝트 경로에 맞게 조정) =====
-import { getCacheData, saveCacheData, CACHE_KEYS } from '../../caching/cacheService';
-import { editSchedule } from '../../api/planner_edit_request';
+// ===== API =====
+import { getScheduleDetail } from '../../api/MyPlanner_detail';
 import { regenerateSchedule } from '../../api/planner_regenerate_request';
 import { saveSchedule } from '../../api/planner_save_request';
 import { deleteSchedule } from '../../api/planner_delete_request';
-import { getScheduleDetail } from '../../api/MyPlanner_detail';
+import { resaveSchedule } from '../../api/planner_resave_request';
+import { editSchedule, cacheScheduleId } from '../../api/planner_edit_request';
+
+// ===== cache helpers =====
+import {
+  CACHE_KEYS,
+  getCacheData,
+  saveCacheData,
+  loadWorkingDraft,
+  writeEditedDraft,
+  snapshotInitialOnce,
+  clearDraftCaches,
+} from '../../caching/cacheService';
 
 import SplashScreen from '../../components/common/SplashScreen';
 import { MAIN_TAB_ID, defaultTabBarStyle } from '../../navigation/BottomTabNavigator';
@@ -46,10 +61,8 @@ function normalize(size, based = 'width') {
 }
 
 // =====================
-// 일반 헬퍼
+// helpers
 // =====================
-
-// ✅ 해시태그 정규화: '#제주  제주  #바다' → '제주 바다'
 const normalizeHashtags = (val) => {
   if (!val) return '';
   if (Array.isArray(val)) val = val.join(' ');
@@ -94,8 +107,135 @@ const coerceNumericScheduleId = (raw) => {
 };
 const isValidId = (n) => Number.isFinite(n) && n > 0;
 
+// ===== 재저장 payload =====
+function buildResaveDaysPayload(fromData) {
+  if (!fromData?.days?.length) return { days: [] };
+
+  const timeOrUndef = (v) => {
+    const n = Number(v);
+    if (!Number.isFinite(n)) return undefined;
+    return Math.round(n); // -1 허용
+  };
+
+  const nonNegCost = (v) => {
+    const n = Number(v);
+    if (!Number.isFinite(n) || n < 0) return 0;
+    return Math.round(n);
+  };
+
+  const distKm = (a, b) => {
+    if (!a || !b) return 0;
+    const [lat1, lon1] = a, [lat2, lon2] = b;
+    if (![lat1, lon1, lat2, lon2].every(x => typeof x === 'number')) return 0;
+    const R = 6371;
+    const dLat = (lat2 - lat1) * Math.PI/180;
+    const dLon = (lon2 - lon1) * Math.PI/180;
+    const s1 = Math.sin(dLat/2)**2 +
+      Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*
+      (Math.sin(dLon/2)**2);
+    const c = 2 * Math.atan2(Math.sqrt(s1), Math.sqrt(1 - s1));
+    return R * c;
+  };
+
+  let baseCenter = null;
+  outer:
+  for (const day of (fromData?.days ?? [])) {
+    for (const p of (day?.places ?? [])) {
+      if (typeof p?.lat === 'number' && typeof p?.lng === 'number') {
+        baseCenter = [p.lat, p.lng];
+        break outer;
+      }
+    }
+  }
+  const OUTLIER_KM = 60;
+
+  const days = fromData.days.map((day, i) => {
+    const places = (day?.places ?? []).map(p => {
+      const car  = timeOrUndef(p?.fromPrevious?.car ?? p?.driveTime);
+      const bus  = timeOrUndef(p?.fromPrevious?.publicTransport ?? p?.transitTime);
+      const walk = timeOrUndef(p?.fromPrevious?.walk ?? p?.walkTime);
+      let lat = (typeof p?.lat === 'number') ? p.lat : undefined;
+      let lng = (typeof p?.lng === 'number') ? p.lng : undefined;
+      if (baseCenter && typeof lat === 'number' && typeof lng === 'number') {
+        const d = distKm(baseCenter, [lat, lng]);
+        if (d > OUTLIER_KM) {
+          lat = undefined;
+          lng = undefined;
+        }
+      }
+      return {
+        type: p?.type ?? '',
+        name: (p?.name ?? '').trim(),
+        hashtag: (p?.gptOriginalName ?? p?.hashtag ?? '').toString(),
+        estimatedCost: nonNegCost(p?.estimatedCost),
+        lat,
+        lng,
+        walkTime: walk,
+        driveTime: car,
+        transitTime: bus,
+      };
+    });
+
+    const totalEstimatedCost = places.reduce((acc, x) => acc + nonNegCost(x?.estimatedCost), 0);
+    const dayLabel = day?.day || `${i + 1}일차`;
+    const date = day?.date || fromData?.startDate;
+
+    return { day: dayLabel, date, totalEstimatedCost, places };
+  });
+
+  return { days };
+}
+
+function ensurePlaceFields(place = {}, prev = {}) {
+  const name = (place.name ?? prev.name ?? '').trim();
+  return {
+    ...prev,
+    ...place,
+    name,
+    type: place.type ?? prev.type ?? '',
+    gptOriginalName: normalizeHashtags(place.gptOriginalName ?? prev.gptOriginalName ?? ''),
+    estimatedCost: Number.isFinite(Number(place.estimatedCost))
+      ? Number(place.estimatedCost)
+      : (Number.isFinite(Number(prev.estimatedCost)) ? Number(prev.estimatedCost) : 0),
+    fromPrevious: {
+      car: Number.isFinite(Number(place?.fromPrevious?.car))
+        ? Number(place.fromPrevious.car)
+        : (Number.isFinite(Number(prev?.fromPrevious?.car)) ? Number(prev.fromPrevious.car) : 0),
+      publicTransport: Number.isFinite(Number(place?.fromPrevious?.publicTransport))
+        ? Number(place.fromPrevious.publicTransport)
+        : (Number.isFinite(Number(prev?.fromPrevious?.publicTransport)) ? Number(prev.fromPrevious.publicTransport) : 0),
+      walk: Number.isFinite(Number(place?.fromPrevious?.walk))
+        ? Number(place.fromPrevious.walk)
+        : (Number.isFinite(Number(prev?.fromPrevious?.walk)) ? Number(prev.fromPrevious.walk) : 0),
+    },
+  };
+}
+
+
+function mergeAndCleanDraft(base, editedNameOverlays = {}) {
+  if (!base?.days?.length) return base;
+  const next = JSON.parse(JSON.stringify(base));
+  next.days = next.days.map((d) => {
+    const places = (d.places ?? [])
+      .map((p) => {
+        const name = (editedNameOverlays[p.id] ?? p.name ?? '').trim();
+        if (!name) return null; // ✅ 빈 카드 제거
+        return {
+          ...p,
+          name,
+          gptOriginalName: (p.gptOriginalName ?? '').toString().replace(/#/g, ' ').trim(),
+        };
+      })
+      .filter(Boolean)
+      .map((p, idx) => ({ ...p, placeOrder: idx + 1 })); // ✅ 순서 재부여
+    return { ...d, places };
+  });
+  return next;
+}
+
+
 // =====================
-// 컴포넌트
+// Component
 // =====================
 export default function PlannerResponseHome() {
   const navigation = useNavigation();
@@ -117,9 +257,11 @@ export default function PlannerResponseHome() {
   const [numericScheduleId, setNumericScheduleId] = useState(null);
   const showEditDeleteButtons =
     (from === 'Home' && !isMock) || (isReadOnly && !isMock) || isSaved;
-const hasPendingEmpty = Object.values(editedPlaces || {}).some(v => (v ?? '').trim() === '');
+  const hasPendingEmpty = Object.values(editedPlaces || {}).some(v => (v ?? '').trim() === '');
+
   const [isRegenerating, setIsRegenerating] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isEditingLoading, setIsEditingLoading] = useState(false);
   const savingTimerRef = useRef(null);
 
   const scrollRef = useRef();
@@ -130,10 +272,17 @@ const hasPendingEmpty = Object.values(editedPlaces || {}).some(v => (v ?? '').tr
   const [scheduleData, setScheduleData] = useState(null);
   const [listVersion, setListVersion] = useState(0);
   const dayIdxRef = useRef(selectedDayIndex);
-  useEffect(() => { dayIdxRef.current = selectedDayIndex; }, [selectedDayIndex]);
 
-  // ✅ onEndEditing 중복 호출 가드
-  const lastSubmittedNameRef = useRef({});
+  useEffect(() => {
+  // ✅ 저장 직후 replace로 넘어온 경우: 서버 재조회 전에 내가 넘긴 편집본을 먼저 화면에 확정
+  if (route?.params?.initialData) {
+    const ensured = ensurePlaceIds(route.params.initialData);
+    setScheduleData(ensured);
+    try { snapshotInitialOnce(ensured); } catch {}
+  }
+}, [route?.params?.initialData]);
+
+  useEffect(() => { dayIdxRef.current = selectedDayIndex; }, [selectedDayIndex]);
 
   // ===== Tab bar hide/show =====
   useLayoutEffect(() => {
@@ -150,25 +299,24 @@ const hasPendingEmpty = Object.values(editedPlaces || {}).some(v => (v ?? '').tr
   );
 
   useFocusEffect(
-  useCallback(() => {
-    // ✅ 다시 진입 시 편집 관련 상태 초기화
-    setEditedPlaces({});
-    setEditedPlaceId(null);
-    setNewlyAddedPlaceId(null);
-    setNewlyAddedIndex(-1);
-    return () => {};
-  }, [])
-);
+    useCallback(() => {
+      setEditedPlaces({});
+      setEditedPlaceId(null);
+      setNewlyAddedPlaceId(null);
+      setNewlyAddedIndex(-1);
+      return () => {};
+    }, [])
+  );
 
-useEffect(() => {
-  const unsub = navigation.addListener('blur', () => {
-    setEditedPlaces({});
-    setEditedPlaceId(null);
-    setNewlyAddedPlaceId(null);
-    setNewlyAddedIndex(-1);
-  });
-  return unsub;
-}, [navigation]);
+  useEffect(() => {
+    const unsub = navigation.addListener('blur', () => {
+      setEditedPlaces({});
+      setEditedPlaceId(null);
+      setNewlyAddedPlaceId(null);
+      setNewlyAddedIndex(-1);
+    });
+    return unsub;
+  }, [navigation]);
 
   // ====== saving overlay controls ======
   const openSaving = (timeoutMs = 15000) => {
@@ -187,7 +335,7 @@ useEffect(() => {
     try { if (savingTimerRef.current) clearTimeout(savingTimerRef.current); } catch {}
   }, []);
 
-  // ====== place 필드 보정 ======
+  // ====== 필드 보정 ======
   const ensurePlaceIds = (data) => ({
     ...data,
     days: (data?.days ?? []).map(day => ({
@@ -200,20 +348,25 @@ useEffect(() => {
           ...place,
           id: place?.id ? String(place.id) : uuid.v4(),
           fromPrevious: place?.fromPrevious ?? { car, publicTransport, walk },
-          // ✅ append 금지: 항상 대체 + 정규화
-          gptOriginalName: normalizeHashtags(place?.gptOriginalName ?? place?.hashtag ?? ''),
+          gptOriginalName: normalizeHashtags(
+            place?.gptOriginalName ??
+            place?.hashtag ??
+            (Array.isArray(place?.hashtags) ? place.hashtags.join(' ') : '') ??
+            (Array.isArray(place?.tags) ? place.tags.join(' ') : '') ??
+            place?.keywords ?? place?.keyword ?? ''
+          ),
         };
       }),
     })),
   });
-  function ensurePlaceFields(place = {}, prev = {}) {
+
+  function ensurePlaceFields2(place = {}, prev = {}) {
     const name = (place.name ?? prev.name ?? '').trim();
     return {
       ...prev,
       ...place,
       name,
       type: place.type ?? prev.type ?? '',
-      // ✅ append 금지: place 우선으로 대체 + 정규화
       gptOriginalName: normalizeHashtags(place.gptOriginalName ?? prev.gptOriginalName ?? ''),
       estimatedCost: Number.isFinite(Number(place.estimatedCost))
         ? Number(place.estimatedCost)
@@ -232,11 +385,9 @@ useEffect(() => {
     };
   }
 
-  // ====== 상세 재조회 버전 관리 ======
+  // ====== 상세 재조회 버전/시그니처 가드 ======
   const requestVersionRef = useRef(0);
   const lastAppliedVersionRef = useRef(0);
-
-  // 저장 전/후 서명 관리
   const preEditSigRef = useRef('');
   const lastSavedSigRef = useRef('');
   const lastSavedAtRef = useRef(0);
@@ -254,7 +405,14 @@ useEffect(() => {
     const detail = await fetcher();
     const ensured = ensurePlaceIds(detail?.id ? detail : { ...detail });
 
-    // 저장 직후 구응답 드랍
+    try {
+      const routeNumericId = coerceNumericScheduleId(route?.params?.scheduleId ?? scheduleId);
+      const hasNumericInEnsured = Number.isFinite(extractNumericScheduleId(ensured));
+      if (!hasNumericInEnsured && Number.isFinite(routeNumericId)) {
+        ensured.serverId = routeNumericId;
+      }
+    } catch {}
+
     const justSaved = (Date.now() - lastSavedAtRef.current) <= 4000;
     const sig = signatureOf(ensured);
     const isOldOriginal = preEditSigRef.current && sig === preEditSigRef.current;
@@ -270,7 +428,6 @@ useEffect(() => {
     return ensured;
   };
 
-  // ====== id util ======
   const getNumericScheduleId = () => {
     if (isValidId(numericScheduleId)) return numericScheduleId;
     const fromState = extractNumericScheduleId(scheduleData);
@@ -279,9 +436,8 @@ useEffect(() => {
     if (isValidId(fromRoute)) return fromRoute;
     return null;
   };
-  const resolveScheduleId = () => (scheduleData?.id ?? scheduleData?.scheduleId ?? route?.params?.scheduleId ?? null);
 
-  // ====== initial data load ======
+  // ===== initial load =====
   useEffect(() => {
     const loadData = async () => {
       try {
@@ -295,9 +451,17 @@ useEffect(() => {
         const cached = await getCacheData(CACHE_KEYS.PLAN_INITIAL);
         if (cached) {
           const ensured = ensurePlaceIds(cached);
+          try {
+            const routeNumericId = coerceNumericScheduleId(route?.params?.scheduleId ?? scheduleId);
+            const hasNumericInEnsured = Number.isFinite(extractNumericScheduleId(ensured));
+            if (!hasNumericInEnsured && Number.isFinite(routeNumericId)) {
+              ensured.serverId = routeNumericId;
+            }
+          } catch {}
           setScheduleData(ensured);
           const numCached = extractNumericScheduleId(cached);
           if (Number.isFinite(numCached)) setNumericScheduleId(numCached);
+          try { await snapshotInitialOnce(ensured); } catch(e) { console.warn('snapshotInitialOnce fail', e?.message); }
         } else if (Number.isFinite(parsedId)) {
           await applyDetailWithVersion(() => getScheduleDetail(parsedId), 'initial-id');
         }
@@ -308,18 +472,39 @@ useEffect(() => {
     loadData();
   }, [from, route.params?.scheduleId, scheduleId]);
 
-  // ====== focus sync ======
+  // 진입 시 캐시 편집본 우선
+  useEffect(() => {
+    (async () => {
+      try {
+        const cached = await loadWorkingDraft();
+        if (cached) {
+          console.log('💾 [cache] 편집 캐시 기반 진입');
+          setScheduleData(cached);
+          setEditDraft(cached);
+          setListVersion(v => v + 1);
+        }
+      } catch (e) {
+        console.warn('⚠️ loadWorkingDraft 실패:', e);
+      }
+    })();
+  }, []);
+
+  // 읽기모드에서만 서버 재조회
   useFocusEffect(
     useCallback(() => {
-      if (isEditing) return;
+      if (isEditing || isEditingLoading) return;
+   if (route?.params?.skipFirstFetch) {
+     // 한 번만 스킵하고 바로 해제
+     navigation.setParams({ ...route.params, skipFirstFetch: undefined });
+     return;
+   }
       const id = getNumericScheduleId();
       if (Number.isFinite(id)) {
         applyDetailWithVersion(() => getScheduleDetail(id), 'focus');
       }
-    }, [isEditing])
+    }, [isEditing, isEditingLoading])
   );
 
-  // ====== 필드 보정 안전망 ======
   useEffect(() => {
     if (!scheduleData?.days?.length) return;
     const hasMissing = scheduleData.days.some(day =>
@@ -337,53 +522,34 @@ useEffect(() => {
     }
   }, [scheduleData]);
 
-  // ====== recreate params (기존 흐름 유지) ======
-  const buildRecreateParams_ = async () => {
-    let base = null;
-    try { base = await getCacheData(CACHE_KEYS.PLAN_INITIAL); } catch (_) {}
-    const src = base || scheduleData || {};
-    const startDate   = src.startDate   || scheduleData?.startDate || '';
-    const endDate     = src.endDate     || scheduleData?.endDate   || '';
-    const destination = scheduleData?.destination || src.destination || 'JEJU_SI';
-    const mbti        = (src.mbti || scheduleData?.mbti || 'ENTJ').toUpperCase();
-    const travelStyle = (src.travelStyle || scheduleData?.travelStyle || 'ACTIVITY').toUpperCase();
-    const peopleGroup = (src.peopleGroup || scheduleData?.peopleGroup || 'SOLO').toUpperCase();
-    const budget      = Number(src.budget ?? scheduleData?.budget ?? 0);
-    const excludedNames = (scheduleData?.days ?? [])
-      .flatMap(d => (d?.places ?? []).map(p => p?.name).filter(Boolean));
-    return { startDate, endDate, destination, mbti, travelStyle, peopleGroup, budget, excludedNames };
-  };
-
-  // ====== render 대상 ======
+  // ===== render state =====
   const selectedDay = isEditing
     ? editDraft?.days?.[selectedDayIndex]
     : scheduleData?.days?.[selectedDayIndex];
   const places = selectedDay?.places ?? [];
 
+  // ===== Edit mode =====
   const enterEditMode = () => {
-  // 🔹추가: 편집 세션 시작 전에 미완 입력 흔적 제거
-  setEditedPlaces({});
-  setEditedPlaceId(null);
-  setNewlyAddedPlaceId(null);
-  setNewlyAddedIndex(-1);
-
-  setOriginalScheduleData(JSON.parse(JSON.stringify(scheduleData)));
-  setEditDraft(JSON.parse(JSON.stringify(scheduleData)));
-  preEditSigRef.current = signatureOf(scheduleData);
-  setIsEditing(true);
-};
-  const handleBack = () => {
-  if (isEditing) {
-    // 🔹추가: 편집 종료 시 초기화
     setEditedPlaces({});
     setEditedPlaceId(null);
     setNewlyAddedPlaceId(null);
     setNewlyAddedIndex(-1);
+    setOriginalScheduleData(JSON.parse(JSON.stringify(scheduleData)));
+    setEditDraft(JSON.parse(JSON.stringify(scheduleData)));
+    preEditSigRef.current = signatureOf(scheduleData);
+    setIsEditing(true);
+  };
 
-    setEditDraft(null);
-    setIsEditing(false);
-    return;
-  }
+  const handleBack = () => {
+    if (isEditing) {
+      setEditedPlaces({});
+      setEditedPlaceId(null);
+      setNewlyAddedPlaceId(null);
+      setNewlyAddedIndex(-1);
+      setEditDraft(null);
+      setIsEditing(false);
+      return;
+    }
     const tabNav = navigation.getParent();
     if (from === 'Home') {
       if (tabNav?.reset) tabNav.reset({ index: 0, routes: [{ name: 'Home' }] });
@@ -448,42 +614,39 @@ useEffect(() => {
     }
   }, [isEditing, scheduleData, editDraft]);
 
-  // ====== add/delete ======
-const handleAddPlace = (insertIndex) => {
-  // 🔒 비어있는 입력란이 있으면 추가 금지
-  const hasEmpty = Object.values(editedPlaces).some((v) => (v ?? '').trim() === '');
-  if (hasEmpty) {
-    Alert.alert('입력 필요', '이전 추가된 장소의 이름을 먼저 입력해주세요.');
-    return;
-  }
-
-  setEditDraft((prev) => {
-    const currentPlaces = [...prev.days[selectedDayIndex].places];
-    const newPlaceId = uuid.v4();
-    const newPlace = {
-      id: newPlaceId,
-      name: '',
-      type: '',
-      estimatedCost: 0,
-      gptOriginalName: '',
-      fromPrevious: { car: 0, publicTransport: 0, walk: 0 },
-    };
-    const updatedPlaces = [
-      ...currentPlaces.slice(0, insertIndex + 1),
-      newPlace,
-      ...currentPlaces.slice(insertIndex + 1),
-    ];
-    const updatedDays = prev.days.map((day, i) =>
-      i === selectedDayIndex ? { ...day, places: updatedPlaces } : day
-    );
-    setNewlyAddedPlaceId(newPlaceId);
-    setNewlyAddedIndex(insertIndex + 1);
-    setEditedPlaceId(newPlaceId);
-    setEditedPlaces((p) => ({ ...p, [newPlaceId]: '' })); // 입력란 초기화
-    return { ...prev, days: updatedDays };
-  });
-  setListVersion((v) => v + 1);
-};
+  const handleAddPlace = (insertIndex) => {
+    const hasEmpty = Object.values(editedPlaces).some((v) => (v ?? '').trim() === '');
+    if (hasEmpty) {
+      Alert.alert('입력 필요', '이전 추가된 장소의 이름을 먼저 입력해주세요.');
+      return;
+    }
+    setEditDraft((prev) => {
+      const currentPlaces = [...prev.days[selectedDayIndex].places];
+      const newPlaceId = uuid.v4();
+      const newPlace = {
+        id: newPlaceId,
+        name: '',
+        type: '',
+        estimatedCost: 0,
+        gptOriginalName: '',
+        fromPrevious: { car: 0, publicTransport: 0, walk: 0 },
+      };
+      const updatedPlaces = [
+        ...currentPlaces.slice(0, insertIndex + 1),
+        newPlace,
+        ...currentPlaces.slice(insertIndex + 1),
+      ];
+      const updatedDays = prev.days.map((day, i) =>
+        i === selectedDayIndex ? { ...day, places: updatedPlaces } : day
+      );
+      setNewlyAddedPlaceId(newPlaceId);
+      setNewlyAddedIndex(insertIndex + 1);
+      setEditedPlaceId(newPlaceId);
+      setEditedPlaces((p) => ({ ...p, [newPlaceId]: '' }));
+      return { ...prev, days: updatedDays };
+    });
+    setListVersion((v) => v + 1);
+  };
 
   const handleDeletePlace = (placeId) => {
     setEditDraft(prev => {
@@ -503,15 +666,13 @@ const handleAddPlace = (insertIndex) => {
     setListVersion(v => v + 1);
   };
 
-  // ====== 개별 입력 확정 ======
+  const lastSubmittedNameRef = useRef({});
   const handleEndEditing = async (placeId) => {
     const newName = (editedPlaces[placeId] ?? '').trim();
     if (!newName) {
       Alert.alert('입력 필요', '장소명을 입력해주세요.');
       return;
     }
-
-    // ✅ 같은 값으로 중복 호출되면 무시 (iOS onEndEditing 두 번 방지)
     if (lastSubmittedNameRef.current[placeId] === newName) {
       setEditedPlaceId(null);
       setEditedPlaces(prev => { const n = { ...prev }; delete n[placeId]; return n; });
@@ -528,144 +689,36 @@ const handleAddPlace = (insertIndex) => {
       return overlay != null ? { ...p, name: overlay } : p;
     });
     draft.days[idx].places = effectivePlaces;
-    setEditDraft(draft);
-    setScheduleData(draft);
 
-    const placeNames = effectivePlaces.map((p) => (p?.name ?? '').trim()).filter(Boolean);
-    if (placeNames.length === 0) {
-      setEditedPlaces(prev => { const n = { ...prev }; delete n[placeId]; return n; });
-      setListVersion(v => v + 1);
-      return;
-    }
+    const nextPlaces = effectivePlaces.map(cli => ensurePlaceFields(cli, cli)).map(p => ({
+      ...p,
+      gptOriginalName: normalizeHashtags(p.gptOriginalName),
+    }));
 
-    const numericId = getNumericScheduleId();
-    const sid = numericId ?? resolveScheduleId();
-    console.log('[editSchedule][REQ]', JSON.stringify({ scheduleId: sid, dayIndex: idx, namesCount: placeNames.length, names: placeNames }));
+    const merged = {
+      ...draft,
+      days: draft.days.map((d, i) =>
+        i === idx ? { ...d, places: nextPlaces } : d
+      ),
+    };
+    setScheduleData(merged);
+    setEditDraft(merged);
 
-    try {
-      const result = await editSchedule(placeNames, { scheduleId: sid, dayIndex: idx });
+    setEditedPlaces(prev => { const n = { ...prev }; delete n[placeId]; return n; });
+    setListVersion(v => v + 1);
 
-      const norm = (s) => (s ?? '').replace(/\s+/g, '').trim();
-      let nextPlaces = effectivePlaces;
-
-      if (result?.places && result.totalEstimatedCost !== undefined) {
-        const serverMap = new Map(
-          result.places.map((srv) => {
-            const ensured = ensurePlaceIds({ days: [{ places: [srv] }] }).days[0].places[0];
-            return [norm(ensured?.name), ensured];
-          })
-        );
-        nextPlaces = effectivePlaces.map((cli) => {
-          const hit = serverMap.get(norm(cli?.name));
-          // ✅ append 금지: hit(서버) 우선으로 대체 + 정규화
-          const replaced = ensurePlaceFields(
-            hit ? { ...hit, gptOriginalName: normalizeHashtags(hit.gptOriginalName) }
-                : { ...cli, gptOriginalName: normalizeHashtags(cli.gptOriginalName) },
-            cli
-          );
-          return replaced;
-        });
-        // 최종 안전망(혹시라도 gptOriginalName에 공백/중복 남으면 정리)
-        nextPlaces = nextPlaces.map(p => ({ ...p, gptOriginalName: normalizeHashtags(p.gptOriginalName) }));
-
-        const merged = {
-          ...draft,
-          days: draft.days.map((d, i) =>
-            i === idx ? { ...d, places: (nextPlaces.length ? nextPlaces : d.places), totalEstimatedCost: result.totalEstimatedCost } : d
-          ),
-        };
-        setScheduleData(merged);
-        setEditDraft(merged);
-      } else if (Array.isArray(result)) {
-        const serverMap = new Map(
-          result.map((srv) => {
-            const srvObj = typeof srv === 'string' ? { name: srv } : srv;
-            const ensured = ensurePlaceIds({ days: [{ places: [srvObj] }] }).days[0].places[0];
-            return [norm(ensured?.name), ensured];
-          })
-        );
-        nextPlaces = effectivePlaces.map((cli) => {
-          const hit = serverMap.get(norm(cli?.name));
-          const replaced = ensurePlaceFields(
-            hit ? { ...hit, gptOriginalName: normalizeHashtags(hit.gptOriginalName) }
-                : { ...cli, gptOriginalName: normalizeHashtags(cli.gptOriginalName) },
-            cli
-          );
-          return replaced;
-        });
-        nextPlaces = nextPlaces.map(p => ({ ...p, gptOriginalName: normalizeHashtags(p.gptOriginalName) }));
-
-        const merged = {
-          ...draft,
-          days: draft.days.map((d, i) =>
-            i === idx ? { ...d, places: (nextPlaces.length ? nextPlaces : d.places) } : d
-          ),
-        };
-        setScheduleData(merged);
-        setEditDraft(merged);
-      } else {
-        console.warn('[merge][unknown] result=', result);
-      }
-
-      setEditedPlaces(prev => { const n = { ...prev }; delete n[placeId]; return n; });
-      setListVersion(v => v + 1);
-    } catch (e) {
-      console.warn('editSchedule 실패, 로컬 보강만 반영:', e?.message);
-      setEditDraft(prev => {
-        const d = JSON.parse(JSON.stringify(prev));
-        d.days[idx].places = d.days[idx].places.map(p => ensurePlaceFields(p, p));
-        d.days[idx].places = d.days[idx].places.map(p => ({ ...p, gptOriginalName: normalizeHashtags(p.gptOriginalName) }));
-        setScheduleData(d);
-        return d;
-      });
-    }
+    try { await writeEditedDraft(merged); } catch(e) { console.warn('writeEditedDraft fail', e?.message); }
+    console.log('💾 [cache] PLAN_EDITED 업데이트 완료');
   };
 
-  // ====== multi-day 저장 관련 유틸 (기존 유지) ======
-  const DAY_INDEX_BASE = 0;
-  const ENABLE_DAYINDEX_FALLBACK = true;
-
-  async function postDays({ sid, draft, base = 0 }) {
-    for (let i = 0; i < draft.days.length; i++) {
-      const dayNames = draft.days[i].places.map(p => (p.name ?? '').trim()).filter(Boolean);
-      const sendIndex = i + base;
-      try {
-        await editSchedule(dayNames, { scheduleId: sid, dayIndex: sendIndex });
-      } catch (e) {
-        console.warn(`[EditDone][postDays] day=${sendIndex} 실패:`, e?.message);
-      }
-    }
-  }
-
-  const waitServerConsistency = async (sid, expectedSig, maxTry = 6, delayMs = 250) => {
-    for (let i = 0; i < maxTry; i++) {
-      const fresh = await getScheduleDetail(sid);
-      const ensured = ensurePlaceIds(fresh?.id ? fresh : { ...fresh, id: sid });
-      const gotSig = signatureOf(ensured);
-      if (gotSig && gotSig === expectedSig) return ensured;
-      await new Promise(r => setTimeout(r, delayMs));
-    }
-    return null;
-  };
-
-  // ====== 저장(편집 완료) ======
-  const onPressSave = () => { handleEditDone(); };
-
+  // ====== 편집 완료 → 캐시 확정 + resave(있을 때) ======
   const handleEditDone = async () => {
     try { Object.values(inputRefs.current || {}).forEach(r => r?.blur?.()); } catch {}
+
     if (!editDraft?.days?.length) {
       Alert.alert('오류', '편집본이 비어 있어 저장할 수 없습니다.');
       return;
     }
-    const sid = getNumericScheduleId();
-    if (!Number.isFinite(sid)) {
-      Alert.alert('오류', '유효한 일정 ID가 없습니다.');
-      return;
-    }
-    setIsRegenerating(true);
-    const closeAllLoading = () => { setIsRegenerating(false); };
-
-    // 입력 중 값 반영 + 빈 이름 제거
     const mergedDraft = JSON.parse(JSON.stringify(editDraft));
     for (let i = 0; i < mergedDraft.days.length; i++) {
       mergedDraft.days[i].places = mergedDraft.days[i].places
@@ -676,42 +729,53 @@ const handleAddPlace = (insertIndex) => {
         })
         .filter(p => (p.name ?? '').trim().length > 0);
     }
-    const expectedSig = signatureOf(mergedDraft);
+
+    await writeEditedDraft(mergedDraft);
+    console.log('💾 [editDone] PLAN_EDITED 캐시 갱신 완료');
+
+    setScheduleData(mergedDraft);
+    setEditDraft(mergedDraft);
+
+    const payload = buildResaveDaysPayload(mergedDraft);
+    const sid = getNumericScheduleId();
+    if (!Number.isFinite(sid)) {
+      setIsEditing(false);
+      setOriginalScheduleData(null);
+      console.log('⚠️ scheduleId 없음 — 초안 상태, 서버 resave pass');
+      return;
+    }
 
     try {
-      await saveCacheData(CACHE_KEYS.PLAN_EDITED, mergedDraft);
-
-      await postDays({ sid, draft: mergedDraft, base: DAY_INDEX_BASE });
-      let ensured = await waitServerConsistency(sid, expectedSig, 6, 250);
-      if (!ensured && ENABLE_DAYINDEX_FALLBACK) {
-        await postDays({ sid, draft: mergedDraft, base: DAY_INDEX_BASE === 0 ? 1 : 0 });
-        ensured = await waitServerConsistency(sid, expectedSig, 6, 250);
-      }
-
-      const finalData = ensured || mergedDraft;
-      setScheduleData(finalData);
-      setEditDraft(finalData);
-      setIsEditing(false);
-      setOriginalScheduleData(null);
+      openSaving();
+      const res = await resaveSchedule(sid, payload.days);
+      console.log('✅ [resave] result:', res);
 
       try {
-        await AsyncStorage.removeItem(CACHE_KEYS.PLAN_INITIAL);
-        await AsyncStorage.removeItem(CACHE_KEYS.PLAN_EDITED);
-      } catch {}
+        const fresh = await getScheduleDetail(sid);
+        const ensured = ensurePlaceIds(fresh?.id ? fresh : { ...fresh });
+        setScheduleData(ensured);
+        setEditDraft(ensured);
+        setListVersion(v => v + 1);
+      } catch (e) {
+        console.warn('⚠️ 재저장 후 상세 재조회 실패:', e?.message);
+      }
 
-      lastSavedSigRef.current = signatureOf(finalData) || expectedSig;
-      lastSavedAtRef.current = Date.now();
-
-      DeviceEventEmitter.emit('TRIPS_UPDATED', { scheduleId: sid, ts: Date.now() });
-      closeAllLoading();
-    } catch (e) {
-      console.warn('[EditDone] 전체 처리 실패:', e?.message);
-      setScheduleData(editDraft);
       setIsEditing(false);
       setOriginalScheduleData(null);
-      closeAllLoading();
+
+      lastSavedSigRef.current = signatureOf(mergedDraft);
+      lastSavedAtRef.current = Date.now();
+      DeviceEventEmitter.emit('TRIPS_UPDATED', { scheduleId: sid, ts: Date.now() });
+      Alert.alert('저장 완료', '플랜이 서버에 재저장되었습니다.');
+    } catch (e) {
+      console.error('❌ [resave] 실패', e);
+      Alert.alert('오류', '플랜 재저장에 실패했습니다.');
+    } finally {
+      closeSaving();
     }
   };
+
+  const onPressSave = () => { handleEditDone(); };
 
   // =====================
   // Render
@@ -860,7 +924,6 @@ const handleAddPlace = (insertIndex) => {
                                 <Text style={styles.placeType}>{place.type}</Text>
                               )}
                               {place.name && place.gptOriginalName && (
-                                // ✅ 렌더에서도 Set 유니크 처리 (서버가 중복 보내도 중복 노출 X)
                                 <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginTop: 2 }}>
                                   {Array.from(new Set(
                                     String(place.gptOriginalName || '')
@@ -894,7 +957,7 @@ const handleAddPlace = (insertIndex) => {
                         opacity: 1,
                       }}
                       disabled={hasPendingEmpty}
-  onPress={() => handleAddPlace(currentIndex)}
+                      onPress={() => handleAddPlace(currentIndex)}
                     >
                       <Text style={{ color: '#fff', fontSize: normalize(15), textAlign: 'center', lineHeight: normalize(20) }}>
                         장소추가
@@ -924,7 +987,7 @@ const handleAddPlace = (insertIndex) => {
                         <Text style={styles.timeText}>{place.fromPrevious.publicTransport}분</Text>
                       </View>
                       <View className="walk" style={styles.transportItem}>
-                        <View style={styles.iconSlot}><MaterialCommunityIcons name="walk" size={normalize(17)} color="#6B7280" /></View>
+                        <View className="walk" style={styles.iconSlot}><MaterialCommunityIcons name="walk" size={normalize(17)} color="#6B7280" /></View>
                         <Text style={styles.timeText}>{place.fromPrevious.walk}분</Text>
                       </View>
                     </View>
@@ -946,7 +1009,6 @@ const handleAddPlace = (insertIndex) => {
                         </View>
                         <Text style={styles.placeType}>{place.type}</Text>
                         {place.gptOriginalName && (
-                          // ✅ 읽기 모드 렌더도 유니크 처리
                           <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginTop: 2 }}>
                             {Array.from(new Set(
                               String(place.gptOriginalName || '')
@@ -987,10 +1049,10 @@ const handleAddPlace = (insertIndex) => {
           )}
         </View>
 
-        {/* 하단 버튼들 (기존 유지) */}
+        {/* 하단 버튼들 */}
         {isEditing ? (
           <View style={styles.fixedDoneButtonWrapper}>
-            <TouchableOpacity style={styles.fixedDoneButton} onPress={onPressSave}>
+            <TouchableOpacity style={styles.fixedDoneButton} onPress={handleEditDone}>
               <Text style={styles.fixedDoneButtonText}>플랜 수정 완료</Text>
             </TouchableOpacity>
           </View>
@@ -1054,15 +1116,45 @@ const handleAddPlace = (insertIndex) => {
                 onPress={async () => {
                   try {
                     setIsRegenerating(true);
-                    const params = await buildRecreateParams_();
-                    const response = await regenerateSchedule(params);
+                    const scheduleDataLocal = scheduleData;
+                    const paramsFromRoute = route?.params || {};
+                    const startDate = scheduleDataLocal?.startDate || paramsFromRoute?.startDate;
+                    const endDate   = scheduleDataLocal?.endDate   || paramsFromRoute?.endDate;
+                    const destination =
+                      scheduleDataLocal?.destination ||
+                      paramsFromRoute?.destination ||
+                      scheduleDataLocal?.regionCode ||
+                      paramsFromRoute?.regionCode ||
+                      null;
+                    const travelStyle = paramsFromRoute?.travelStyle || scheduleDataLocal?.travelStyle || 'NONE';
+                    const mbti        = paramsFromRoute?.mbti        || scheduleDataLocal?.mbti        || 'NONE';
+                    const peopleGroup = paramsFromRoute?.peopleGroup || scheduleDataLocal?.peopleGroup || 'NONE';
+                    const budget =
+                      (scheduleDataLocal?.days || [])
+                        .reduce((acc, d) => acc + (Number(d?.totalEstimatedCost) || 0), 0) ||
+                      paramsFromRoute?.budget ||
+                      0;
+                    if (!startDate || !endDate) {
+                      Alert.alert('재조회 불가', '여행 시작/종료 날짜를 찾을 수 없습니다.');
+                      setIsRegenerating(false);
+                      return;
+                    }
+                    if (!destination) {
+                      Alert.alert('재조회 불가', '목적지 정보가 없어 재조회할 수 없습니다. (destination)');
+                      setIsRegenerating(false);
+                      return;
+                    }
+                    const payload = { budget, destination, startDate, endDate, mbti, peopleGroup, travelStyle };
+                    const response = await regenerateSchedule(payload);
                     if (response?.days?.length) {
                       const next = ensurePlaceIds(response);
                       setScheduleData(next);
                       setSelectedDayIndex(0);
+                    } else {
+                      Alert.alert('재조회 실패', '서버에서 유효한 일정이 오지 않았습니다.');
                     }
                   } catch (err) {
-                    console.error('재조회 실패:', err?.response?.data || err?.message);
+                    console.warn('❌ 재조회 오류', err);
                     Alert.alert('오류', '플랜 재조회 중 오류가 발생했습니다.');
                   } finally {
                     setIsRegenerating(false);
@@ -1079,13 +1171,24 @@ const handleAddPlace = (insertIndex) => {
                 style={styles.regenerateButton}
                 onPress={async () => {
                   try {
-                    const current = scheduleData?.id ? scheduleData : { ...(scheduleData || {}), id: uuid.v4() };
+                    const cachedEdited = await getCacheData(CACHE_KEYS.PLAN_EDITED);
+                    const working     = await loadWorkingDraft();
+                    const latestBase  = working || cachedEdited || editDraft || scheduleData;
+                    if (!latestBase?.days?.length) {
+                      Alert.alert('저장 불가', '저장할 일정이 없습니다.');
+                      return;
+                    }
+                    const mergedClean = mergeAndCleanDraft(latestBase, editedPlaces);
+ const latest = ensurePlaceIds(mergedClean);
+
+                    const current = latest?.id ? latest : { ...(latest || {}), id: uuid.v4() };
                     const extractId = (obj) => {
                       const raw = obj?.serverId ?? obj?.scheduleId ?? obj?.scheduleNo ?? obj?.id;
                       const n = Number(String(raw ?? '').match(/^\d+$/)?.[0]);
                       return Number.isFinite(n) ? n : NaN;
                     };
                     let finalId = extractId(current);
+
                     try {
                       if (typeof saveSchedule === 'function') {
                         const saved = await saveSchedule(current);
@@ -1094,21 +1197,30 @@ const handleAddPlace = (insertIndex) => {
                         if (Number.isFinite(parsed)) finalId = parsed;
                       }
                     } catch (apiErr) {}
+
                     const forLocal = { ...current };
                     if (Number.isFinite(finalId)) forLocal.serverId = finalId;
+
                     const existing = await AsyncStorage.getItem('MY_TRIPS');
                     let trips = existing ? JSON.parse(existing) : [];
                     const idx = trips.findIndex(t => Number(t?.serverId ?? t?.id) === finalId);
                     if (idx !== -1) trips[idx] = { ...trips[idx], ...forLocal };
                     else trips.push(forLocal);
                     await AsyncStorage.setItem('MY_TRIPS', JSON.stringify(trips));
+
                     Alert.alert('저장 완료', '내 여행에 저장되었습니다.', [
                       {
                         text: '확인',
                         onPress: () => {
                           if (Number.isFinite(finalId)) {
-                            navigation.replace('PlannerResponse', { scheduleId: finalId, mode: 'read', from: 'PlannerCreate' });
-                          }
+       navigation.replace('PlannerResponse', {
+         scheduleId: finalId,
+         mode: 'read',
+         from: 'PlannerCreate',
+         initialData: latest,      // ✅ 내가 방금 저장한 편집본을 같이 전달
+         skipFirstFetch: true,     // ✅ 첫 렌더에서는 서버 재조회 스킵
+       });
+     }
                         },
                       },
                     ]);
@@ -1128,6 +1240,9 @@ const handleAddPlace = (insertIndex) => {
           <SplashScreen />
         </Modal>
         <Modal visible={isSaving} transparent animationType="fade">
+          <SplashScreen />
+        </Modal>
+        <Modal visible={isEditingLoading} transparent animationType="fade">
           <SplashScreen />
         </Modal>
       </View>
@@ -1155,16 +1270,16 @@ const styles = StyleSheet.create({
   container: { paddingHorizontal: normalize(16), marginBottom: -normalize(70), marginTop: normalize(0), backgroundColor: '#FAFAFA' },
   bottomButtonContainer1: {
     flexDirection: 'row',
-    paddingVertical: 0,                 
+    paddingVertical: 0,
     paddingHorizontal: normalize(16),
-    borderRadius: 0,                    
-    marginBottom: normalize(8)          
+    borderRadius: 0,
+    marginBottom: normalize(8)
   },
   bottomButtonContainer: {
-  flexDirection: 'row',
-  justifyContent: 'space-evenly', 
-  paddingVertical: normalize(10),
-},
+    flexDirection: 'row',
+    justifyContent: 'space-evenly',
+    paddingVertical: normalize(10),
+  },
   placeRow: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: normalize(32) },
   timeline: { width: normalize(30), alignItems: 'center', position: 'relative' },
   dot: { width: normalize(20), height: normalize(20), borderRadius: normalize(10), backgroundColor: '#6366F1', position: 'absolute', top: normalize(40), zIndex: 2 },
@@ -1193,16 +1308,16 @@ const styles = StyleSheet.create({
   timeText: { fontSize: normalize(14), width: normalize(44), textAlign: 'left', color: '#000' },
   dragHandle: { position: 'absolute', left: -normalize(45), top: normalize(25), padding: normalize(4), zIndex: 5 },
   editButton: {
-  flex: 1,
-  height: normalize(45),
-  borderRadius: normalize(12),
-  borderWidth: 1,
-  borderColor: '#4F46E5',
-  backgroundColor: '#fff',
-  alignItems: 'center',
-  justifyContent: 'center',
-  paddingHorizontal: normalize(8),
-},
+    flex: 1,
+    height: normalize(45),
+    borderRadius: normalize(12),
+    borderWidth: 1,
+    borderColor: '#4F46E5',
+    backgroundColor: '#fff',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: normalize(8),
+  },
   editButtonText: { fontSize: normalize(16), color: '#4F46E5' },
   saveButton: { flex: 1, height: normalize(45), borderRadius: normalize(12), borderWidth: 1, borderColor: '#4F46E5', backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center' },
   saveButtonText: { textAlign: 'center', color: '#4F46E5', fontSize: normalize(16) },
@@ -1211,7 +1326,7 @@ const styles = StyleSheet.create({
     bottom: normalize(60),
     left: normalize(16),
     right: normalize(16),
-    paddingVertical: 0,                 // 배경 제거 -> 여백도 최소화
+    paddingVertical: 0,
     borderRadius: 0
   },
   regenerateButton: { backgroundColor: '#4F46E5', borderRadius: normalize(10), paddingVertical: normalize(12), alignItems: 'center', borderWidth: 1, borderColor: '#4F46E5' },
