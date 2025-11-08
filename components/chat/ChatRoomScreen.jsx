@@ -18,10 +18,11 @@ import { ENUM_TO_PROVINCE_KOR, ENUM_TO_CITY_KOR } from '../common/regionMap';
 import { GENDER_ENUM_TO_KOR, STYLE_ENUM_TO_KOR } from '../matching/utils/matchingUtils'; // modal을 위한 ENUM 역변환
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons'
-import { getKorProvince, getKorCity } from '../common//regionMap';
 
-
-
+// 해당 파일에서 경고만 숨기기
+LogBox.ignoreLogs([
+  'Text strings must be rendered within a <Text> component',
+]);
 
 LogBox.ignoreLogs([  // text 괄호 경고 메세지 무시
   'Warning: Text strings must be rendered within a <Text> component',
@@ -56,6 +57,8 @@ const ChatRoomScreen = ({ route, navigation }) => {
   const { user } = useContext(UserContext); // ⬅️ 토큰 외의 정보(id, nickname)를 위해 유지
   const [refreshing, setRefreshing] = useState(false);
   const authTokenRef = useRef(null); // ⬅️ 동기 클린업에서 사용할 토큰 저장소
+  const messagesRef = useRef([]);
+  
 
   // 새로고침 추가 (AsyncStorage 사용)
   const handleRefresh = async () => {
@@ -116,22 +119,22 @@ const ChatRoomScreen = ({ route, navigation }) => {
   const [inputHeight, setInputHeight] = useState(45); // 기본 높이값 설정
   const [messages, setMessages] = useState([
     {
-      sender: 2, 
-      message: '이 문장은 아주 길어서 한 줄에 다 들어가지 않기 때문에 자동으로 줄이 바뀌고, 말풍선의 세로 높이도 늘어나게 됩니다. 줄바꿈이 잘 되는지 확인좀 하겠수다.',
-      timestamp: '2025-05-11 14:20',
-      unReadUserCount: 1,
-    },
-    {
-      sender: 2,
-      message: '저는 우도까지 갈 생각인데 같이 가실래요?',
-      timestamp: '2025-05-11 14:21',
-      unReadUserCount: 1,
-    },
-    {
-      sender: myId,
-      message: '넹 좋아요',
-      timestamp: '2025-05-11 14:22',
-      unReadUserCount: 0,
+    //   sender: 2, 
+    //   message: '이 문장은 아주 길어서 한 줄에 다 들어가지 않기 때문에 자동으로 줄이 바뀌고, 말풍선의 세로 높이도 늘어나게 됩니다. 줄바꿈이 잘 되는지 확인좀 하겠수다.',
+    //   timestamp: '2025-05-11 14:20',
+    //   unReadUserCount: 1,
+    // },
+    // {
+    //   sender: 2,
+    //   message: '저는 우도까지 갈 생각인데 같이 가실래요?',
+    //   timestamp: '2025-05-11 14:21',
+    //   unReadUserCount: 1,
+    // },
+    // {
+    //   sender: myId,
+    //   message: '넹 좋아요',
+    //   timestamp: '2025-05-11 14:22',
+    //   unReadUserCount: 0,
     },
   ]);
 
@@ -157,7 +160,11 @@ const ChatRoomScreen = ({ route, navigation }) => {
       return;
     }
 
-    setMessages((prev) => [...prev, msg]);
+    setMessages(prev => {
+      messagesRef.current = [...prev, msg];
+      return messagesRef.current;
+    });
+
     setTimeout(() => {
       flatListRef.current?.scrollToEnd({ animated: true });
     }, 100);
@@ -221,7 +228,7 @@ const ChatRoomScreen = ({ route, navigation }) => {
 
         // 4. STOMP 연결
         connectStompClient(roomId, handleReceiveMessage, token, async () => {
-          console.log('✅ [STOMP 연결 성공]');
+          console.log('✅ [STOMP 연결 성공]');  // haandleReciveMessage = onMessage
           setIsConnected(true); // 전송 허용 상태 설정
 
           setTimeout(() => {
@@ -280,7 +287,7 @@ const ChatRoomScreen = ({ route, navigation }) => {
         }
         removeListener();
       };
-    }, [roomId, navigation, handleReceiveMessage]); // ⬅️ [수정] 의존성 배열 업데이트
+    }, [roomId, navigation]); 
 
   
   const handleSend = () => {
@@ -356,18 +363,33 @@ const ChatRoomScreen = ({ route, navigation }) => {
     //   localeTime: new Date(item.timestamp).toLocaleTimeString('ko-KR'),
     // });}
 
-    // 출력되는 미국시간 ,한국시간을 보정.
     const formatToKoreanTime = (timestamp) => {
+    // 💡 [수정] 1. timestamp가 유효하지 않은 값(null, undefined, "")인지 먼저 확인
+    if (!timestamp) {
+      return '';
+    }
+
     const date = new Date(timestamp);
+
+    // 💡 [수정] 2. 'Invalid Date'인지 확인 (가장 중요)
+    if (isNaN(date.getTime())) {
+      console.warn('⚠️ [formatToKoreanTime] 유효하지 않은 timestamp:', timestamp);
+      return ''; // 크래시 대신 빈 문자열 반환
+    }
+
     const utcTime = date.getTime();
     const koreaTime = new Date(utcTime + 9 * 60 * 60 * 1000); // KST 보정
     return koreaTime.toTimeString().slice(0, 5); // "HH:MM"
   };
 
+    // 💡 [수정] 'Invalid Date' 오류를 피하기 위해 날짜 객체를 먼저 생성하고 유효성 검사
+    const currentDate = new Date(item.timestamp);
+    const prevDate = index > 0 ? new Date(messages[index - 1].timestamp) : null;
+
     const showDateLabel =
       index === 0 ||
-      new Date(item.timestamp).toDateString() !==
-        new Date(messages[index - 1].timestamp).toDateString();
+      ( !isNaN(currentDate) && !isNaN(prevDate) && // 👈 두 날짜가 모두 유효한지 확인
+        currentDate.toDateString() !== prevDate.toDateString() );
 
     return (
     <View>
@@ -498,7 +520,7 @@ const ChatRoomScreen = ({ route, navigation }) => {
           <TouchableOpacity style={styles.sendButton} onPress={handleSend}>
             <MaterialIcons
               name="navigation"
-              size={22}
+              size={28}
               color="#4F46E5"
               style={{ transform: [{ rotate: '40deg' }]}} // 아이콘 회전
             />
@@ -777,8 +799,8 @@ const styles = StyleSheet.create({
   },
   sendButton: {
     marginLeft: scale(10),
-    width: scale(33),
-    height: scale(33),
+    width: scale(45),
+    height: scale(45),
     borderRadius: scale(40),
     backgroundColor: '#E5E5EC',
     justifyContent: 'center',

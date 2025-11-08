@@ -1,8 +1,8 @@
 // components/commnuity/PostDetailScreen.jsx 게시글 상세보기기
 // 게시글 상세 전체(메인) 화면, 컴포넌트 조합
 import React, { useEffect, useState, useRef } from 'react';
-import { ScrollView, View, Text, StyleSheet, Dimensions, Image,
-   ActivityIndicator, useNavigation, BackHandler, Alert, RefreshControl, KeyboardAvoidingView, Platform ,FlatList
+import { View, Text, StyleSheet, Dimensions, Image,
+   ActivityIndicator, useNavigation, BackHandler, Alert, RefreshControl, Platform, KeyboardAvoidingView,
   } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import PostHeader from './common/PostHeader';
@@ -386,34 +386,50 @@ export default function PostDetailScreen({ route, navigation }) {
   /> 
 ); 
 
+  if (loading) { // ⬅️ post가 null일 때를 대비해 로딩 체크 추가
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: '#FAFAFA' }}>
+        <PostHeader
+          title="" // 로딩 중 빈 제목
+          showMore={false}
+          onBack={() => navigation.navigate('CommunityMain')}
+        />
+        <ActivityIndicator size="large" style={{ flex: 1 }} />
+      </SafeAreaView>
+    );
+  }
+
   if (!post) return <Text>게시글을 불러올 수 없습니다.</Text>;
  
     
-    return (
-    <KeyboardAvoidingView
-    behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-    style={{ flex: 1 }}
-    keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0} // 헤더 높이에 따라 조절
-  >
-      <SafeAreaView style={{ flex: 1, backgroundColor: '#FAFAFA' }}>
-        <PostHeader
-          title={post.title}
-          showMore={isMyPost}
-          onDelete={handleDelete}
-          onBack={() => navigation.navigate('CommunityMain')}
-          onEdit={() => navigation.navigate('EditPost', { postId: post.postId, post })}
-        />
-        <ScrollView
-      contentContainerStyle={{ paddingBottom: 30 }}
-      keyboardShouldPersistTaps="handled"
-    >
-      {renderHeader()}
-      {renderFooter()}
-    </ScrollView>
-      </SafeAreaView>
-    /</KeyboardAvoidingView>
+  return (
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#FAFAFA' }} edges={['top']}>
+      <PostHeader
+        showMore={isMyPost}
+        onBack={() => navigation.navigate('CommunityMain')}
+        onDelete={handleDelete}
+        onEdit={() => navigation.navigate('EditPost', { postId: post.postId, post })}
+      />
+
+      {/* 🔥 KeyboardAvoidingView로 전체 CommentSection 감싸기 */}
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 10 : 0} // PostHeader 높이
+        style={{ flex: 1 }}
+      >
+      <CommentSection
+        style={{ flex: 1 }} // ⬅️ [추가]
+        postId={post.postId}
+        myNickname={myNickname}
+        // comments={comments} // ⬅️ [제거] CommentSection이 내부에서 fetch
+        // setComments={setComments} // ⬅️ [제거]
+        ListHeaderComponent={renderHeader()} // ⬅️ [중요] 함수 실행 결과를 JSX로 전달
+      />
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
-}
+};
+
 
 const styles = StyleSheet.create({
   scrollContainer: { flex: 1 },

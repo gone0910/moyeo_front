@@ -12,28 +12,36 @@ const s = (x) => Math.round((W / BW) * x);
 const vs = (x) => Math.round((H / BH) * x);
 
 const formatListTime = (isoLike) => {
-  // ... (기존 코드와 동일)
   if (!isoLike) return '';
   try {
     const d = new Date(isoLike);
     if (isNaN(d.getTime())) return '';
 
-    const now = new Date();
-    const y = d.getFullYear();
-    const m = d.getMonth() + 1;
-    const day = d.getDate();
+    // +9시간 KST 변환 (핵심 추가)
+    const koreaTime = new Date(d.getTime() + 9 * 60 * 60 * 1000);
 
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const target = new Date(y, d.getMonth(), day);
+    const now = new Date();
+    // 현재도 KST로 맞춰야 오늘 날짜 체크에 문제 없음
+    const nowKorea = new Date(now.getTime() + 9 * 60 * 60 * 1000);
+
+    const y = koreaTime.getFullYear();
+    const m = koreaTime.getMonth() + 1;
+    const day = koreaTime.getDate();
+
+    const today = new Date(nowKorea.getFullYear(), nowKorea.getMonth(), nowKorea.getDate());
+    const target = new Date(y, koreaTime.getMonth(), day);
     const diffDays = Math.floor((today - target) / (1000 * 60 * 60 * 24));
 
     if (diffDays === 0) {
-      const hh = String(d.getHours()).padStart(2, '0');
-      const mm = String(d.getMinutes()).padStart(2, '0');
+      // 시간 표시도 KST 기준
+      const hh = String(koreaTime.getHours()).padStart(2, '0');
+      const mm = String(koreaTime.getMinutes()).padStart(2, '0');
       return `${hh}:${mm}`;
     }
+
     if (diffDays === 1) return '어제';
-    if (y === now.getFullYear()) return `${m}월 ${day}일`;
+
+    if (y === nowKorea.getFullYear()) return `${m}월 ${day}일`;
 
     const MM = String(m).padStart(2, '0');
     const DD = String(day).padStart(2, '0');

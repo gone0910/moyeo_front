@@ -195,7 +195,7 @@ const styles = StyleSheet.create({
   innerContainer: {
     flex: 1,
     justifyContent: 'center',
-    paddingLeft: scale(20),
+    paddingLeft: scale(10),
   },
   location: {
     width: scale(114),

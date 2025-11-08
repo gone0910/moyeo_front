@@ -632,7 +632,10 @@ setMessages(newMessages);
           </Text>
         </View>
         {/* 카드리스트(Bubble) */}
-        {CardListComp}
+        {/* 날씨 카드일 경우 왼쪽 공백을 주기 위해 View 감싸기 추가 */}
+        <View style={catLabel === '날씨' ? styles.weatherCardWrapper : null}>
+          {CardListComp}
+        </View>
       {/* BotMessageBlock 하단의 인터랙션 버튼이 자동으로 붙음 */}
       </BotMessageBlock>
     );
@@ -1118,4 +1121,7 @@ segDisabled: {
 segTextDisabled: {
   color: '#B0B0B0',
 },
+  weatherCardWrapper: {             //  날씨 카드 왼쪽 공백을 위한 스타일
+    marginLeft: scale(10), 
+  },
 });
