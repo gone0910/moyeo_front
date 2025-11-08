@@ -157,3 +157,48 @@ export const getCurrentDraftId = async () => {
     return null;
   }
 };
+// ====== 리스트/홈 캐시 키 ======
+export const EXTRA_CACHE_KEYS = {
+  PLAN_LIST: 'PLAN_LIST_CACHE',     // (프로젝트에서 리스트 캐시 키로 쓰는 이름으로 바꿔도 됨)
+  HOME_NEAREST: 'HOME_NEAREST_TRIP' // (홈 카드 캐시 키)
+};
+
+// 리스트/홈 캐시 일괄 무효화
+export const invalidateListAndHomeCaches = async () => {
+  try {
+    await AsyncStorage.multiRemove([
+      EXTRA_CACHE_KEYS.PLAN_LIST,
+      EXTRA_CACHE_KEYS.HOME_NEAREST,
+    ]);
+  } catch (e) {
+    console.warn('❌ 리스트/홈 캐시 무효화 오류:', e);
+  }
+};
+
+
+// (선택) 이벤트 발행 헬퍼
+export const emitTripsUpdated = (DeviceEventEmitter, payload = {}) => {
+  try {
+    DeviceEventEmitter?.emit?.(TRIPS_UPDATED_EVENT, payload);
+  } catch (e) {
+    // RN이 아니면 무시
+  }
+};
+
+// 편집본/조회본 비교용 시그니처 (덮어쓰기 가드)
+export const signatureOf = (obj) => {
+  try {
+    const days = (obj?.days ?? []).map(d => ({
+      date: d.date,
+      places: (d.places ?? []).map(p => ({
+        name: p?.name ?? '',
+        type: p?.type ?? '',
+        estimatedCost: p?.estimatedCost ?? null,
+        placeOrder: p?.placeOrder ?? null,
+      })),
+    }));
+    return JSON.stringify(days);
+  } catch {
+    return '';
+  }
+};

@@ -22,6 +22,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { fetchPlanList } from '../../api/MyPlanner_fetch_list';
 import { deleteSchedule } from '../../api/planner_delete_request';
+import { TRIPS_UPDATED_EVENT } from '../../caching/cacheService';
 
 const BASE_WIDTH = 390;
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -129,20 +130,20 @@ export default function MyTripsScreen() {
   );
 
   useEffect(() => {
-    const sub = DeviceEventEmitter.addListener('TRIPS_UPDATED', async () => {
-      try {
-        const { items } = await fetchPlanList();
-        const merged = await mergeWithLocalOverlay(Array.isArray(items) ? items : []);
-        const normalized = merged.map((t, i) => normalizeTripShape(t, i));
-        setMyTrips(normalized);
-        await AsyncStorage.setItem('MY_TRIPS', JSON.stringify(normalized));
-      } catch {
-        const raw = await AsyncStorage.getItem('MY_TRIPS');
-        setMyTrips(raw ? JSON.parse(raw) : []);
-      }
-    });
-    return () => sub.remove();
-  }, []);
+  const sub = DeviceEventEmitter.addListener(TRIPS_UPDATED_EVENT, async () => {
+    try {
+      const { items } = await fetchPlanList();
+      const merged = await mergeWithLocalOverlay(Array.isArray(items) ? items : []);
+      const normalized = merged.map((t, i) => normalizeTripShape(t, i));
+      setMyTrips(normalized);
+      await AsyncStorage.setItem('MY_TRIPS', JSON.stringify(normalized));
+    } catch {
+      const raw = await AsyncStorage.getItem('MY_TRIPS');
+      setMyTrips(raw ? JSON.parse(raw) : []);
+    }
+  });
+  return () => sub.remove();
+}, []);
 
   const containerWidth = Math.min(width * 0.99, normalize(600));
   const toggleEditMode = () => setIsEditing(!isEditing);
@@ -222,20 +223,29 @@ export default function MyTripsScreen() {
                   activeOpacity={0.3}
                   disabled={isEditing}
                   onPress={() => {
-                    const toPositiveInt = (v) => {
-                      const n = Number(String(v ?? '').match(/^\d+$/)?.[0]);
-                      return Number.isFinite(n) && n > 0 ? n : null;
-                    };
-                    const scheduleId = toPositiveInt(trip?.serverId) ?? toPositiveInt(trip?.id);
-                    if (!scheduleId) {
-                      Alert.alert('잘못된 일정', '유효한 서버 일정 ID가 없습니다.');
-                      return;
-                    }
-                    navigation.navigate('Home', {
-                      screen: 'PlannerResponse',
-                      params: { scheduleId, mode: 'read', from: 'MyTrips' },
-                    });
-                  }}
+  const toPositiveInt = (v) => {
+    const n = Number(String(v ?? '').match(/^\d+$/)?.[0]);
+    return Number.isFinite(n) && n > 0 ? n : null;
+  };
+
+  const scheduleId = toPositiveInt(trip?.serverId) ?? toPositiveInt(trip?.id);
+  if (!scheduleId) {
+    Alert.alert('잘못된 일정', '유효한 서버 일정 ID가 없습니다.');
+    return;
+  }
+
+  // ✅ 오직 숫자 ID만 전달 (initialData 제거)
+  //    이렇게 해야 PlannerResponseHome이 항상 서버의 최신 일정으로 렌더링됨
+  navigation.navigate('Home', {
+    screen: 'PlannerResponse',
+    params: {
+      scheduleId,
+      mode: 'read',
+      from: 'MyTrips',
+      forceFetch: true,
+    },
+  });
+}}
                 >
                   <View style={styles.tripContent}>
                     <View>
