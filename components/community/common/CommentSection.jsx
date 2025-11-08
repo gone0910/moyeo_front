@@ -18,26 +18,17 @@ const vScale = (size) => (SCREEN_HEIGHT / BASE_HEIGHT) * size;
 
 // ✅ mock 데이터 (더미 댓글)
 const mockCommentList = [
-  {
-    id: 101,
-    nickname: '도리',
-    content: '돌아버린거냐 저건 카레가 아니잖아',
-    profileUrl: 'https://placehold.co/36x36',
-    createdDate: '15분 전',
-    isMine: false,
-  },
-  {
-    id: 102,
-    nickname: '카레홀릭',
-    content: '맛있어요~',
-    profileUrl: 'https://placehold.co/36x36',
-    createdDate: '8분 전',
-    isMine: true,
-  },
+  // ... (mock 데이터) ...
 ];
 
-export default function CommentSection({ postId, myNickname = '', comments: propComments, setComments: setPropComments, 
-  ListHeaderComponent }, ref) {
+export default function CommentSection({ 
+  postId, 
+  myNickname = '', 
+  // comments: propComments, // ⬅️ [제거]
+  // setComments: setPropComments, // ⬅️ [제거]
+  ListHeaderComponent, // ⬅️ [추가]
+  style // ⬅️ [추가] (PostDetailScreen에서 flex: 1을 받음)
+}, ref) {
   const [input, setInput] = useState('');
   const [editId, setEditId] = useState(null); // 기존 입력란 수정
   const [editContent, setEditContent] = useState(''); // 댓글 직접 수정
@@ -53,30 +44,14 @@ export default function CommentSection({ postId, myNickname = '', comments: prop
   const editInputRefs = useRef({});
   const [commentsState, setCommentsState] = useState([]);
 
-  const comments = propComments ?? commentsState;
-  const setComments = setPropComments ?? setCommentsState;
+  const comments = commentsState;
+  const setComments = setCommentsState;
 
     useEffect(() => {
-    if (token && postId && myNickname) {
-      getCommentList(postId, token)
-        .then(commentData => {
-          setComments(
-            commentData.map(item => ({
-              id: item.commentId,
-              nickname: item.nickname,
-              content: item.comment,
-              profileUrl: item.userProfile,
-              createdDate: getRelativeTime(item.updatedAt),
-              isMine: item.nickname === myNickname,
-            }))
-          );
-          console.log('[초기 진입] 댓글 리스트 갱신', commentData);
-        })
-        .catch(error => {
-          console.error('[초기 진입] 댓글 리스트 불러오기 실패:', error);
-        });
-    }
-  }, [token, postId, myNickname]);
+    // if (propComments) return; // ⬅️ [제거]
+    if (!token || !postId || !myNickname) return; // ⬅️ [변경] myNickname 확인
+    fetchComments();
+  }, [token, postId, myNickname]); // ⬅️ [변경] propComments 의존성 제거
 
 
   // 새로고침 핸들러
@@ -145,21 +120,18 @@ export default function CommentSection({ postId, myNickname = '', comments: prop
 
   // 화면 진입/댓글 CRUD 후 목록 새로고침
   useEffect(() => {
-    if (propComments) return; // props로 comments가 오면 내부 fetchComments 호출 안함
+    // if (propComments) return; // ⬅️ [제거]
     if (!token || !postId) return;
     fetchComments();
-  }, [token, postId, propComments]);
+  }, [token, postId]); // ⬅️ [제거] propComments 의존성 제거
 
-  // 3. 댓글 등록/수정
+  // 3. 댓글 등록 (하단 입력창 전용)
   const handleSubmit = async () => {
     if (!input.trim()) return;
     try {
-      if (editId) {
-        await editComment(editId, input, token);
-        setEditId(null);
-      } else {
-        await createComment(postId, input, token);
-      }
+      // ⬇️ [변경] 하단 입력창은 '등록' 전용이므로 editId 확인 로직 제거
+      await createComment(postId, input, token);
+      
       setInput('');
       await fetchComments();
       // [댓글 등록/수정 후 하단 자동 스크롤 + 포커스]
@@ -170,7 +142,7 @@ export default function CommentSection({ postId, myNickname = '', comments: prop
 
       }, 200);
     } catch (e) {
-      alert('댓글 등록/수정 실패');
+      alert('댓글 등록 실패'); // ⬅️ [수정]
     }
   };
 
@@ -197,24 +169,29 @@ export default function CommentSection({ postId, myNickname = '', comments: prop
     );
   };
 
-  // 5. 수정 버튼
-  const handleEdit = (id, content) => {
-    setEditId(id);
-    setEditContent(content);
-    setTimeout(() => {
-    const idx = comments.findIndex(c => c.id === id);
-    if (idx >= 0 && flatListRef.current) {
+  // 5. 수정 버튼 (모달에서 '수정' 눌렀을 때)
+  const handleEdit = (id, content, index) => { // 🔥 index 파라미터 추가
+  setEditId(id);
+  setEditContent(content);
+  
+  // 🔥 스크롤 + 포커스 타이밍 개선
+  setTimeout(() => {
+    if (flatListRef.current) {
       flatListRef.current.scrollToIndex({
-        index: idx,
+        index: index,
         animated: true,
-        viewPosition: 0.6
+        viewPosition: 0.3,
       });
-    }  // 수정 버튼 누를시 포커싱 + 키보드 오픈.
-      editInputRefs.current[id]?.focus && editInputRefs.current[id].focus();
+    }
+    
+    // 스크롤 완료 후 포커스
+    setTimeout(() => {
+      editInputRefs.current[id]?.focus();
     }, 400);
-  };
+  }, 100);
+};
 
-  //(3) 댓글 수정  저장 함수 추가
+  //(3) 댓글 수정 저장 함수 추가 (인라인 '수정' 버튼)
   const handleInlineEditSubmit = async (id) => {
     if (!editContent.trim()) return;
     try {
@@ -231,7 +208,7 @@ export default function CommentSection({ postId, myNickname = '', comments: prop
   const moreBtnRefs = useRef({}); // 각 댓글별 ref 저장(댓글 모달 높이 )
 
   // 댓글 랜더 (1개)
-  const renderItem = ({ item }) => (
+  const renderItem = ({ item, index }) => ( // ⬅️ [복원] index 파라미터
   <View style={styles.commentRow}>
     {/* 첫 줄: 프로필 + 닉네임 + (오른쪽) 시간 + 더보기 */}
     <View style={styles.topRow}>
@@ -278,7 +255,7 @@ export default function CommentSection({ postId, myNickname = '', comments: prop
                 ]}>
                   <TouchableOpacity
                     style={styles.menuEdit}
-                    onPress={() => { setOpenMenuId(null); handleEdit(item.id, item.content); }}
+                    onPress={() => { setOpenMenuId(null); handleEdit(item.id, item.content, index); }}
                     activeOpacity={0.85}
                   >
                     <Text style={[styles.menuText, { color: '#4F46E5' }]}>수정</Text>
@@ -304,13 +281,14 @@ export default function CommentSection({ postId, myNickname = '', comments: prop
         {editId === item.id ? (
       <View style={{ flex: 1 }}>
         <TextInput
-          ref={ref => { editInputRefs.current[item.id] = ref; }}
+          ref={(ref) => { editInputRefs.current[item.id] = ref; }}
           value={editContent}
           onChangeText={setEditContent}
           style={[styles.commentContent, { backgroundColor: '#ffffff', minHeight: 34 }]}
           multiline
-          autoFocus
           maxLength={200}
+          // onFocus={() => {
+          // }}
         />
         {/* 버튼 우측정렬 */}
         <View style={{ flexDirection: 'row', marginTop: 6, justifyContent: 'flex-end', alignItems: 'center' }}>
@@ -340,13 +318,13 @@ export default function CommentSection({ postId, myNickname = '', comments: prop
 
   return (
     // 전체를 flex:1 View로 감싼다
-    <View style={{ flex: 1 }}>
+    <View style={style}> {/* ⬅️ [수정] PostDetailScreen에서 받은 style(flex:1) 적용 */}
       {/* 댓글 리스트 */}
       <FlatList
         ref={flatListRef}
-        ListHeaderComponent={ListHeaderComponent}
+        ListHeaderComponent={ListHeaderComponent} // ⬅️ [적용]
         data={comments}
-        renderItem={renderItem}
+        renderItem={renderItem} // ⬅️ [적용] index와 onFocus 로직이 추가된 renderItem
         keyExtractor={(item, idx) => (item.id ?? idx).toString()}
         getItemLayout={(data, index) => ({
           length: vScale(100),
@@ -366,6 +344,16 @@ export default function CommentSection({ postId, myNickname = '', comments: prop
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
         removeClippedSubviews={false} // ← 포커싱 시 키보드 자동 닫힘 방지
+        onScrollToIndexFailed={(info) => {
+          const wait = new Promise((resolve) => setTimeout(resolve, 500));
+          wait.then(() => {
+            flatListRef.current?.scrollToIndex({
+              index: info.index,
+              animated: true,
+              viewPosition: 0.3,
+            });
+          });
+        }}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -376,40 +364,42 @@ export default function CommentSection({ postId, myNickname = '', comments: prop
         }
       />
 
-      {/* 하단 입력창만 KeyboardAvoidingView로 분리 */}
+      {/* 하단 입력창만 KeyboardAvoidingView로 분리
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 80 : 0} // iOS는 필요에 따라 조정 (60~120)
-      >
+      > */}
         <View style={styles.inputRow}>
           <TextInput
-            ref={inputRef}
-            placeholder="댓글을 작성해 주세요."
-            value={input}
-            onChangeText={setInput}
-            maxLength={200}
-            editable={editId === null}
-            style={[
-              styles.input,
-              { 
-                height: Math.max(minHeight, Math.min(inputHeight, maxHeight)),
-                fontSize: scale(14),
-                backgroundColor: editId === null ? '#FFF' : '#fff',
-                color: editId === null ? '#000' : '#B0B0B0',
-              }
-            ]}
-            placeholderTextColor="#7E7E7E"
-            multiline
-            onContentSizeChange={e => setInputHeight(e.nativeEvent.contentSize.height)}
-            textAlignVertical="center"
-            returnKeyType="default"
+              ref={inputRef}
+              placeholder="댓글을 작성해 주세요."
+              value={input}
+              onChangeText={setInput}
+              maxLength={200}
+              editable={editId === null}
+              style={[
+                styles.input,
+                {
+                  // height, minHeight, maxHeight 제거!
+                  fontSize: scale(14),
+                  backgroundColor: editId === null ? '#FFF' : '#FAFAFA',
+                  color: editId === null ? '#000' : '#B0B0B0',
+                  paddingVertical: 10, // or vScale(10)
+                },
+              ]}
+              placeholderTextColor="#7E7E7E"
+              multiline
+              scrollEnabled={true}
+              // onContentSizeChange={e => setInputHeight(e.nativeEvent.contentSize.height)} // 생략 가능
+              textAlignVertical="top"
+              returnKeyType="default"
             onFocus={() => {
               setTimeout(() => {
                 if (flatListRef.current && typeof flatListRef.current.scrollToEnd === 'function') {
                   flatListRef.current.scrollToEnd({ animated: true });
-                  console.log('Scrolled to end');
+                  console.log('Scrolled to end'); // ⬅️ [보존]
                 } else {
-                  console.warn('scrollToEnd method not found on flatListRef: 해당 모듈 확인바람.');
+                  console.warn('scrollToEnd method not found on flatListRef: 해당 모듈 확인바람.'); // ⬅️ [보존]
                 }
               }, 100);
             }}
@@ -418,17 +408,18 @@ export default function CommentSection({ postId, myNickname = '', comments: prop
             style={[
               styles.submitBtn,
               { 
+                // ⬇️ [복원] 비활성화 시 스타일
                 backgroundColor: input.trim() && editId === null ? '#FFFFFF' : '#FAFAFA',
                 opacity: editId === null ? 1 : 0.5,
               }
             ]}
             onPress={handleSubmit}
-            disabled={!input.trim() || editId !== null}
+            disabled={!input.trim() || editId !== null} // ⬅️ [복원]
           >
             <Text style={styles.submitText}>등록</Text>
           </TouchableOpacity>
         </View>
-      </KeyboardAvoidingView>
+      {/* </KeyboardAvoidingView> */}
 
   </View>
   );
@@ -585,7 +576,8 @@ const styles = StyleSheet.create({
     borderRadius: scale(16),
     minHeight: vScale(40), // 고정X
     maxHeight: vScale(31) * 5 + vScale(8),
-    marginTop: vScale(8),
+    marginTop: vScale(4),
+    marginBottom: vScale(8),
     marginHorizontal: scale(13),
     paddingHorizontal: scale(8),
     borderWidth: 1,

@@ -380,13 +380,12 @@ export default function EditPostScreen({ route, navigation }) {
           <TouchableOpacity onPress={() => navigation.goBack()}>
             <Ionicons name="chevron-back" size={24} color="#4F46E5" />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>글쓰기</Text>
+          <Text style={styles.headerTitle}>글 수정</Text>
           <TouchableOpacity onPress={handleEdit}>
             <Text style={styles.registerText}>수정완료</Text>
           </TouchableOpacity>
         </View>
-        <View style={styles.headerLine
-        } />
+        {/* <View style={styles.headerLine}/> */}
         {/* 목적지 필터 */}
         <View style={styles.filterSection}>
   <Text style={styles.filterLabel}>목적지 필터</Text>

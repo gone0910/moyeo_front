@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, TextInput, Image, FlatList,
-  Dimensions, Platform, ScrollView, PixelRatio, Keyboard, TouchableWithoutFeedback,SafeAreaView
+  Dimensions, Platform, ScrollView, PixelRatio, Keyboard, TouchableWithoutFeedback
 } from 'react-native';
 import { Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -10,6 +10,7 @@ import ToggleSelector from '../common/ToggleSelector';
 import { useNavigation } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
 import { createCommunityPost } from '../../api/community_create_request';
+import { SafeAreaView } from "react-native-safe-area-context";
 
 const { width, height } = Dimensions.get('window');
 const MAX_IMAGES = 5;

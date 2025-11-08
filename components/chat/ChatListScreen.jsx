@@ -19,6 +19,12 @@ import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import ChatRoomCard from './common/ChatRoomCard'; // [대체] 경로 확인
 import { fetchChatRooms, exitChatRoom } from '../../api/chat'; // [UPDATED] 실제 경로 확인
+import { LogBox } from 'react-native';
+
+// 해당 파일에서 경고만 숨기기
+LogBox.ignoreLogs([
+  'Text strings must be rendered within a <Text> component',
+]);
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const BASE_WIDTH = 390;
@@ -39,9 +45,6 @@ const colors = {
   gray200: '#E5E7EB',
 };
 
-// =========================
-// [대체] 디자인 확인용 MOCK — 백엔드 필드명 그대로
-// =========================
 const DESIGN_MOCK = [
   {
     roomId: 'mock-1',
@@ -317,9 +320,9 @@ export default function ChatListScreen() {
         data={(chatRooms || []).filter(Boolean)}
         keyExtractor={(item, idx) => String(item?.roomId ?? idx)}
         renderItem={memoizedRenderItem}
-        ItemSeparatorComponent={Separator} // [REFACTORED]
-        ListEmptyComponent={memoizedListEmptyComponent} // [REFACTORED]
-        contentContainerStyle={{ paddingBottom: normalize(40, 'height'), paddingTop: normalize(15, 'height') }} // 상단헤더, card사이 공백
+        ItemSeparatorComponent={Separator} 
+        ListEmptyComponent={memoizedListEmptyComponent} 
+        contentContainerStyle={{ flexGrow: 1, paddingBottom: normalize(40, 'height'), paddingTop: normalize(15, 'height') }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         keyboardShouldPersistTaps="handled"
         alwaysBounceVertical={true} // 아이폰에서도 제스쳐를 통한 갱신 영역 확장

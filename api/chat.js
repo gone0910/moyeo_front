@@ -40,7 +40,7 @@ export const fetchChatRooms = async () => { // ⬅️ [변경] token 인자 제�
     const res = await api.get('/chat/my/rooms'); // ⬅️ [변경] axiosInstance -> api, headers 제거
 
     // 응답 전체 구조 로깅
-    console.log('[원시 응답 원본]', JSON.stringify(res.data, null, 2));
+    //console.log('[원시 응답 원본]', JSON.stringify(res.data, null, 2));
 
     return res.data;
 
