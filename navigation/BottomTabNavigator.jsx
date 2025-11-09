@@ -18,7 +18,10 @@ export const defaultTabBarStyle = {
   height: 70,
   paddingBottom: 6,
   paddingTop: 6,
-  backgroundColor: '#FFFFFF',
+  backgroundColor: '#FAFAFA', // 너가 바꾸고 싶었던 색
+  borderTopWidth: 0,          // ✅ 상단선 제거
+  elevation: 0,               // ✅ Android 그림자 제거
+  shadowOpacity: 0,           // ✅ iOS 그림자 제거
 };
 
 // (참고) 스타일 숨김 세트 — 커스텀 tabBar(null)로 가리므로 보조용
@@ -91,7 +94,20 @@ tabBarInactiveTintColor: '#76758B',   // 비활성: 회색
         } catch (e) {
           // 안전망: 문제 생기면 기본 탭바
           if (__DEV__) console.warn('[tabbar] custom check failed:', e);
-          return <BottomTabBar {...props} />;
+          return <BottomTabBar
+    {...props}
+    style={[
+      props.style,
+      shouldHide
+        ? {
+            opacity: 0,
+            height: 0,
+            pointerEvents: 'none',
+            borderTopWidth: 0,
+          }
+        : defaultTabBarStyle,
+    ]}
+  /> 
         }
       }}
     >

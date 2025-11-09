@@ -327,7 +327,7 @@ export default function PlannerInfoScreen() {
   /* ===== 예산 시트 (임시 상태) ===== */
   const [tmpBudget, setTmpBudget] = useState(0);
   const openBudgetSheet = () => {
-    setTmpBudget(typeof budget === 'number' ? budget : 0);
+    setTmpBudget(typeof budget === 'number' ? budget : 200000);
     setSheet('budget');
   };
   const confirmBudget = () => {
@@ -338,9 +338,9 @@ export default function PlannerInfoScreen() {
   /* ===== MBTI 시트 (임시 상태) ===== */
   const [tmpMbti, setTmpMbti] = useState(null);
   const openMbtiSheet = () => {
-    setTmpMbti(selectedMbti);
-    setSheet('mbti');
-  };
+  setTmpMbti(selectedMbti ?? 'NONE'); // 또는 '선택없음'으로 사용하는 경우
+  setSheet('mbti');
+};
   const confirmMbti = () => {
     setSelectedMbti(tmpMbti);
     setSheet(null);
@@ -576,6 +576,7 @@ export default function PlannerInfoScreen() {
             monthFormat={'yyyy년 M월'}
             enableSwipeMonths
             firstDay={0}
+            minDate={new Date().toISOString().split('T')[0]} // ⬅️ 이 줄 추가
             style={{ backgroundColor: '#fff', borderRadius: normalize(12) }}
             theme={{
               calendarBackground: '#FFFFFF',
@@ -761,12 +762,12 @@ export default function PlannerInfoScreen() {
           </View>
           <Slider
             style={{ width: '100%', height: normalize(40) }}
-            minimumValue={0}
+            minimumValue={200000}
             maximumValue={1000000}
             step={10000}
-            minimumTrackTintColor={tmpBudget===0 ? '#ccc' : '#c7c4ff'}
-            maximumTrackTintColor={tmpBudget===0 ? '#eee' : '#c7c4ff'}
-            thumbTintColor={tmpBudget===0 ? '#999' : '#726BEA'}
+            minimumTrackTintColor={tmpBudget===200000 ? '#ccc' : '#c7c4ff'}
+            maximumTrackTintColor={tmpBudget===200000 ? '#eee' : '#c7c4ff'}
+            thumbTintColor={tmpBudget===200000 ? '#999' : '#726BEA'}
             value={tmpBudget}
             onValueChange={setTmpBudget}
           />
