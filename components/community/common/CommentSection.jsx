@@ -24,9 +24,7 @@ const mockCommentList = [
 export default function CommentSection({ 
   postId, 
   myNickname = '', 
-  // comments: propComments, // ⬅️ [제거]
-  // setComments: setPropComments, // ⬅️ [제거]
-  ListHeaderComponent, // ⬅️ [추가]
+  ListHeaderComponent, // 
   style // ⬅️ [추가] (PostDetailScreen에서 flex: 1을 받음)
 }, ref) {
   const [input, setInput] = useState('');
@@ -318,11 +316,11 @@ export default function CommentSection({
 
   return (
     // 전체를 flex:1 View로 감싼다
-    <View style={style}> {/* ⬅️ [수정] PostDetailScreen에서 받은 style(flex:1) 적용 */}
+    <View style={style}> {/* PostDetailScreen에서 받은 style(flex:1) 적용 */}
       {/* 댓글 리스트 */}
       <FlatList
         ref={flatListRef}
-        ListHeaderComponent={ListHeaderComponent} // ⬅️ [적용]
+        ListHeaderComponent={ListHeaderComponent} // 
         data={comments}
         renderItem={renderItem} // ⬅️ [적용] index와 onFocus 로직이 추가된 renderItem
         keyExtractor={(item, idx) => (item.id ?? idx).toString()}
@@ -367,7 +365,7 @@ export default function CommentSection({
       {/* 하단 입력창만 KeyboardAvoidingView로 분리
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 80 : 0} // iOS는 필요에 따라 조정 (60~120)
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0} 
       > */}
         <View style={styles.inputRow}>
           <TextInput

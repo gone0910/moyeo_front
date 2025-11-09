@@ -71,7 +71,7 @@ export default function EditPostScreen({ route, navigation }) {
     const Province = {
       '선택안함': 'NONE',
       '서울': 'SEOUL',
-      '제주': 'JEJU',
+      '제주도': 'JEJU',
       '경기도': 'GYEONGGI',
       '강원도': 'GANGWON',
       '충청북도': 'CHUNGBUK',
@@ -270,35 +270,8 @@ export default function EditPostScreen({ route, navigation }) {
       token
     );
     console.log('게시글 수정 요청 완료, 서버 응답:', result);
-
-    navigation.reset({
-        index: 0, // 스택의 최상위는 BottomTab (하나만 있음)
-        routes: [
-          {
-            name: 'BottomTab', // 1. 최상위 스택은 BottomTab
-            state: {
-              index: 3, // 2. BottomTab의 4번째 탭(Community)을 활성화
-                        // (0:Home, 1:MyTrips, 2:Chat, 3:Community)
-              routes: [
-                // 3. 모든 탭 스크린을 정의
-                { name: 'Home' },
-                { name: 'MyTrips' },
-                { name: 'Chat' },
-                {
-                  name: 'Community', // 4. Community 탭의 상태를 지정
-                  state: {
-                    index: 1, // 5. Community 스택을 [CommunityMain, PostDetail]로 재설정
-                    routes: [
-                      { name: 'CommunityMain' },
-                      { name: 'PostDetail', params: { postId } } // 6. PostDetail을 활성화
-                    ],
-                  },
-                },
-              ],
-            },
-          },
-        ],
-      });
+    
+    navigation.replace('PostDetail', { postId, postUpdated: true });
 
   } catch (err) {
     // ✅ 반드시 에러 핸들링 (알림, 콘솔, 등)
@@ -392,7 +365,7 @@ export default function EditPostScreen({ route, navigation }) {
   <View style={{ paddingHorizontal: 0, paddingBottom: 0 }}>
     <ToggleSelector
       items={[
-         "서울", "제주", "경기도", "강원도", "충청북도",
+         "선택안함", "서울", "제주도", "경기도", "강원도", "충청북도",
         "충청남도", "전라북도", "전라남도", "경상북도", "경상남도"
       ]}
       selectedItem={selectedRegion}
@@ -421,7 +394,7 @@ export default function EditPostScreen({ route, navigation }) {
         />
       </View>
     )}
-    {selectedRegion === '제주' && (
+    {selectedRegion === '제주도' && (
       <View style={{ marginTop: 4 }}>
         <ToggleSelector
           items={["선택안함","제주시", "서귀포시"]}

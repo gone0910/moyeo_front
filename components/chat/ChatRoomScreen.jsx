@@ -34,6 +34,9 @@ const BASE_HEIGHT = 844;
 const scale = (size) => (SCREEN_WIDTH / BASE_WIDTH) * size;
 const vScale = (size) => (SCREEN_HEIGHT / BASE_HEIGHT) * size;
 
+const MIN_HEIGHT = vScale(45); 
+const MAX_HEIGHT = vScale(120); 
+
 // 백엔드에서 받아온 지역 NONE 처리 변환 함수
 function formatDestination(province, cities = []) {
   // province: 'SEOUL' 등 ENUM, cities: ['NONE'] 또는 []
@@ -309,7 +312,7 @@ const ChatRoomScreen = ({ route, navigation }) => {
     sendMessage(roomId, newMessage);
     // setMessages((prev) => [...prev, { ...newMessage, unReadUserCount: 1 }]); // ✅ 로컬 렌더링
     setInput('');
-    setInputHeight(45);
+    setInputHeight(MIN_HEIGHT);
     setTimeout(() => {
       flatListRef.current?.scrollToEnd({ animated: true });
     }, 100);
@@ -501,21 +504,16 @@ const ChatRoomScreen = ({ route, navigation }) => {
       {/* ✅ 하단 입력창 */}
         <View style={styles.inputBar}>
           <TextInput
-            style={[styles.textInput, { height: Math.max(45, Math.min(inputHeight, 180)), // 180px 이상 안 커지게 제한 (예시)
-              // textAlign: 'center',
-              // textAlignVertical: 'center'
-
-             }]} // ✅ 입력창 높이 자동 조절
+            style={[styles.textInput, { height: Math.max(MIN_HEIGHT, Math.min(inputHeight, MAX_HEIGHT)),
+             }]} // 입력창 높이 자동조절
             value={input}
             onChangeText={setInput}
-            multiline={true}
+            multiline
             placeholder="메세지 입력"
             placeholderTextColor="#616161"
             maxLength={1000}  // 최대 1000자 입력 제한
             returnKeyType="default"
-            onContentSizeChange={(e) =>
-              setInputHeight(e.nativeEvent.contentSize.height)
-            }
+            onContentSizeChange={e => setInputHeight(e.nativeEvent.contentSize.height)}
           />
           <TouchableOpacity style={styles.sendButton} onPress={handleSend}>
             <MaterialIcons
@@ -787,15 +785,15 @@ const styles = StyleSheet.create({
   },
   textInput: {
     flex: 1,
-    height: vScale(45),
+    // height 설정 안 함! 동적으로 관리
     backgroundColor: '#E5E5EC',
     borderRadius: scale(25),
     paddingHorizontal: scale(16),
     fontSize: scale(16),
-    fontFamily: 'Roboto',
     color: '#616161',
-    textAlignVertical: 'center', // Android 세로중앙
-    paddingVertical: Platform.OS === 'ios' ? vScale(14) : 0, // iOS 세로중앙
+    // 아래 2개는 Platform별 세로 정렬 일치
+    textAlignVertical: 'center',
+    paddingVertical: Platform.OS === 'ios' ? vScale(14) : 0,
   },
   sendButton: {
     marginLeft: scale(10),

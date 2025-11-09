@@ -93,7 +93,7 @@ export default function ProfileHomeScreen({ route }) {
           onPress={confirmLogout}
           accessibilityLabel="로그아웃"
         >
-          <MaterialIcons name="logout" size={normalize(22)} color="#F97575" />
+          <MaterialIcons name="logout" size={normalize(27)} color="#F97575" />
         </TouchableOpacity>
       </View>
 
@@ -149,9 +149,10 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#FFFFFF',
-    paddingHorizontal: normalize(32), // <-- [FIX] 14 -> 32 (EditProfile의 formArea와 동일하게)
+    paddingHorizontal: normalize(32), 
     paddingTop: normalize(18, 'height'),
-    paddingBottom: normalize(24, 'height'), // <-- [ADD] EditProfile의 scrollContent와 동일하게
+    // [MODIFY] 버튼 높이(56) + 하단 여백(24) 만큼 공간 확보
+    paddingBottom: normalize(56 + 24, 'height'), 
   },
 
   /** =========================
@@ -177,8 +178,8 @@ const styles = StyleSheet.create({
     marginLeft: normalize(8),
   },
   logoutButton: {
-    width: normalize(24),
-    height: normalize(24),
+    width: normalize(27),
+    height: normalize(27),
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -265,11 +266,14 @@ const styles = StyleSheet.create({
    * ========================= */
 
   footerWrapper: {
-    marginTop: normalize(76, 'height'), 
-
+    // [DELETE] marginTop: normalize(76, 'height'), // <-- 삭제
+    position: 'absolute',
+    bottom: normalize(45, 'height'),
+    left: normalize(32),
+    right: normalize(32),
   },
   editButton: {
-    marginHorizontal: normalize(-8),
+    marginHorizontal: normalize(-10),
     height: normalize(56, 'height'), 
     borderRadius: normalize(12),
     backgroundColor: '#4F46E5', 

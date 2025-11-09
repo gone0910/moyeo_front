@@ -58,7 +58,7 @@ const getWeatherImage = (weatherType, dayType) => {
 // 낮밤 구분.
 function getDayTypeByHour(hour) {
   // 06~19시는 낮(day), 그 외는 밤(night)
-  if (hour >= 6 && hour < 19) return 'day';
+  if (hour >= 6 && hour < 18) return 'day';
   return 'night';
 }
 
@@ -107,7 +107,7 @@ const dummyWeatherList = [
 
 
 // ✅ 카드 내부 내용 컴포넌트
-function WeatherCardContent({ region, currentTemp, minTemp, maxTemp, rainProbability, timestamp }) {
+function WeatherCardContent({ region, currentTemp, minTemp, maxTemp, rainProbability, timestamp, dayType }) {
 
     const getTimeLabel = (ts) => {
   if (!ts) return '';
@@ -146,7 +146,12 @@ function WeatherCardContent({ region, currentTemp, minTemp, maxTemp, rainProbabi
         <Text style={styles.precipValue}>{rainProbability}</Text>
       </View>
 
-      <Text style={styles.timeInfo}>{getTimeLabel(timestamp)}</Text>
+      <Text style={[
+        styles.timeInfo, 
+        { color: dayType === 'night' ? '#FFFFFF' : '#606060' }
+      ]}>
+        {getTimeLabel(timestamp)}
+      </Text>
     </View>
   );
 }
