@@ -12,6 +12,11 @@ const BASE_HEIGHT = 844;
 const scale = (size) => (SCREEN_WIDTH / BASE_WIDTH) * size;
 const vScale = (size) => (SCREEN_HEIGHT / BASE_HEIGHT) * size;
 
+// 너비 계산에 필요한 상수 정의
+const CARD_WIDTH = scale(233);
+const LIST_PADDING_HORIZONTAL = scale(11);
+const MAX_WIDTH = scale(359);
+
 // props.data로 값 받음, 없으면 더미 예시
 const dummyFoodList = [
   {
@@ -46,8 +51,8 @@ function FoodCardContent({ name, menu, hours, priceRange, location }) {
         <ScrollView
           horizontal={true}
           showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.headerScrollContent} // ⬅️ 정렬 스타일 적용
-          nestedScrollEnabled={true} // ⬅️ 중첩 스크롤 활성화
+          contentContainerStyle={[styles.headerScrollContent, { paddingHorizontal: 10 }]} 
+          nestedScrollEnabled={true}
         >
           <Text style={styles.headerTitle}>{name}</Text>
         </ScrollView>
@@ -94,12 +99,33 @@ function FoodCardContent({ name, menu, hours, priceRange, location }) {
 
 
 export default function ResultFoodBubble({ data }) {
-  const foodList = data || dummyFoodList;
+  const eventList = data || dummyEventList;
+  
+  // 아이템 개수 파악
+  const itemCount = eventList.length;
+
+  //  아이템 개수에 따라 동적 너비 계산
+  let dynamicWidth;
+
+  if (itemCount === 1) {
+    // 1개일 때 = (좌우 여백 * 2) + (카드 너비 * 1)
+    // (scale(11) * 2) + scale(233) = scale(255)
+    dynamicWidth = (LIST_PADDING_HORIZONTAL * 2) + CARD_WIDTH;
+  } else {
+    // 0개이거나 2개 이상일 때는 기존 최대 너비로 설정
+    dynamicWidth = MAX_WIDTH;
+  }
+
+  // 아이템이 0개면 버블을 렌더링하지 않음
+  if (itemCount === 0) {
+    return null;
+  }
 
   return (
-    <View style={styles.resultFrame}>
+    // 👇 5. style에 [기존 스타일, {동적 너비}]를 적용합니다.
+    <View style={[styles.resultFrame, { width: dynamicWidth }]}>
       <ChatBotCardList
-        data={foodList}
+        data={eventList}
         renderItem={({ item }) => (
           <ChatBotCard>
             <FoodCardContent {...item} />
@@ -112,10 +138,10 @@ export default function ResultFoodBubble({ data }) {
 
 const styles = StyleSheet.create({
   resultFrame: {
-    width: scale(359),
+    maxWidth: MAX_WIDTH,  
     minHeight: vScale(208),
     backgroundColor: '#F1F1F5',
-    alignSelf: 'flex-start',
+    alignSelf: 'flex-start', 
     borderRadius: scale(8),
     paddingVertical: vScale(18),
   },
