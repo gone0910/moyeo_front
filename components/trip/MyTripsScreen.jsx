@@ -24,6 +24,19 @@ import { fetchPlanList } from '../../api/MyPlanner_fetch_list';
 import { deleteSchedule } from '../../api/planner_delete_request';
 import { TRIPS_UPDATED_EVENT } from '../../caching/cacheService';
 
+// ✅ 전체 여행 & 캐시 초기화 함수
+async function purgeAllTripsAndCaches() {
+  try {
+    await AsyncStorage.setItem('MY_TRIPS', JSON.stringify([])); // 모든 로컬 여행 삭제
+    await clearDraftCaches?.(); // PLAN_INITIAL / PLAN_EDITED / PLAN_SAVE_READY 등
+    await removeCacheData?.(CACHE_KEYS.PLAN_DETAIL);
+    await invalidateListAndHomeCaches?.();
+    Alert.alert('초기화 완료', '모든 로컬 여행/캐시가 제거되었습니다.');
+  } catch (e) {
+    Alert.alert('오류', e?.message ?? '초기화 중 오류가 발생했습니다.');
+  }
+}
+
 const BASE_WIDTH = 390;
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 function normalize(size) {
@@ -190,6 +203,18 @@ export default function MyTripsScreen() {
   return (
     <View style={styles.screen}>
       <HeaderBar />
+      {/* ⚠️ 개발용: 로컬 캐시 초기화 버튼 (사용 후 주석처리)
+<View style={{ paddingHorizontal: 20, marginTop: 10 }}>
+  <TouchableOpacity
+    style={{ backgroundColor: '#F87171', borderRadius: 10, padding: 10 }}
+    onPress={() => purgeAllTripsAndCaches()}
+  >
+    <Text style={{ color: '#fff', textAlign: 'center', fontWeight: '600' }}>
+      ⚠️ 로컬 캐시 초기화
+    </Text>
+  </TouchableOpacity>
+</View>
+*/}
       <View style={[styles.tipContainer, { alignSelf: 'center', width: containerWidth }]}>
         <Text style={styles.tipTitle}>오늘의 여행 <Text style={{ fontStyle: 'italic' }}>TIP</Text></Text>
         <Text style={styles.tipText}>{randomTip}</Text>
