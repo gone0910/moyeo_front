@@ -42,7 +42,7 @@ const CITY_TO_ENUM = Object.values(REGION_MAP).flat().reduce((acc, { name, code 
   acc[name] = code; return acc;
 }, {});
 
-const USE_MOCK = true;
+const USE_MOCK = false;
 
 /* ---------------- normalize ---------------- */
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -300,9 +300,9 @@ const openRegionSheet = () => {
   const GENDER_OPTIONS = ['선택없음', '남성', '여성'];
   const [tmpGender, setTmpGender] = useState('선택없음');
   const openGenderSheet = () => {
-    setTmpGender(selected.gender);
-    setSheet('gender');
-  };
+  setTmpGender(selected.gender ?? '선택없음');
+  setSheet('gender');
+};
   const confirmGender = () => {
     setSelected((s) => ({ ...s, gender: tmpGender }));
     setSheet(null);
@@ -395,11 +395,7 @@ const openRegionSheet = () => {
           <Row title="이번 여행, 어디로?" value={regionLabel} onPress={openRegionSheet} />
           <Row title="몇 명이 좋을까?" value={selected.group} onPress={openGroupSheet} />
           <Row title="나의 여행 스타일은?" value={styleLabel} onPress={openStyleSheet} />
-          <Row
-            title="선호하는 동행자의 성별?"
-            value={!selected.gender ? '' : selected.gender}
-            onPress={openGenderSheet}
-          />
+          <Row title="선호하는 동행자의 성별?" value={selected.gender} onPress={openGenderSheet} />
           <Row title="선호하는 동행자의 나이는?" value={ageLabel} onPress={openAgeSheet} />
         </ScrollView>
 
