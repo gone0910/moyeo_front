@@ -2,6 +2,7 @@
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { BASE_URL } from './config/api_Config';
+import api from './AxiosInstance';
 
 /**
  * 🗑️ 여행 플랜 삭제 API
@@ -17,26 +18,25 @@ export async function deleteSchedule(rawId) {
     throw new Error(msg);
   }
 
-  // 2) JWT 확인
-  const token = await AsyncStorage.getItem('jwt');
-  if (!token) {
-    throw new Error('JWT 토큰이 존재하지 않습니다.');
-  }
+  // ⬇️ [제거] 2) JWT 확인 (api가 자동으로 처리)
+  // const token = await AsyncStorage.getItem('jwt');
+  // if (!token) {
+  //   throw new Error('JWT 토큰이 존재하지 않습니다.');
+  // }
 
   // 3) URL 안전 처리 (encodeURIComponent)
   const url = `${BASE_URL.replace(/\/+$/, '')}/schedule/delete/${encodeURIComponent(scheduleId)}`;
   console.log('🗑️ DELETE 요청 →', url, '| id =', scheduleId);
 
   try {
-    const response = await axios.delete(url, {
-      headers: { Authorization: `Bearer ${token}` },
-      // timeout 지정 안 함 (요청하신 대로 시간초 제거)
-    });
+    // ⬇️ [변경] axios.delete -> api.delete, headers 제거
+    const response = await api.delete(url);
 
     console.log('✅ 일정 삭제 성공:', response.data);
     return response.data ?? { success: true };
   } catch (error) {
     // 4) 디테일 로그 (상태/메시지/서버 바디)
+    // ⬇️ [동작] api.delete가 재발급 실패 등으로 throw한 에러도 여기서 잡힙니다.
     const status = error?.response?.status;
     const data = error?.response?.data;
     const message = error?.message;
