@@ -20,20 +20,27 @@ const formatListTime = (isoLike) => {
     // +9시간 KST 변환 (핵심 추가)
     const koreaTime = new Date(d.getTime() + 9 * 60 * 60 * 1000);
 
-    const now = new Date();
-    // 현재도 KST로 맞춰야 오늘 날짜 체크에 문제 없음
-    const nowKorea = new Date(now.getTime() + 9 * 60 * 60 * 1000);
+    const now = new Date(); // 'now'는 이미 KST 기준 현재 시간입니다.
+
+    // [버그 수정]
+    // 'now'에 9시간을 이중으로 더하고 있었기 때문에 'nowKorea'가
+    // KST 기준 다음 날짜로 넘어가는 문제가 있었습니다.
+    // const nowKorea = new Date(now.getTime() + 9 * 60 * 60 * 1000); // <--- [기존 버그 코드]
+    
+    // [수정] 'nowKorea' 대신 'now'를 사용하도록 변경합니다.
+    // (또는 const nowKorea = now; 로 선언해도 됩니다.)
 
     const y = koreaTime.getFullYear();
     const m = koreaTime.getMonth() + 1;
     const day = koreaTime.getDate();
 
-    const today = new Date(nowKorea.getFullYear(), nowKorea.getMonth(), nowKorea.getDate());
+    // [수정] nowKorea.getFullYear() -> now.getFullYear()
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const target = new Date(y, koreaTime.getMonth(), day);
     const diffDays = Math.floor((today - target) / (1000 * 60 * 60 * 24));
 
     if (diffDays === 0) {
-      // 시간 표시도 KST 기준
+      // ... (이하 동일)
       const hh = String(koreaTime.getHours()).padStart(2, '0');
       const mm = String(koreaTime.getMinutes()).padStart(2, '0');
       return `${hh}:${mm}`;
@@ -41,7 +48,8 @@ const formatListTime = (isoLike) => {
 
     if (diffDays === 1) return '어제';
 
-    if (y === nowKorea.getFullYear()) return `${m}월 ${day}일`;
+    // [수정] nowKorea.getFullYear() -> now.getFullYear()
+    if (y === now.getFullYear()) return `${m}월 ${day}일`;
 
     const MM = String(m).padStart(2, '0');
     const DD = String(day).padStart(2, '0');
@@ -54,6 +62,10 @@ const formatListTime = (isoLike) => {
 
 export default function ChatRoomCard({ room, isEditing, onDeletePress }) {
   const navigation = useNavigation();
+
+  console.log(
+    `[ChatRoomCard] ID: ${room?.roomId}, 원본 메시지: ${room?.lastMessage}, 원본 시간: ${room?.lastMessageTime}`
+  );
 
   const handlePress = () => {
     if (isEditing) return;

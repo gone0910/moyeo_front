@@ -11,6 +11,7 @@
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { BASE_URL } from './config/api_Config';
+import api from './AxiosInstance';
 
 /** 내부: 토큰 로드 (키 후보를 순차 조회) */
 async function loadToken() {
@@ -22,8 +23,13 @@ async function loadToken() {
   return null;
 }
 
+/** 내부: 토큰 로드 (키 후보를 순차 조회) */
+// ⬇️ [제거] api 인스턴스가 토큰을 자동 관리합니다.
+// async function loadToken() { ... }
+
 /** 내부: days payload 정리 (필드 보존, undefined는 제거) */
 function sanitizeDays(days) {
+  // ... (이 함수는 비즈니스 로직이므로 그대로 유지합니다.) ...
   if (!Array.isArray(days)) return [];
 
   const toNonNegNum = (v, def = 0) => {
@@ -31,19 +37,16 @@ function sanitizeDays(days) {
     if (!Number.isFinite(n)) return def;
     return Math.max(0, Math.round(n));
   };
-
-  // 시간값은 음수(-1 등)를 허용하고, 비수치/미입력은 필드 생략(undefined) 처리
   const toTime = (v) => {
     const n = Number(v);
     return Number.isFinite(n) ? Math.round(n) : undefined;
   };
-
   const toCoord = (v) => (typeof v === 'number' && Number.isFinite(v) ? v : undefined);
 
   return days.map((d) => {
     const base = {
-      day: d?.day, // "2일차" 형태 그대로 유지
-      date: d?.date, // "YYYY-MM-DD"
+      day: d?.day,
+      date: d?.date,
       totalEstimatedCost: toNonNegNum(d?.totalEstimatedCost, 0),
       places: Array.isArray(d?.places)
         ? d.places.map((p) => {
@@ -58,14 +61,11 @@ function sanitizeDays(days) {
               driveTime: toTime(p?.driveTime),
               transitTime: toTime(p?.transitTime),
             };
-            // undefined 필드 제거
             Object.keys(obj).forEach((k) => obj[k] === undefined && delete obj[k]);
             return obj;
           })
         : [],
     };
-
-    // 상위 레벨 undefined 제거
     Object.keys(base).forEach((k) => base[k] === undefined && delete base[k]);
     return base;
   });
@@ -83,28 +83,30 @@ export async function resaveSchedule(scheduleId, days, opts = {}) {
   const method = (opts.method || 'POST').toUpperCase();
   const url = `${BASE_URL}/schedule/resave/${scheduleId}`;
 
-  const token = await loadToken();
-  const headers = {
-    'Content-Type': 'application/json',
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
-  };
+  // ⬇️ [제거] loadToken() 호출 및 headers 객체 생성
+  // const token = await loadToken();
+  // const headers = { ... };
 
   const payload = { days: sanitizeDays(days) };
   console.log('🌐 [resaveSchedule][REQ]', JSON.stringify({ url, method, scheduleId }, null, 2));
   console.log('🧾 [resaveSchedule][BODY]', JSON.stringify(payload, null, 2));
 
   try {
+    // ⬇️ [변경] axios.post/put -> api.post/put, headers 제거
     const res = method === 'POST'
-      ? await axios.post(url, payload, { headers })
-      : await axios.put(url, payload, { headers });
+      ? await api.post(url, payload)
+      : await api.put(url, payload);
 
     return res?.data ?? {};
   } catch (error) {
-    // ✅ PUT으로 왔고 405라면 POST로 한 번 더 시도
+    // ⬇️ [동작] 401/403은 api가 이미 재발급 시도. 실패 시 그 외 에러와 함께 여기서 잡힘
+    
+    // ✅ PUT으로 왔고 405라면 POST로 한 번 더 시도 (특수 로직 유지)
     const status = error?.response?.status;
     if (method === 'PUT' && status === 405) {
       console.warn('↻ 405(Method Not Allowed) -> POST로 재시도합니다.');
-      const res = await axios.post(url, payload, { headers });
+      // ⬇️ [변경] axios.post -> api.post, headers 제거
+      const res = await api.post(url, payload);
       return res?.data ?? {};
     }
     // 그 외 에러는 그대로 던짐

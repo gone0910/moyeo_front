@@ -2,6 +2,7 @@
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { BASE_URL } from './config/api_Config';
+import api from './AxiosInstance';
 
 /** ENUM 대문자/언더스코어 정규화 */
 const toEnum = (val) =>
@@ -78,8 +79,9 @@ export const regenerateSchedule = async ({
   excludedNames = [],
 }) => {
   try {
-    const token = await AsyncStorage.getItem('jwt');
-    if (!token) throw new Error('JWT 토큰이 없습니다.');
+    // ⬇️ [제거] api가 토큰을 자동 관리합니다.
+    // const token = await AsyncStorage.getItem('jwt');
+    // if (!token) throw new Error('JWT 토큰이 없습니다.');
 
     const requestBody = {
       request: {
@@ -95,11 +97,10 @@ export const regenerateSchedule = async ({
     };
 
     const url = `${BASE_URL}/schedule/recreate`;
-    const response = await axios.post(url, requestBody, {
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
+    
+    // ⬇️ [변경] axios.post -> api.post, headers 제거
+    const response = await api.post(url, requestBody, {
+      // ⬅️ [제거] headers: { ... } - api가 자동 주입
       // timeout 제거(요청사항 반영)
     });
 
@@ -111,6 +112,7 @@ export const regenerateSchedule = async ({
     console.warn('⚠️ 일정 재생성: 정상 응답이 아니거나 데이터 없음');
     return response?.data;
   } catch (err) {
+    // ⬇️ [동작] 401/403 재발급 실패 시 에러도 여기서 잡힙니다.
     console.error('❌ 일정 재생성 실패:', err?.response?.data || err?.message);
     throw err;
   }
