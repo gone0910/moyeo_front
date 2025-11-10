@@ -92,7 +92,7 @@ export const REGION_MAP = {
     충청남도: [
       { name: '천안시', code: 'CHEONAN_SI' },
       { name: '공주시', code: 'GONGJU_SI' },
-      { name: '보령시', code: 'BOREONG_SI' }, 
+      { name: '보령시', code: 'BORYEONG_SI' }, 
       { name: '아산시', code: 'ASAN_SI' },
       { name: '서산시', code: 'SEOSAN_SI' },
       { name: '논산시', code: 'NONSAN_SI' },

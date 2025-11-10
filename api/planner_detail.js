@@ -1,56 +1,58 @@
-// api/schedule_detail.js
-import axios from 'axios';
+// 📁 api/planner_place_detail.js
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { BASE_URL } from './config/api_Config';
 
-// 한글 → 서버 ENUM 매핑 (필요시 추가)
-const TYPE_MAP = {
-  TOURIST_SPOT: '관광지',
-  RESTAURANT: '식사',
-  ACCOMMODATION: '숙소',
-};
-
-const norm = (v) => (typeof v === 'string' ? v.trim() : v);
-
-async function callDetailAPI(body, token) {
-  return axios.post(`${BASE_URL}/schedule/detail`, body, {
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`,
-    },
-    timeout: 15000,
-  });
+/** 내부: JWT 로드 */
+async function loadToken() {
+  const keys = ['jwt', 'accessToken', 'token'];
+  for (const key of keys) {
+    const value = await AsyncStorage.getItem(key);
+    if (value) return value;
+  }
+  return null;
 }
 
-/**
- * @param {{ name?:string, type?:string, estimatedCost?:number, placeId?:string }} p
- */
-export const getScheduleDetail = async (p) => {
-  const token = await AsyncStorage.getItem('jwt');
-  if (!token) throw new Error('JWT 토큰이 없습니다.');
+/** 장소 상세 조회 (POST /place/detail) */
+export async function fetchPlaceDetail({ name, type, estimatedCost, lat, lng }) {
+  const token = await loadToken();
+  const url = `${BASE_URL}/place/detail`;
 
-  // 서버가 placeId로 조회하는 구조일 수 있음 → placeId 우선
-  const placeId = norm(p?.placeId) || null;
-  const safeName = String(norm(p?.name) ?? '');
-  const rawType  = String(norm(p?.type) ?? '');
-  const mapped   = TYPE_MAP[rawType] ?? rawType;
-  const safeCost = Number.isFinite(p?.estimatedCost) ? Number(p?.estimatedCost) : 0;
+  const body = {
+    name,
+    type,
+    estimatedCost: Number(estimatedCost) || 0,
+    lat: Number(lat),
+    lng: Number(lng),
+  };
+
+  console.log('🌐 [PlaceDetail][POST]', url);
+  console.log('📤 요청 바디:', body);
 
   try {
-    const body = placeId
-      ? { placeId }
-      : { name: safeName, type: mapped, estimatedCost: safeCost };
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify(body),
+    });
 
-    const res = await callDetailAPI(body, token);
-    if (res?.status === 200) return res.data;
-    throw new Error(`조회 실패: ${res?.status ?? 'NO_STATUS'}`);
-  } catch (err) {
-    const status = err?.response?.status;
-    const msg =
-      err?.response?.data?.message ||
-      (status === 404 ? '상세 정보가 존재하지 않습니다.' : err?.message || '알 수 없는 오류');
-    const e = new Error(msg);
-    e.status = status;
-    throw e;
+    const data = await res.json();
+
+    // ✅ 실패 시 status 포함 Error 던지기 (PlaceDetailScreen에서 404 감지용)
+    if (!res.ok) {
+      const err = new Error(`상세 조회 실패 (${res.status})`);
+      err.status = res.status;
+      err.payload = data;
+      throw err;
+    }
+
+    console.log('✅ [PlaceDetail][RES]', data);
+    return data;
+  } catch (error) {
+    console.error('❌ [PlaceDetail] 오류:', error?.status, error?.message);
+    throw error;
   }
-};
+}
