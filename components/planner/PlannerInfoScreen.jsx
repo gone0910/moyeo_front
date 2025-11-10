@@ -405,7 +405,7 @@ export default function PlannerInfoScreen() {
   const groupLabel = selectedItems.group ? selectedItems.group : '';
   const budgetLabel =
   typeof budget === 'number'
-    ? (budget === 0
+    ? (budget === 200000
         ? '선택없음'
         : `${budget.toLocaleString()}원 이하`)
     : '';
@@ -473,7 +473,9 @@ export default function PlannerInfoScreen() {
       const mbtiEnum = (!selectedMbti || selectedMbti === '선택없음') ? 'NONE' : selectedMbti;
       const groupEnum = ({ '선택없음':'NONE','혼자':'SOLO','단둘이':'DUO','여럿이':'GROUP' })[selectedItems.group] || 'NONE';
       const styleEnum = firstStyle ? STYLE_ENUM[firstStyle] : 'NONE';
-
+// 선택없음은 이 파일에서 200,000으로 표현되고 있음 → 40만 원으로 보정
+     const isNoneBudget = !(typeof budget === 'number') || budget === 0 || budget === 200000;
+     const apiBudget = isNoneBudget ? 400000 : budget;
       const data = await createSchedule(
         startDate,
         endDate,
@@ -481,19 +483,19 @@ export default function PlannerInfoScreen() {
         mbtiEnum,
         styleEnum,                    // 화면 다중 → API 첫 1개
         groupEnum,
-        Number(budget || 0)
+        apiBudget
       );
 
       // ✅ 생성 때 사용한 요청 스냅샷을 저장 (재생성 시 최우선 참조)
       const requestSnapshot = {
-        startDate,
-        endDate,
-        destination: cityEnum,
-        mbti: mbtiEnum,
-        travelStyle: styleEnum,
-        peopleGroup: groupEnum,
-        budget: Number(budget || 0),
-      };
+  startDate,
+  endDate,
+  destination: cityEnum,
+  mbti: mbtiEnum,
+  travelStyle: styleEnum,
+  peopleGroup: groupEnum,
+  budget: apiBudget,
+};
       try { await saveCacheData(CACHE_KEYS.PLAN_REQUEST, requestSnapshot); } catch {}
 
       // ✅ 생성 응답 객체에도 조건 주입 (혹시 응답에 destination 등 없을 때 대비)
@@ -775,7 +777,9 @@ export default function PlannerInfoScreen() {
         <View style={styles.sheetFixedCTA}>
           <TouchableOpacity style={styles.sheetCTA} onPress={confirmBudget} activeOpacity={0.9}>
             <Text style={styles.sheetCTAText}>
-  {tmpBudget === 0 ? '선택없음' : `${tmpBudget.toLocaleString()}원 이하로 설정`}
+  {tmpBudget === 200000
+    ? '선택없음 (기본 예산은 40만원 입니다)'
+    : `${tmpBudget.toLocaleString()}원 이하로 설정`}
 </Text>
           </TouchableOpacity>
         </View>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, TextInput, Image, FlatList,
   Dimensions, Platform, PixelRatio, Keyboard, TouchableWithoutFeedback, Alert
@@ -6,7 +6,7 @@ import {
 import HeaderBar from '../../components/common/HeaderBar';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import ToggleSelector from '../common/ToggleSelector';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { fetchCommunityPosts } from '../../api/community_list';
 import { fetchFilteredPostList } from '../../api/community_filter';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -187,6 +187,36 @@ const CommunityScreen = () => {
   const [hasNextPage, setHasNextPage] = useState(false);
   const [isPressed, setIsPressed] = useState(false);
 
+
+  function formatKST(isoString) {
+  if (!isoString) return '';
+  const utc = new Date(isoString);
+  if (isNaN(utc.getTime())) return '';
+  const kst = new Date(utc.getTime() + 9 * 60 * 60 * 1000); // +9시간
+  const yyyy = kst.getFullYear();
+  const mm = String(kst.getMonth() + 1).padStart(2, '0');
+  const dd = String(kst.getDate()).padStart(2, '0');
+  const hh = String(kst.getHours()).padStart(2, '0');
+  const mi = String(kst.getMinutes()).padStart(2, '0');
+  return `${yyyy}.${mm}.${dd} ${hh}:${mi}`;
+}
+
+  // ✅ 포커스될 때마다 목록 새로고침 (맨 위로)
+useFocusEffect(
+  useCallback(() => {
+    setPage(0);
+    loadPosts(0);
+  }, [loadPosts])
+);
+
+// ✅ 하단 탭(Community)을 다시 눌러도 새로고침
+useEffect(() => {
+  const unsub = navigation.addListener('tabPress', () => {
+    setPage(0);
+    loadPosts(0);
+  });
+  return unsub;
+}, [navigation, loadPosts]);
 
   useEffect(() => {
     setSelectedCity('선택안함');
@@ -506,19 +536,7 @@ const CommunityScreen = () => {
                   <View style={styles.postMeta}>
                     <Ionicons name="chatbubble-ellipses-outline" size={normalize(14)} color="#A0A0A0" />
                     <Text style={styles.views}>{item.countComment ?? 0}</Text>
-                    <Text style={styles.time}>
-                      {item.createdAt
-                        ? (() => {
-                            const d = new Date(item.createdAt);
-                            const yyyy = d.getFullYear();
-                            const mm = String(d.getMonth() + 1).padStart(2, '0');
-                            const dd = String(d.getDate()).padStart(2, '0');
-                            const hh = String(d.getHours()).padStart(2, '0');
-                            const mi = String(d.getMinutes()).padStart(2, '0');
-                            return `${yyyy}.${mm}.${dd} ${hh}:${mi}`;
-                          })()
-                        : ''}
-                    </Text>
+                    <Text style={styles.time}>{formatKST(item.createdAt)}</Text>
                   </View>
                 </View>
                 {item.firstImage ? (

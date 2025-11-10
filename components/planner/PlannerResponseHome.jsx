@@ -42,15 +42,14 @@ import { editSchedule, cacheScheduleId } from '../../api/planner_edit_request';
 import {
   CACHE_KEYS,
   getCacheData,
-  saveCacheData,
-  loadWorkingDraft,
-  writeEditedDraft,
-  snapshotInitialOnce,
+  removeCacheData,
   clearDraftCaches,
-  invalidateListAndHomeCaches, 
-  emitTripsUpdated, 
-  TRIPS_UPDATED_EVENT,
-  removeCacheData
+  upsertMyTrip,
+  emitTripsUpdated,
+  invalidateListAndHomeCaches,
+ writeEditedDraft,
+ loadWorkingDraft,
+ snapshotInitialOnce,
 } from '../../caching/cacheService';
 
 import SplashScreen from '../../components/common/SplashScreen';
@@ -147,12 +146,126 @@ function composeFullNamesForEdit(mergedDay, originalDay) {
   return filled;
 }
 
+function addDays(isoDate, plus) {
+  if (!isoDate) return undefined;
+  const d = new Date(isoDate);
+  d.setDate(d.getDate() + plus);
+  return d.toISOString().slice(0,10);
+}
+
+function asNumOrUndef(v) {
+  return (typeof v === 'number' && Number.isFinite(v) && v >= 0) ? v : undefined;
+}
+
+// ✅ 추가/삭제/순서/날짜까지 모두 정리
+function sanitizeDays(rawDays, startDate) {
+  if (!Array.isArray(rawDays)) return [];
+
+  return rawDays
+    .map((d, di) => {
+      const places = Array.isArray(d?.places) ? d.places : [];
+
+      const cleanedPlaces = places
+        .filter(p => p && p.__deleted !== true)              // ⬅️ 삭제 반영
+        .map((p, idx) => {
+          const fp = {};
+          // id는 “있고 유효할 때만” 보냄 (신규 추가건이면 omit)
+          if (p.id && String(p.id).length > 0) fp.id = p.id;
+
+          fp.name = p.name ?? '';
+          fp.type = p.type ?? '';                     // 기본값
+          fp.hashtag = p.hashtag ?? '';
+          fp.estimatedCost = (typeof p.estimatedCost === 'number' && Number.isFinite(p.estimatedCost)) ? p.estimatedCost : 0;
+          fp.lat = p.lat;
+          fp.lng = p.lng;
+          fp.description = p.description;
+          fp.address = p.address;
+          fp.kakaoPlaceUrl = p.kakaoPlaceUrl;
+          fp.gptOriginalName = p.gptOriginalName;
+          fp.placeOrder = idx;                               // ⬅️ 순서 재계산
+
+          const fromPrev = p.fromPrevious || {};
+          fp.fromPrevious = {
+            car: asNumOrUndef(fromPrev.car),
+            publicTransport: asNumOrUndef(fromPrev.publicTransport),
+            walk: asNumOrUndef(fromPrev.walk),
+          };
+          return fp;
+        });
+
+      const total = cleanedPlaces.reduce((s, p) => s + (typeof p.estimatedCost === 'number' ? p.estimatedCost : 0), 0);
+
+      return {
+        day: d.day || `Day ${di + 1}`,
+        date: d.date || addDays(startDate, di),              // ⬅️ 날짜 없으면 보정
+        totalEstimatedCost: total,
+        places: cleanedPlaces,
+      };
+    })
+    .filter(day => Array.isArray(day.places) && day.places.length > 0); // 완전 빈 Day 제거
+}
+
+// ✅ 하루 단위 중복 장소 제거 유틸 (간소화 버전)
+function dedupeDays(detail) {
+  if (!detail?.days?.length) return detail;
+  const days = detail.days.map((dayObj) => {
+    const seen = new Map();
+    const places = (dayObj.places || []).filter((p) => {
+      const key = p?.id ?? `${p?.lat},${p?.lng},${p?.name}`;
+      if (!key) return false;
+      if (seen.has(key)) return false; // ✅ 중복 제거
+      seen.set(key, true);
+      return true;
+    });
+    return { ...dayObj, places };
+  });
+  return { ...detail, days };
+}
+
+function clampServerToSaved(server, saved) {
+  if (!server?.days?.length || !saved?.days?.length) return server;
+
+  const savedNamesByDay = saved.days.map(d =>
+    (d?.places || [])
+      .map(p => (p?.name ?? '').trim())
+      .filter(Boolean)
+  );
+
+  const nextDays = (server.days || []).map((day, i) => {
+    const allow = new Set(savedNamesByDay[i] || []);
+    const filtered = (day?.places || []).filter(p => allow.has(String(p?.name ?? '').trim()));
+
+    // 저장 당시 순서대로 재정렬
+    const order = savedNamesByDay[i] || [];
+    filtered.sort((a,b) =>
+      order.indexOf(String(a?.name ?? '').trim()) - order.indexOf(String(b?.name ?? '').trim())
+    );
+
+    const totalEstimatedCost = filtered.reduce((acc, x) => acc + (Number(x?.estimatedCost) || 0), 0);
+    return {
+      ...day,
+      day: day?.day || `${i + 1}일차`,
+      date: day?.date || server?.startDate,
+      places: filtered.map((p, idx) => ({ ...p, placeOrder: idx + 1 })),
+      totalEstimatedCost,
+    };
+  });
+
+  return { ...server, days: nextDays };
+}
+
 function applyEditResultToState(draft, dayIndex, apiDay) {
   if (!draft?.days?.[dayIndex]) return draft;
 
   const prevPlaces = draft.days[dayIndex].places || [];
   const srcPlaces  = apiDay?.places || [];
   const num = (v, def = 0) => (Number.isFinite(Number(v)) ? Number(v) : def);
+
+
+  const handleManualSync = async () => {
+  lockServerFetchRef.current = false;                         // 🔓 해제
+  await applyDetailWithVersion(() => getScheduleDetail(id), 'manual-sync');
+};
 
   const mapped = prevPlaces.map((p, i) => {
     const s = srcPlaces[i] || {};
@@ -227,76 +340,41 @@ const isValidId = (n) => Number.isFinite(n) && n > 0;
 function buildResaveDaysPayload(fromData) {
   if (!fromData?.days?.length) return { days: [] };
 
-  const timeOrUndef = (v) => {
+  const toIntUndef = (v) => {
     const n = Number(v);
-    if (!Number.isFinite(n)) return undefined;
-    return Math.round(n); // -1 허용
+    return Number.isFinite(n) ? Math.round(n) : undefined;
   };
-
-  const nonNegCost = (v) => {
+  const nonNegInt = (v) => {
     const n = Number(v);
-    if (!Number.isFinite(n) || n < 0) return 0;
-    return Math.round(n);
+    return Number.isFinite(n) && n >= 0 ? Math.round(n) : 0;
   };
 
-  
+  const days = (fromData.days || []).map((day, i) => {
+    const places = (day?.places || []).map((p, idx) => {
+      const car  = toIntUndef(p?.fromPrevious?.car ?? p?.driveTime);
+      const bus  = toIntUndef(p?.fromPrevious?.publicTransport ?? p?.transitTime);
+      const walk = toIntUndef(p?.fromPrevious?.walk ?? p?.walkTime);
 
-  const distKm = (a, b) => {
-    if (!a || !b) return 0;
-    const [lat1, lon1] = a, [lat2, lon2] = b;
-    if (![lat1, lon1, lat2, lon2].every(x => typeof x === 'number')) return 0;
-    const R = 6371;
-    const dLat = (lat2 - lat1) * Math.PI/180;
-    const dLon = (lon2 - lon1) * Math.PI/180;
-    const s1 = Math.sin(dLat/2)**2 +
-      Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*
-      (Math.sin(dLon/2)**2);
-    const c = 2 * Math.atan2(Math.sqrt(s1), Math.sqrt(1 - s1));
-    return R * c;
-  };
+      // ✅ 좌표는 절대 지우지 않고 그대로 보냄 (서버 재배치 방지)
+      const lat = typeof p?.lat === 'number' ? p.lat : undefined;
+      const lng = typeof p?.lng === 'number' ? p.lng : undefined;
 
-  let baseCenter = null;
-  outer:
-  for (const day of (fromData?.days ?? [])) {
-    for (const p of (day?.places ?? [])) {
-      if (typeof p?.lat === 'number' && typeof p?.lng === 'number') {
-        baseCenter = [p.lat, p.lng];
-        break outer;
-      }
-    }
-  }
-  const OUTLIER_KM = 60;
-
-  const days = fromData.days.map((day, i) => {
-    const places = (day?.places ?? []).map(p => {
-      const car  = timeOrUndef(p?.fromPrevious?.car ?? p?.driveTime);
-      const bus  = timeOrUndef(p?.fromPrevious?.publicTransport ?? p?.transitTime);
-      const walk = timeOrUndef(p?.fromPrevious?.walk ?? p?.walkTime);
-      let lat = (typeof p?.lat === 'number') ? p.lat : undefined;
-      let lng = (typeof p?.lng === 'number') ? p.lng : undefined;
-      if (baseCenter && typeof lat === 'number' && typeof lng === 'number') {
-        const d = distKm(baseCenter, [lat, lng]);
-        if (d > OUTLIER_KM) {
-          lat = undefined;
-          lng = undefined;
-        }
-      }
       return {
+        placeOrder: idx + 1, // ✅ 순서 고정
         type: p?.type ?? '',
         name: (p?.name ?? '').trim(),
         hashtag: (p?.gptOriginalName ?? p?.hashtag ?? '').toString(),
-        estimatedCost: nonNegCost(p?.estimatedCost),
-        lat,
-        lng,
+        estimatedCost: nonNegInt(p?.estimatedCost),
+        lat, lng,
         walkTime: walk,
         driveTime: car,
         transitTime: bus,
       };
     });
 
-    const totalEstimatedCost = places.reduce((acc, x) => acc + nonNegCost(x?.estimatedCost), 0);
-    const dayLabel = day?.day || `${i + 1}일차`;
-    const date = day?.date || fromData?.startDate;
+    const totalEstimatedCost = places.reduce((acc, x) => acc + nonNegInt(x?.estimatedCost), 0);
+    const dayLabel = day?.day || `${i + 1}일차`;       // ✅ day 라벨 항상 포함
+    const date     = day?.date || fromData?.startDate; // ✅ 날짜도 항상 포함
 
     return { day: dayLabel, date, totalEstimatedCost, places };
   });
@@ -379,6 +457,7 @@ function mergeAndCleanDraft(base, editedNameOverlays = {}) {
 }
 
 
+
 // =====================
 // Component
 // =====================
@@ -408,6 +487,7 @@ export default function PlannerResponseHome() {
   const [isSaving, setIsSaving] = useState(false);
   const [isEditingLoading, setIsEditingLoading] = useState(false);
   const savingTimerRef = useRef(null);
+  const blockFetchUntilRef = useRef(0); // 🔒 저장 직후 서버 재조회 봉인용 타이머
 
   const scrollRef = useRef();
   const listRef = useRef(null);
@@ -418,12 +498,95 @@ export default function PlannerResponseHome() {
   const [listVersion, setListVersion] = useState(0);
   const dayIdxRef = useRef(selectedDayIndex);
 
+  // ✅ "내 여행으로 저장" — 편집본(PLAN_EDITED) 우선 저장 → upsert → 캐시정리 → 읽기모드 전환
+const handleSaveToMyTrips = async () => {
+  try {
+    // (A) PLAN_EDITED 최신본 우선 확보
+    const cachedEdited = await getCacheData(CACHE_KEYS.PLAN_EDITED);
+    const latest = cachedEdited || scheduleData;
+    if (!latest) {
+      Alert.alert('안내', '저장할 플랜 데이터가 없습니다.');
+      return;
+    }
+
+    // (B) 서버 저장/재저장
+    const routeScheduleId =
+      (route?.params && route.params.scheduleId) || latest?.id || null;
+
+    // 공통: 정제된 days 만들기
+ const { days } = buildResaveDaysPayload(latest);
+
+ let saveResult;
+ if (routeScheduleId) {
+   // 기존 일정 → 재저장
+   saveResult = await resaveSchedule(routeScheduleId, days);
+ } else {
+   // 새 일정 → 최초 저장 (서버 스펙에 맞게 body 조합)
+   const firstSaveBody = { ...latest, days };
+   saveResult = await saveSchedule(firstSaveBody);
+ }
+
+    const finalId = saveResult?.scheduleId ?? saveResult?.id ?? routeScheduleId;
+    if (!finalId) {
+      Alert.alert('오류', '서버에서 일정 ID를 확인할 수 없습니다.');
+      return;
+    }
+
+    // (C) MyTrips에 반영
+    await upsertMyTrip({ ...(latest?.meta || {}), ...latest, id: finalId });
+
+    // 👇 추가: 저장 직후, 화면 보호용 스냅샷 기준 확정
+savedSnapshotRef.current = latest;
+
+    // (D) 캐시 정리 및 갱신 이벤트는 약간 지연 후 실행 (1초)
+    setTimeout(async () => {
+      await removeCacheData(CACHE_KEYS.PLAN_DETAIL);
+      await clearDraftCaches();
+      await invalidateListAndHomeCaches();
+      emitTripsUpdated(undefined, { id: finalId, reason: 'save' });
+    }, 1000);
+
+
+    // ✅ 여기 추가
+    lastSavedSigRef.current = signatureOf(latest);
+    lastSavedAtRef.current  = Date.now();
+    blockFetchUntilRef.current = Date.now() + 5000;
+    lockServerFetchRef.current = true;
+    // (E) 읽기모드로 전환
+    Alert.alert('저장 완료', '내 여행에 저장되었습니다.', [
+      
+      {
+        text: '확인',
+        onPress: () => {
+          savedSnapshotRef.current = latest;   // ✅ 내가 방금 보낸 최종본을 기준으로 고정
+lockServerFetchRef.current = true;   // ✅ 자동 재조회 잠금
+          navigation.replace('PlannerResponse', {
+            scheduleId: finalId,
+            mode: 'read',
+            from: 'PlannerCreate',
+            initialData: latest, // 방금 저장한 편집본 반영
+            skipFirstFetch: true, // 서버 재조회 스킵
+            lockRead: true, 
+          });
+        },
+      },
+    ]);
+    // ✅ [LOG #1] 재조회 잠금 상태 확인
+console.log('🔒 lock on after save:', lockServerFetchRef.current);
+  } catch (e) {
+    console.error('❌ [PlannerResponseHome] 저장 실패:', e);
+    Alert.alert('오류', '저장에 실패했습니다.');
+  }
+};
+
+
   useEffect(() => {
   // ✅ 저장 직후 replace로 넘어온 경우: 서버 재조회 전에 내가 넘긴 편집본을 먼저 화면에 확정
   if (route?.params?.initialData) {
     const ensured = ensurePlaceIds(route.params.initialData);
     setScheduleData(ensured);
     try { snapshotInitialOnce(ensured); } catch {}
+    savedSnapshotRef.current = ensured;
   }
 }, [route?.params?.initialData]);
 
@@ -442,6 +605,43 @@ export default function PlannerResponseHome() {
       return () => parent?.setOptions?.({ tabBarStyle: defaultTabBarStyle });
     }, [navigation])
   );
+
+  useFocusEffect(
+  useCallback(() => {
+    if (lockServerFetchRef.current || route?.params?.lockRead) return; // ← 잠금 가드
+    // 🔒 저장 직후 일정 시간 동안 서버 재조회 봉인
+    if (Date.now() < blockFetchUntilRef.current) {
+      console.log('⏸️ 서버 재조회 차단 중 (최근 저장)');
+      return;
+    }
+
+    const mustForce = route?.params?.forceFetch === true;
+    if (mustForce) {
+      console.log('🔁 forceFetch: 서버 상세 재조회 강제');
+      const id = getNumericScheduleId();
+      if (Number.isFinite(id)) {
+        getScheduleDetail(id).then(detail => {
+          setScheduleData(detail);
+          setEditDraft(detail);
+          setListVersion(v => v + 1);
+        });
+      }
+      return;
+    }
+
+    if (isEditing || isEditingLoading) return;
+
+    if (route?.params?.skipFirstFetch) {
+      navigation.setParams({ ...route.params, skipFirstFetch: undefined });
+      return;
+    }
+
+    const id = getNumericScheduleId();
+    if (Number.isFinite(id)) {
+      applyDetailWithVersion(() => getScheduleDetail(id), 'focus');
+    }
+  }, [isEditing, isEditingLoading, route?.params?.forceFetch])
+);
 
   useFocusEffect(
     useCallback(() => {
@@ -530,12 +730,33 @@ export default function PlannerResponseHome() {
     };
   }
 
+
   // ====== 상세 재조회 버전/시그니처 가드 ======
   const requestVersionRef = useRef(0);
   const lastAppliedVersionRef = useRef(0);
   const preEditSigRef = useRef('');
   const lastSavedSigRef = useRef('');
   const lastSavedAtRef = useRef(0);
+  const lockServerFetchRef = useRef(false);
+  const savedSnapshotRef = useRef(null);
+  const didInitialFetchRef = useRef(false);
+
+  // ✅ MY_TRIPS에서 id로 스냅샷을 찾아 ref에 세팅 (컴포넌트 내부 버전)
+const loadSnapshotForId = useCallback(async (id) => {
+  try {
+    const raw = await AsyncStorage.getItem('MY_TRIPS');
+    if (!raw) return false;
+    const arr = JSON.parse(raw);
+    const hit = Array.isArray(arr) ? arr.find(x => Number(x?.id) === Number(id)) : null;
+    if (hit?.days?.length) {
+      savedSnapshotRef.current = hit;         // 스냅샷 기준
+      return true;
+    }
+  } catch (e) {
+    console.warn('loadSnapshotForId error', e?.message);
+  }
+  return false;
+}, []);
 
   const signatureOf = (sch) => {
     try {
@@ -546,9 +767,35 @@ export default function PlannerResponseHome() {
   };
 
   const applyDetailWithVersion = async (fetcher, tag='') => {
+    console.log('🚦 fetch try, locked?', lockServerFetchRef.current, tag);
+    if (lockServerFetchRef.current || route?.params?.lockRead) {
+    console.log('⛔ applyDetailWithVersion 차단 (저장 직후 세션)');
+    return null;
+    }
     const myVer = ++requestVersionRef.current;
     const detail = await fetcher();
-    const ensured = ensurePlaceIds(detail?.id ? detail : { ...detail });
+    let ensured = ensurePlaceIds(detail?.id ? detail : { ...detail });
+
+    // ✅ (B-1) MyTrips에서 읽기 진입 시 PLAN_EDITED 오버레이 금지
+  if (route?.params?.from === 'MyTrips' || route?.params?.lockRead) {
+    ensured = dedupeDays(ensured); // 중복 제거
+    setScheduleData(ensured);
+    const n = extractNumericScheduleId(ensured);
+    if (Number.isFinite(n)) setNumericScheduleId(n);
+    return ensured; // 🔒 조기 종료 (오버레이 머지 안 함)
+  }
+
+    // ✅ [LOG #3] 서버 응답 / 스냅샷 / 클램프 후 결과 비교
+ console.log('📥 server raw', detail?.days?.map(d => (d.places || []).map(p => p.name)));
+ console.log('🧷 saved snap', savedSnapshotRef.current?.days?.map(d => (d.places || []).map(p => p.name)));
+
+ // ✅ 클램프: 로컬 스냅샷 기준으로 서버가 끼워 넣은 '추가 장소'를 화면 반영 전에 제거
+ try {
+   if (savedSnapshotRef.current?.days?.length) {
+     ensured = clampServerToSaved(ensured, savedSnapshotRef.current);
+     console.log('✅ clamped result', ensured?.days?.map(d => (d.places || []).map(p => p.name)));
+   }
+ } catch {}
 
     try {
       const routeNumericId = coerceNumericScheduleId(route?.params?.scheduleId ?? scheduleId);
@@ -589,8 +836,19 @@ export default function PlannerResponseHome() {
         const rawId = route.params?.scheduleId ?? scheduleId;
         const parsedId = coerceNumericScheduleId(rawId);
         const comeFromList = from === 'Home' || from === 'MyTrips';
+
+        // ✅ Home/MyTrips에서 읽기 진입 시: 서버 재조회 전에 스냅샷을 먼저 잡아둔다
+     if (comeFromList && Number.isFinite(parsedId)) {
+      
+       await loadSnapshotForId(parsedId);
+     }
+
         if (comeFromList && Number.isFinite(parsedId)) {
+          await loadSnapshotForId(parsedId);
           await applyDetailWithVersion(() => getScheduleDetail(parsedId), 'initial-home');
+          
+          didInitialFetchRef.current = true;
+          navigation.setParams({ ...(route.params||{}), skipFirstFetch: true });
           return;
         }
         const cached = await getCacheData(CACHE_KEYS.PLAN_INITIAL);
@@ -611,6 +869,7 @@ export default function PlannerResponseHome() {
           try { await snapshotInitialOnce(ensured); } catch(e) { console.warn('snapshotInitialOnce fail', e?.message); }
         } else if (Number.isFinite(parsedId)) {
           await applyDetailWithVersion(() => getScheduleDetail(parsedId), 'initial-id');
+          didInitialFetchRef.current = true;
         }
       } catch (err) {
         console.error('❌ 초기 데이터 로드 실패', err);
@@ -644,6 +903,10 @@ export default function PlannerResponseHome() {
 
   useFocusEffect(
   useCallback(() => {
+    if (lockServerFetchRef.current || route?.params?.lockRead) {
+      console.log('⛔ 서버 재조회 잠금 상태(저장 직후 세션)');
+      return;
+    }
     const mustForce = route?.params?.forceFetch === true;
     if (mustForce) {
       console.log('🔁 forceFetch: 서버 상세 재조회 강제');
@@ -655,7 +918,6 @@ export default function PlannerResponseHome() {
           setListVersion(v => v + 1);
         });
       }
-      navigation.setParams({ ...(route.params || {}), forceFetch: undefined });
       return;
     }
 
@@ -709,15 +971,36 @@ export default function PlannerResponseHome() {
   };
 
   const handleBack = () => {
-    if (isEditing) {
-      setEditedPlaces({});
-      setEditedPlaceId(null);
-      setNewlyAddedPlaceId(null);
-      setNewlyAddedIndex(-1);
-      setEditDraft(null);
-      setIsEditing(false);
-      return;
-    }
+  // ✅ 편집 중일 때는 기존 로직 그대로 (탭바는 그대로 유지)
+  if (isEditing) {
+    setEditedPlaces({});
+    setEditedPlaceId(null);
+    setNewlyAddedPlaceId(null);
+    setNewlyAddedIndex(-1);
+    setEditDraft(null);
+    setIsEditing(false);
+    return;
+  }
+
+  // ✅ 탭바 복구 (MyTrips에서 돌아올 때 바로 보이게)
+  const parent = navigation.getParent?.('MainTabs') ?? navigation.getParent?.();
+  parent?.setOptions?.({
+    tabBarStyle: {
+      height: 70,
+      paddingBottom: 6,
+      paddingTop: 6,
+      backgroundColor: '#Fafafa',
+      display: 'flex',
+      opacity: 1,
+      position: 'relative',
+      pointerEvents: 'auto',
+    },
+  });
+
+  // ✅ 복구 적용 후 1틱 뒤 안전하게 goBack()
+  setTimeout(() => {
+    navigation.goBack();
+  }, 0);
     const tabNav = navigation.getParent();
     if (from === 'Home') {
       if (tabNav?.reset) tabNav.reset({ index: 0, routes: [{ name: 'Home' }] });
@@ -736,7 +1019,9 @@ export default function PlannerResponseHome() {
       const updatedDays = prev.days.map((day, idx) =>
         idx === selectedDayIndex ? { ...day, places: [...data] } : day
       );
-      return { ...prev, days: updatedDays };
+      const next = { ...prev, days: updatedDays };
+     try { writeEditedDraft?.(next); } catch {}
+     return next;
     });
     setListVersion(v => v + 1);
   };
@@ -783,39 +1068,48 @@ export default function PlannerResponseHome() {
   }, [isEditing, scheduleData, editDraft]);
 
   const handleAddPlace = (insertIndex) => {
-    const hasEmpty = Object.values(editedPlaces).some((v) => (v ?? '').trim() === '');
-    if (hasEmpty) {
-      Alert.alert('입력 필요', '이전 추가된 장소의 이름을 먼저 입력해주세요.');
-      return;
-    }
-    setEditDraft((prev) => {
-      const currentPlaces = [...prev.days[selectedDayIndex].places];
-      const newPlaceId = uuid.v4();
-      const newPlace = {
-        id: newPlaceId,
-        name: '',
-        type: '',
-        estimatedCost: 0,
-        gptOriginalName: '',
-        fromPrevious: { car: 0, publicTransport: 0, walk: 0 },
-      };
-      console.log('🆕 [addPlace] 새 장소 초안 생성', _safePlaceForLog(newPlace), 'insertIndex=', insertIndex + 1, 'day=', selectedDayIndex + 1);
-      const updatedPlaces = [
-        ...currentPlaces.slice(0, insertIndex + 1),
-        newPlace,
-        ...currentPlaces.slice(insertIndex + 1),
-      ];
-      const updatedDays = prev.days.map((day, i) =>
-        i === selectedDayIndex ? { ...day, places: updatedPlaces } : day
-      );
-      setNewlyAddedPlaceId(newPlaceId);
-      setNewlyAddedIndex(insertIndex + 1);
-      setEditedPlaceId(newPlaceId);
-      setEditedPlaces((p) => ({ ...p, [newPlaceId]: '' }));
-      return { ...prev, days: updatedDays };
-    });
-    setListVersion((v) => v + 1);
-  };
+  const hasEmpty = Object.values(editedPlaces).some((v) => (v ?? '').trim() === '');
+  if (hasEmpty) {
+    Alert.alert('입력 필요', '이전 추가된 장소의 이름을 먼저 입력해주세요.');
+    return;
+  }
+
+  setEditDraft((prev) => {
+    const currentPlaces = [...prev.days[selectedDayIndex].places];
+    const newPlaceId = uuid.v4();
+    const newPlace = {
+      id: newPlaceId,
+      name: '',
+      type: '',
+      estimatedCost: 0,
+      gptOriginalName: '',
+      fromPrevious: { car: 0, publicTransport: 0, walk: 0 },
+    };
+
+    const updatedPlaces = [
+      ...currentPlaces.slice(0, insertIndex + 1),
+      newPlace,
+      ...currentPlaces.slice(insertIndex + 1),
+    ];
+
+    const updatedDays = prev.days.map((day, i) =>
+      i === selectedDayIndex ? { ...day, places: updatedPlaces } : day
+    );
+
+    // ✅ 여기서 next를 명시적으로 만들어 준다
+    const next = { ...prev, days: updatedDays };
+
+    setNewlyAddedPlaceId(newPlaceId);
+    setNewlyAddedIndex(insertIndex + 1);
+    setEditedPlaceId(newPlaceId);
+    setEditedPlaces((p) => ({ ...p, [newPlaceId]: '' }));
+
+    try { writeEditedDraft?.(next); } catch {}
+    return next;
+  });
+
+  setListVersion((v) => v + 1);
+};
 
   const handleDeletePlace = (placeId) => {
     setEditDraft(prev => {
@@ -824,7 +1118,9 @@ export default function PlannerResponseHome() {
       const updatedDays = prev.days.map((day, i) =>
         i === selectedDayIndex ? { ...day, places: updatedPlaces } : day
       );
-      return { ...prev, days: updatedDays };
+      const next = { ...prev, days: updatedDays };
+   try { writeEditedDraft?.(next); } catch {}
+   return next;
     });
     if (newlyAddedPlaceId === placeId) setNewlyAddedPlaceId(null);
     setEditedPlaces((prev) => {
@@ -1268,59 +1564,63 @@ navigation.setParams({ ...(route.params || {}), skipFirstFetch: true }); // 1회
 <TouchableOpacity
   style={styles.resaveButton}
   onPress={async () => {
-    try {
-      openSaving?.();
+    console.log('🔒 lock on after save:', lockServerFetchRef.current);
+try {
+  openSaving?.();
 
-      // 1) 최신 편집본: PLAN_EDITED만 1순위로 사용
-      const latest =
-        (await getCacheData(CACHE_KEYS.PLAN_EDITED)) || editDraft;
-      if (!latest?.days?.length) {
-        closeSaving?.();
-        Alert.alert('재저장 불가', '재저장할 일정이 없습니다.');
-        return;
-      }
+  // 1) 최신 편집본 확보 (화면편집본 > 캐시 > 현재상태)
+  const cachedEdited = await getCacheData(CACHE_KEYS.PLAN_EDITED);
+  const latest = editDraft || cachedEdited || scheduleData;
+  if (!latest?.days?.length) {
+    closeSaving?.();
+    // 팝업 없이 로그만 남김
+    console.warn('재저장 불가: latest.days 없음');
+    return;
+  }
 
-      // 2) 숫자 scheduleId 강제 획득
-      const id = getNumericScheduleId();
-      if (!Number.isFinite(id)) {
-        closeSaving?.();
-        Alert.alert('재저장 불가', 'scheduleId를 찾을 수 없습니다.');
-        return;
-      }
+  // 2) scheduleId 확보
+  const id = getNumericScheduleId?.() ??
+             Number(route?.params?.scheduleId) ??
+             Number(scheduleData?.id ?? scheduleData?.scheduleId);
+  if (!Number.isFinite(id)) {
+    closeSaving?.();
+    console.warn('재저장 불가: scheduleId 없음');
+    return;
+  }
 
-      // 3) payload 생성 (빈/삭제 항목 제거 + 순서 재정렬 + 시간/좌표 정리)
-      const { days } = buildResaveDaysPayload(latest);
-      console.log('📤 [resave payload names]', days.map(d => d.places.map(p => p.name)));
+  // 3) payload 생성 (추가/삭제/순서/음수시간 정리)
+  const { days } = buildResaveDaysPayload(latest);
+  console.log('📤 [resave payload]', { id, daysCount: days?.length });
 
-      // 4) 서버 전송
-      const res = await resaveSchedule(id, days);
-      console.log('✅ 재저장 성공:', res);
+  // 4) 서버 전송
+  await resaveSchedule(id, days);
 
-      // ✅ (재저장 직후 서버 상세 재조회 로그)
-const after = await getScheduleDetail(id);
-console.log('🔎 post-resave server detail names',
-  after?.days?.map(d => (d.places || []).map(p => p.name))
-);
+  // 5) 캐시/리스트 갱신
+  await removeCacheData?.(CACHE_KEYS.PLAN_DETAIL);
+  await clearDraftCaches?.();          // 편집 캐시 초기화(선택)
+  await invalidateListAndHomeCaches?.();
+  emitTripsUpdated?.(DeviceEventEmitter, { id, reason: 'resave' });
 
-// ✅ 상세 캐시 제거
-await removeCacheData?.(CACHE_KEYS.PLAN_DETAIL);
+  // 6) 화면 그대로 유지 + 즉시 반영
+  const upsertPayload = { ...latest, id, scheduleId: id, days };
+  try { await upsertMyTrip?.(upsertPayload); } catch {}
+  try { await writeEditedDraft?.(upsertPayload); } catch {} // 이후 재편집 대비
+  setScheduleData?.(upsertPayload);
+  savedSnapshotRef.current = upsertPayload;
 
-      // 5) 편집/리스트/홈 캐시 무효화 + 새로고침 이벤트
-      await clearDraftCaches?.();              // PLAN_EDITED/INITIAL 정리
-      await invalidateListAndHomeCaches?.();   // 리스트/홈 캐시 무효화
-      emitTripsUpdated(DeviceEventEmitter, { id, reason: 'resave' });
+  // 7) 자동 재조회로 덮어쓰기 방지
+  lockServerFetchRef.current = true;
 
-      // 6) 내여행으로 이동 (1회성 새로고침 파라미터)
-      navigation.navigate('MyTrips', { refreshAt: Date.now() });
+  // 8) 마무리 — 팝업/문구 없음, 스피너만 닫고 끝
+  closeSaving?.();
+  console.log('✅ 재저장 완료: 화면 유지 & 상태 반영');
+} catch (e) {
+  closeSaving?.();
+  console.warn('❌ 재저장 오류:', e);
+  // 요청대로 Alert 문구 제거 — 조용히 실패 로그만
+}
 
-      closeSaving?.();
-      Alert.alert('완료', '플랜이 성공적으로 재저장되었습니다.');
-    } catch (e) {
-      closeSaving?.();
-      console.warn('❌ 재저장 오류:', e);
-      Alert.alert('오류', '재저장에 실패했습니다.');
-    }
-  }}
+}}
 >
   <Text style={styles.resaveButtonText}>내 여행으로 재저장</Text>
 </TouchableOpacity>
@@ -1438,69 +1738,10 @@ await removeCacheData?.(CACHE_KEYS.PLAN_DETAIL);
 
             <View style={styles.regenerateButtonWrapper}>
               {/* 내 여행으로 저장 */}
-              <TouchableOpacity
-                style={styles.regenerateButton}
-                onPress={async () => {
-                  try {
-                    const cachedEdited = await getCacheData(CACHE_KEYS.PLAN_EDITED);
-                    const working     = await loadWorkingDraft();
-                    const latestBase  = working || cachedEdited || editDraft || scheduleData;
-                    if (!latestBase?.days?.length) {
-                      Alert.alert('저장 불가', '저장할 일정이 없습니다.');
-                      return;
-                    }
-                    const mergedClean = mergeAndCleanDraft(latestBase, editedPlaces);
- const latest = ensurePlaceIds(mergedClean);
-
-                    const current = latest?.id ? latest : { ...(latest || {}), id: uuid.v4() };
-                    const extractId = (obj) => {
-                      const raw = obj?.serverId ?? obj?.scheduleId ?? obj?.scheduleNo ?? obj?.id;
-                      const n = Number(String(raw ?? '').match(/^\d+$/)?.[0]);
-                      return Number.isFinite(n) ? n : NaN;
-                    };
-                    let finalId = extractId(current);
-
-                    try {
-                      if (typeof saveSchedule === 'function') {
-                        const saved = await saveSchedule(current);
-                        const raw = saved?.id ?? saved?.scheduleId ?? saved?.scheduleNo;
-                        const parsed = Number(String(raw ?? '').match(/^\d+$/)?.[0]);
-                        if (Number.isFinite(parsed)) finalId = parsed;
-                      }
-                    } catch (apiErr) {}
-
-                    const forLocal = { ...current };
-                    if (Number.isFinite(finalId)) forLocal.serverId = finalId;
-
-                    const existing = await AsyncStorage.getItem('MY_TRIPS');
-                    let trips = existing ? JSON.parse(existing) : [];
-                    const idx = trips.findIndex(t => Number(t?.serverId ?? t?.id) === finalId);
-                    if (idx !== -1) trips[idx] = { ...trips[idx], ...forLocal };
-                    else trips.push(forLocal);
-                    await AsyncStorage.setItem('MY_TRIPS', JSON.stringify(trips));
-
-                    Alert.alert('저장 완료', '내 여행에 저장되었습니다.', [
-                      {
-                        text: '확인',
-                        onPress: () => {
-                          if (Number.isFinite(finalId)) {
-       navigation.replace('PlannerResponse', {
-         scheduleId: finalId,
-         mode: 'read',
-         from: 'PlannerCreate',
-         initialData: latest,      // ✅ 내가 방금 저장한 편집본을 같이 전달
-         skipFirstFetch: true,     // ✅ 첫 렌더에서는 서버 재조회 스킵
-       });
-     }
-                        },
-                      },
-                    ]);
-                  } catch (e) {
-                    Alert.alert('오류', '저장에 실패했습니다.');
-                  }
-                }}
-              >
-                <Text style={styles.regenerateButtonText}>내 여행으로 저장</Text>
+              <TouchableOpacity style={styles.regenerateButton} 
+              onPress={handleSaveToMyTrips} 
+              activeOpacity={0.9} > 
+              <Text style={styles.regenerateButtonText}>내 여행으로 저장</Text> 
               </TouchableOpacity>
             </View>
           </>

@@ -8,7 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { saveCacheData, getCacheData, CACHE_KEYS } from '../../caching/cacheService';
 import { KAKAO_REST_API_KEY, KAKAO_JS_KEY } from '@env';
-import { getScheduleDetail } from '../../api/planner_detail';
+import { fetchPlaceDetail } from '../../api/planner_detail';
 
 // 반응형 유틸
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -91,12 +91,13 @@ export default function PlaceDetailScreen() {
         setLoading(true);
         setError(null);
 
-        const detail = await getScheduleDetail({
-          placeId: place?.placeId, // 있으면 서버 우선 조회
-          name: place?.name ?? '',
-          type: place?.type ?? '',
-          estimatedCost: Number.isFinite(place?.estimatedCost) ? Number(place?.estimatedCost) : 0,
-        });
+        const detail = await fetchPlaceDetail({
+  name: place?.name ?? '',
+  type: place?.type ?? '',
+  estimatedCost: Number.isFinite(place?.estimatedCost) ? Number(place?.estimatedCost) : 0,
+  lat: place?.lat,
+  lng: place?.lng,
+});
 
         if (!mounted) return;
 

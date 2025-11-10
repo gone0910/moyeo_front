@@ -38,11 +38,12 @@ function normalize(size, based = 'width') {
   }
 }
 
-const pickId = (obj) => {
-  const raw = obj?.serverId ?? obj?.scheduleId ?? obj?.scheduleNo ?? obj?.id;
-  const n = Number(String(raw ?? '').match(/^\d+$/)?.[0]);
-  return Number.isFinite(n) ? n : null;
-};
+const pickKey = (obj) => {
+   const raw = obj?.serverId ?? obj?.scheduleId ?? obj?.scheduleNo ?? obj?.id;
+   if (raw === undefined || raw === null) return null;
+   const s = String(raw).trim();
+   return s && /\d+/.test(s) ? s : null;   // 문자열 키로 통일
+ };
 
 async function mergeWithLocalOverlay(serverItems) {
   try {
@@ -51,10 +52,15 @@ async function mergeWithLocalOverlay(serverItems) {
     const local = JSON.parse(raw);
     if (!Array.isArray(local)) return serverItems;
 
-    const map = new Map(serverItems.map(it => [pickId(it) ?? it?.id, it]));
+    // 서버 기준 맵 (유효 id만)
+    const map = new Map(
+      serverItems
+        .map((it) => [pickKey(it), it])
+        .filter(([k]) => !!k)
+    );
     for (const l of local) {
-      const lid = pickId(l) ?? l?.id;
-      if (!lid) continue;
+      const lid = pickKey(l);
+      if (!lid) continue; // id 없는 드래프트는 무시
       const base = map.get(lid) || {};
       map.set(lid, {
         ...base,

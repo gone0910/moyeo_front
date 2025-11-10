@@ -15,6 +15,8 @@ import { SafeAreaView } from "react-native-safe-area-context";
 const { width, height } = Dimensions.get('window');
 const MAX_IMAGES = 5;
 
+
+
 export default function NewPostScreen() {
   const [selectedRegion, setSelectedRegion] = useState('선택안함');
   const [selectedCity, setSelectedCity] = useState('');
@@ -23,6 +25,9 @@ export default function NewPostScreen() {
   const navigation = useNavigation();
   const [images, setImages] = useState([]);
   const inputRef = useRef(null);
+  const MIN_HEIGHT = 140;
+const MAX_HEIGHT = 500;
+const [contentHeight, setContentHeight] = useState(MIN_HEIGHT);
 
   // 도/시 ENUM 변환 
     const Province = {
@@ -418,14 +423,24 @@ export default function NewPostScreen() {
   onPress={() => inputRef.current && inputRef.current.focus()}
 >
   <TextInput
-    ref={inputRef}
-    style={styles.contentInput}
-    value={content}
-    onChangeText={setContent}
-    placeholder="다양한 여행 이야기를 적어주세요"
-    placeholderTextColor="#b3b3b3"
-    multiline
-  />
+  ref={inputRef}
+  value={content}
+  onChangeText={setContent}
+  placeholder="다양한 여행 이야기를 적어주세요"
+  placeholderTextColor="#b3b3b3"
+  multiline
+  style={[
+    styles.contentInput,
+    { height: contentHeight, width: '100%', alignSelf: 'stretch' },
+  ]}
+  textAlignVertical="top"
+  onContentSizeChange={(e) => {
+    const h = e?.nativeEvent?.contentSize?.height || MIN_HEIGHT;
+    // 🚫 무제한 확장 금지 — 500까지만 커지고 멈춤
+    setContentHeight(Math.max(MIN_HEIGHT, Math.min(MAX_HEIGHT, h)));
+  }}
+  scrollEnabled={false} // 입력창 내부 스크롤 없음
+/>
   {content.trim().length === 0 && (
     <View style={styles.guideBox} pointerEvents="none">
       <Text style={styles.guideText}>{'\u2022'} 여행 동행자 모집</Text>
@@ -532,13 +547,18 @@ const styles = StyleSheet.create({
     borderColor: '#F2F2F4',
   },
   contentInput: {
-    minHeight: height * 0.13,
-    fontSize: width * 0.040,
-    color: '#333',
-    textAlignVertical: 'top',
-    padding: 0,
-    marginBottom: 10,
-  },
+  width: '100%',
+  alignSelf: 'stretch',
+  minHeight: height * 0.13,
+  fontSize: width * 0.040,
+  color: '#333',
+  textAlignVertical: 'top',
+  padding: 0,
+  marginBottom: 10,
+  flexGrow: 0,   // 🔹자동 확장 방지
+  flexShrink: 1, // 🔹부모 레이아웃 깨짐 방지
+},
+
   guideBox: {
     marginTop: -65,
   },

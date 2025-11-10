@@ -16,13 +16,14 @@ import {
   PixelRatio,
   DeviceEventEmitter,
 } from 'react-native';
-import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { useNavigation, useFocusEffect} from '@react-navigation/native';
 import HeaderBar from '../../components/common/HeaderBar';
 import { MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { fetchPlanList } from '../../api/MyPlanner_fetch_list';
 import { deleteSchedule } from '../../api/planner_delete_request';
 import { TRIPS_UPDATED_EVENT } from '../../caching/cacheService';
+import { MAIN_TAB_ID, defaultTabBarStyle } from '../../navigation/BottomTabNavigator';
 
 // ✅ 전체 여행 & 캐시 초기화 함수
 async function purgeAllTripsAndCaches() {
@@ -121,6 +122,183 @@ export default function MyTripsScreen() {
   const [isEditing, setIsEditing] = useState(false);
   const [myTrips, setMyTrips] = useState([]);
 
+  useFocusEffect(
+  React.useCallback(() => {
+    const parent = navigation.getParent?.(MAIN_TAB_ID) ?? navigation.getParent?.();
+    const show = () => parent?.setOptions?.({
+      tabBarStyle: { ...defaultTabBarStyle, display: 'flex', opacity: 1, position: 'relative' },
+    });
+
+    show();
+    const t = setTimeout(show, 0); // 레이스 가드 1회
+
+    return () => {
+      clearTimeout(t);
+      show(); // 블러 시에도 보이는 상태로 고정
+    };
+  }, [navigation])
+);
+
+// ✅ 전환 애니메이션 종료 시에도 보이기(제스처 뒤로가기 포함)
+React.useEffect(() => {
+  const parent = navigation.getParent?.(MAIN_TAB_ID) ?? navigation.getParent?.();
+  const show = () => parent?.setOptions?.({
+    tabBarStyle: { ...defaultTabBarStyle, display: 'flex', opacity: 1, position: 'relative' },
+  });
+  const unsub = navigation.addListener('transitionEnd', show);
+  return unsub;
+}, [navigation]);
+
+  // ✅ MyTrips가 보일 때마다 탭바를 ‘항상’ 복구
+useFocusEffect(
+  React.useCallback(() => {
+    const parent = navigation.getParent?.(MAIN_TAB_ID) ?? navigation.getParent?.();
+
+    // 1) 즉시 복구 (display: 'flex'로 확실히 덮어쓰기)
+    parent?.setOptions?.({
+      tabBarStyle: {
+        ...defaultTabBarStyle,
+        display: 'flex',
+        opacity: 1,
+        position: 'relative',
+        height: defaultTabBarStyle?.height ?? 70,
+        borderTopWidth: defaultTabBarStyle?.borderTopWidth ?? StyleSheet.hairlineWidth,
+        pointerEvents: 'auto',
+      },
+    });
+
+    // 2) 혹시 전 화면에서 늦게 숨김을 적용하는 경우를 대비한 1회 재적용(레이스가드)
+    const t = setTimeout(() => {
+      parent?.setOptions?.({
+        tabBarStyle: {
+          ...defaultTabBarStyle,
+          display: 'flex',
+          opacity: 1,
+          position: 'relative',
+          height: defaultTabBarStyle?.height ?? 70,
+          borderTopWidth: defaultTabBarStyle?.borderTopWidth ?? StyleSheet.hairlineWidth,
+          pointerEvents: 'auto',
+        },
+      });
+    }, 0);
+
+    // 3) 화면 떠날 때도 안전하게 ‘보이는 상태’를 유지
+    return () => {
+      clearTimeout(t);
+      parent?.setOptions?.({
+        tabBarStyle: {
+          ...defaultTabBarStyle,
+          display: 'flex',
+          opacity: 1,
+          position: 'relative',
+          height: defaultTabBarStyle?.height ?? 70,
+          borderTopWidth: defaultTabBarStyle?.borderTopWidth ?? StyleSheet.hairlineWidth,
+          pointerEvents: 'auto',
+        },
+      });
+    };
+  }, [navigation])
+);
+
+
+  // ✅ MyTrips가 보일 때마다 탭바를 항상 복구
+  useFocusEffect(
+    useCallback(() => {
+      const parent = navigation.getParent?.(MAIN_TAB_ID) ?? navigation.getParent?.();
+      parent?.setOptions?.({ tabBarStyle: defaultTabBarStyle });
+      // 언마운트/블러 시에도 안전하게 복구(이중 안전장치)
+      return () => parent?.setOptions?.({ tabBarStyle: defaultTabBarStyle });
+    }, [navigation])
+  );
+
+  async function writeTripsPreserveDays(nextList) {
+  try {
+    const raw = await AsyncStorage.getItem('MY_TRIPS');
+    const prev = raw ? JSON.parse(raw) : [];
+    const prevMap = new Map((Array.isArray(prev) ? prev : []).map(t => [String(t?.id), t]));
+
+    const merged = (nextList || []).map(t => {
+      const old = prevMap.get(String(t?.id));
+      // 이전에 days가 있었다면 보존 (서버 요약형으로 덮어씌우지 않음)
+      if (old?.days?.length && !t?.days?.length) {
+        return { ...t, days: old.days };
+      }
+      return t;
+    });
+
+    await AsyncStorage.setItem('MY_TRIPS', JSON.stringify(merged));
+  } catch (e) {
+    console.warn('[MyTrips] writeTripsPreserveDays error:', e?.message);
+    await AsyncStorage.setItem('MY_TRIPS', JSON.stringify(nextList || []));
+  }
+}
+
+
+// ✅ MyTripsScreen 컴포넌트 안, return 위에 추가
+const openPlannerResponse = useCallback((trip) => {
+  const toPositiveInt = (v) => {
+    const n = Number(String(v ?? '').match(/^\d+$/)?.[0]);
+    return Number.isFinite(n) && n > 0 ? n : null;
+  };
+
+  const scheduleId = toPositiveInt(trip?.serverId) ?? toPositiveInt(trip?.id);
+  if (!scheduleId) {
+    Alert.alert('잘못된 일정', '유효한 서버 일정 ID가 없습니다.');
+    return;
+  }
+
+  const params = {
+    scheduleId,
+    mode: 'read',
+    from: 'MyTrips',
+    initialData: trip,
+    skipFirstFetch: false,
+    lockRead: true,
+  };
+
+  // ✅ 탭(parent) 상태에서 실제 탭 이름을 동적으로 찾음
+  const tabs = navigation.getParent?.() ?? null;
+  const tabState = tabs?.getState?.();
+  const tabNames = tabState?.routeNames ?? [];
+
+  // Home 탭 이름 추정: 'Home' 포함 → 그 외 첫 번째
+  const homeTabName =
+    tabNames.find((n) => /home/i.test(n)) || tabNames[0];
+
+  // 스택 화면 이름 후보: 프로젝트에 따라 'PlannerResponse' 또는 'PlannerResponseHome'일 수 있음
+  const stackCandidates = ['PlannerResponse', 'PlannerResponseHome'];
+
+  if (tabs && homeTabName) {
+    // 1순위: 'PlannerResponse'
+    try {
+      tabs.navigate(homeTabName, { screen: stackCandidates[0], params });
+      return;
+    } catch {}
+
+    // 2순위: 'PlannerResponseHome'
+    try {
+      tabs.navigate(homeTabName, { screen: stackCandidates[1], params });
+      return;
+    } catch {}
+
+    // 디버그 안내
+    Alert.alert(
+      '네비게이션 확인 필요',
+      `탭 이름 후보: ${tabNames.join(', ') || '(없음)'}\n` +
+      `스택 화면 이름이 'PlannerResponse' 또는 'PlannerResponseHome'로 등록돼 있는지 확인해주세요.`
+    );
+    console.log('[nav-debug]', { tabNames, tried: stackCandidates, homeTabName, params });
+    return;
+  }
+
+  // 탭 부모를 못 찾은 경우 — 같은 스택 안일 수도 있으니 직접 시도
+  try { navigation.navigate(stackCandidates[0], params); return; } catch {}
+  try { navigation.navigate(stackCandidates[1], params); return; } catch {}
+
+  Alert.alert('네비게이터 경로 없음', '현재 네비게이터에서 대상 화면을 찾지 못했습니다.');
+  console.log('[nav-debug:fallback]', { params });
+}, [navigation]);
+
   useEffect(() => { setRandomTip(getRandomTip(TRAVEL_TIPS)); }, []);
 
   useFocusEffect(
@@ -132,7 +310,7 @@ export default function MyTripsScreen() {
           const merged = await mergeWithLocalOverlay(serverTrips);
           const normalized = merged.map((t, i) => normalizeTripShape(t, i));
           setMyTrips(normalized);
-          await AsyncStorage.setItem('MY_TRIPS', JSON.stringify(normalized));
+          await writeTripsPreserveDays(normalized);
         } catch (e) {
           console.error('[MyTripsScreen] 여행 리스트 불러오기 실패:', e);
           Alert.alert('불러오기 실패', '여행 데이터를 가져오지 못했습니다.');
@@ -149,7 +327,7 @@ export default function MyTripsScreen() {
       const merged = await mergeWithLocalOverlay(Array.isArray(items) ? items : []);
       const normalized = merged.map((t, i) => normalizeTripShape(t, i));
       setMyTrips(normalized);
-      await AsyncStorage.setItem('MY_TRIPS', JSON.stringify(normalized));
+      await writeTripsPreserveDays(normalized);
     } catch {
       const raw = await AsyncStorage.getItem('MY_TRIPS');
       setMyTrips(raw ? JSON.parse(raw) : []);
@@ -203,7 +381,7 @@ export default function MyTripsScreen() {
   return (
     <View style={styles.screen}>
       <HeaderBar />
-      {/* ⚠️ 개발용: 로컬 캐시 초기화 버튼 (사용 후 주석처리)
+       {/* ⚠️ 개발용: 로컬 캐시 초기화 버튼 (사용 후 주석처리) */}
 <View style={{ paddingHorizontal: 20, marginTop: 10 }}>
   <TouchableOpacity
     style={{ backgroundColor: '#F87171', borderRadius: 10, padding: 10 }}
@@ -214,7 +392,7 @@ export default function MyTripsScreen() {
     </Text>
   </TouchableOpacity>
 </View>
-*/}
+
       <View style={[styles.tipContainer, { alignSelf: 'center', width: containerWidth }]}>
         <Text style={styles.tipTitle}>오늘의 여행 <Text style={{ fontStyle: 'italic' }}>TIP</Text></Text>
         <Text style={styles.tipText}>{randomTip}</Text>
@@ -247,29 +425,61 @@ export default function MyTripsScreen() {
                   style={[styles.tripBox, isEditing && { borderTopRightRadius: 0, borderBottomRightRadius: 0, marginRight: 0, borderRightWidth: 0 }]}
                   activeOpacity={0.3}
                   disabled={isEditing}
-                  onPress={() => {
+                  onPress={async () => {
   const toPositiveInt = (v) => {
     const n = Number(String(v ?? '').match(/^\d+$/)?.[0]);
     return Number.isFinite(n) && n > 0 ? n : null;
   };
 
+  // 1) 유효한 서버 scheduleId 확보
   const scheduleId = toPositiveInt(trip?.serverId) ?? toPositiveInt(trip?.id);
   if (!scheduleId) {
     Alert.alert('잘못된 일정', '유효한 서버 일정 ID가 없습니다.');
     return;
   }
 
-  // ✅ 오직 숫자 ID만 전달 (initialData 제거)
-  //    이렇게 해야 PlannerResponseHome이 항상 서버의 최신 일정으로 렌더링됨
-  navigation.navigate('Home', {
-    screen: 'PlannerResponse',
-    params: {
-      scheduleId,
-      mode: 'read',
-      from: 'MyTrips',
-      forceFetch: true,
-    },
-  });
+  // 2) 로컬 MY_TRIPS(상세 스냅샷) 확인 → 있으면 initialData로 사용
+  let initialData = trip;
+  let skipFirstFetch = false;
+  try {
+    const raw = await AsyncStorage.getItem('MY_TRIPS');
+    const list = raw ? JSON.parse(raw) : [];
+    const full = Array.isArray(list)
+      ? list.find(
+          (t) =>
+            toPositiveInt(t?.serverId) === scheduleId ||
+            toPositiveInt(t?.id) === scheduleId
+        )
+      : null;
+
+    if (full?.days?.length) {
+      // ✅ days 포함된 스냅샷 발견 → 바로 렌더용 initialData로 사용
+      initialData = full;
+      skipFirstFetch = true; // ✅ 첫 서버 재조회 스킵 (로컬 스냅샷으로 즉시 렌더)
+    }
+  } catch {}
+
+  // 3) PlannerResponse 파라미터 구성
+  const params = {
+    scheduleId,
+    mode: 'read',
+    from: 'MyTrips',
+    initialData,        // ✅ 핵심: 진입 즉시 화면에 찍힘
+    skipFirstFetch,     // ✅ 스냅샷 있으면 true, 없으면 false
+    lockRead: true,     // 읽기 모드 고정
+    forceReload: !skipFirstFetch, // 스냅샷 없을 때만 강제 재조회 플래그
+  };
+
+  // 4) Home 탭 아래의 PlannerResponse(혹은 PlannerResponseHome)로 중첩 네비게이션
+  try {
+    navigation.navigate('Home', { screen: 'PlannerResponse', params });
+  } catch {
+    try {
+      navigation.navigate('Home', { screen: 'PlannerResponseHome', params });
+    } catch {
+      navigation.navigate('PlannerResponse', params);
+    }
+  }
 }}
                 >
                   <View style={styles.tripContent}>
