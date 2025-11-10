@@ -31,7 +31,7 @@ function normalizeType(t = '') {
 /** 장소 상세 조회 (POST /place/detail) */
 export async function fetchPlaceDetail({ name, type, estimatedCost, lat, lng }) {
   const token = await loadToken();
-  const url = `${BASE_URL}/place/detail`;
+  const url = `${BASE_URL}/schedule/detail`;
 
   const body = {
     name: String(name || '').trim(),
