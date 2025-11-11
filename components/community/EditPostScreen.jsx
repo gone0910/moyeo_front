@@ -23,6 +23,8 @@ const MAX_IMAGE_SIZE = 30 * 1024 * 1024; // 30MB
 const { width, height } = Dimensions.get('window');
 const MAX_IMAGES = 3;
 
+const MIN_HEIGHT = 140;
+const MAX_HEIGHT = 400;
 
 export default function EditPostScreen({ route, navigation }) {
   const { postId, post } = route.params || {};
@@ -33,6 +35,7 @@ export default function EditPostScreen({ route, navigation }) {
   const [images, setImages] = useState([]);
   const inputRef = useRef(null);
   const [token, setToken] = useState(null);
+  const [contentHeight, setContentHeight] = useState(MIN_HEIGHT);
 
 
   // 토큰 추출해서 저장
@@ -498,7 +501,7 @@ export default function EditPostScreen({ route, navigation }) {
         />
       </View>
     )}
-     <View style={styles.divider} />
+     {/* <View style={styles.divider} /> */}
   </View>
 </View>
         {/* 입력 폼 */}
@@ -509,7 +512,7 @@ export default function EditPostScreen({ route, navigation }) {
             value={title}
             onChangeText={setTitle}
             placeholderTextColor="#B3B3B3"
-            maxLength={2000}
+            maxLength={40} // 제목 40자 제한
           />
           <TouchableOpacity
   activeOpacity={1}
@@ -518,12 +521,21 @@ export default function EditPostScreen({ route, navigation }) {
 >
   <TextInput
     ref={inputRef}
-    style={styles.contentInput}
     value={content}
     onChangeText={setContent}
     placeholder="다양한 여행 이야기를 적어주세요"
     placeholderTextColor="#b3b3b3"
     multiline
+    style={[
+      styles.contentInput,
+      { height: contentHeight, width: '100%', alignSelf: 'stretch' },
+    ]}
+    textAlignVertical="top"
+    onContentSizeChange={(e) => {
+      const h = e?.nativeEvent?.contentSize?.height || MIN_HEIGHT;
+      setContentHeight(Math.max(MIN_HEIGHT, Math.min(MAX_HEIGHT, h)));
+    }}
+    scrollEnabled={false} // 입력창 내부 스크롤 없음    
   />
   {content.trim().length === 0 && (
     <View style={styles.guideBox} pointerEvents="none">
@@ -594,6 +606,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: width * 0.04,
     paddingTop: height * 0.02,
     paddingBottom: height * 0.015,
+    marginBottom: 14,
   },
   filterLabel: {
     color: '#606060',
@@ -634,6 +647,10 @@ const styles = StyleSheet.create({
     textAlignVertical: 'top',
     padding: 0,
     marginBottom: 10,
+    flexGrow: 0,
+    flexShrink: 1,
+    width: '100%',         // ⬅️ [추가] NewPostScreen과 동일하게
+    alignSelf: 'stretch',
   },
   guideBox: {
     marginTop: -65,
@@ -642,6 +659,7 @@ const styles = StyleSheet.create({
     color: '#b3b3b3',
     fontSize: width * 0.04,
     lineHeight: 20,
+    marginBottom: 30,
   },
   plusButtonContainer: {
     alignItems: 'flex-start',
@@ -672,7 +690,7 @@ const styles = StyleSheet.create({
   divider: {
     height: 8,
     width: '110%',
-    backgroundColor: '#EBEBEB',
+    backgroundColor: '#FAFAFA',
     marginLeft:-15,
     marginVertical: 12,
     marginHorizontal: 0, // <-- 좌우 여백
