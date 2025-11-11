@@ -124,13 +124,14 @@ export default function EditProfileScreen() {
       await AsyncStorage.setItem('user', JSON.stringify(updatedUser));
       
       Alert.alert('성공', '프로필이 수정되었습니다.');
-      navigation.reset({
-        index: 1, // 우리가 활성화할 화면의 인덱스 (ProfileHome)
-        routes: [
-          { name: 'BottomTab' }, 
-          { name: 'ProfileHome' }  
-        ],
-      });
+      navigation.goBack();
+      // navigation.reset({
+      //   index: 1, // 우리가 활성화할 화면의 인덱스 (ProfileHome)
+      //   routes: [
+      //     { name: 'BottomTab' }, 
+      //     { name: 'ProfileHome' }  
+      //   ],
+      // });
 
     } catch (e) {
       let errorMessage = '편집에 실패했습니다.';

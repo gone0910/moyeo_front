@@ -548,7 +548,7 @@ export default function EditPostScreen({ route, navigation }) {
   </ScrollView>
   {content.trim().length === 0 && (
     <View style={styles.guideBox} pointerEvents="none">
-    <Text style={styles.guideText}>{'\u2022'} {'\n'}</Text>
+    <Text style={styles.guideText}>{'\n'}</Text>
       <Text style={styles.guideText}>{'\u2022'} 여행 동행자 모집{'\n'}</Text>
       <Text style={styles.guideText}>{'\u2022'} 즐거웠던 여행 기억{'\n'}</Text>
       <Text style={styles.guideText}>{'\u2022'} 다른 여행자들에게 알려주고싶은 장소{'\n'}</Text>
