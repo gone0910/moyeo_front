@@ -282,40 +282,45 @@ export default function CommentSection({
     </View>
     {/* 두 번째 줄: 댓글 본문 */}
     <View style={styles.commentContentWrap}>
-        {editId === item.id ? (
-      <View style={{ flex: 1 }}>
-        <TextInput
-          ref={(ref) => { editInputRefs.current[item.id] = ref; }}
-          value={editContent}
-          onChangeText={setEditContent}
-          style={[styles.commentContent, { backgroundColor: '#ffffff', minHeight: 34 }]}
-          multiline
-          maxLength={200}
-          // onFocus={() => {
-          // }}
-        />
-        {/* 버튼 우측정렬 */}
-        <View style={{ flexDirection: 'row', marginTop: 6, justifyContent: 'flex-end', alignItems: 'center' }}>
-          <TouchableOpacity
-            style={{ marginRight: 12, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, backgroundColor: '#FFF' }}
-            onPress={() => handleInlineEditSubmit(item.id)}
-          >
-            <Text style={{ color: '#4F46E5', fontWeight: 'bold', fontSize: 13 }}>수정</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={{ marginRight: scale(6) ,paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, backgroundColor: '#FAFAFA' }}
-            onPress={() => {
-              setEditId(null);
-              setEditContent('');
-            }}
-          >
-            <Text style={{ color: '#333', fontSize: 13 }}>취소</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    ) : (
-      <Text style={styles.commentContent}>{item.content}</Text>
-    )}
+    {editId === item.id ? (
+  // ⬇️ 1. [변경] 수평(row)으로 감싸는 View 추가
+  <View style={{ flex: 1, flexDirection: 'row', alignItems: 'flex-end' }}> 
+    <TextInput
+      ref={(ref) => { editInputRefs.current[item.id] = ref; }}
+      value={editContent}
+      onChangeText={setEditContent}
+      // ⬇️ 2. [변경] style 수정: flex: 1 추가, backgroundColor/minHeight 유지
+      style={[styles.commentContent, { 
+        backgroundColor: '#ffffff', 
+        minHeight: 34,
+        flex: 1, // ⬅️ [추가] 남는 공간 모두 차지
+        marginRight: 8, // ⬅️ [추가] 버튼과의 간격
+      }]}
+      multiline
+      maxLength={200}
+    />
+    {/* ⬇️ 3. [변경] 버튼 View의 스타일 수정 (marginTop 제거) */}
+    <View style={{ flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center' }}>
+      <TouchableOpacity
+        style={{ marginRight: 6, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, backgroundColor: '#FFF' }}
+        onPress={() => handleInlineEditSubmit(item.id)}
+      >
+        <Text style={{ color: '#4F46E5', fontWeight: 'bold', fontSize: 13 }}>수정</Text>
+      </TouchableOpacity>
+      <TouchableOpacity
+        style={{ marginRight: scale(6) ,paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, backgroundColor: '#FAFAFA' }}
+        onPress={() => {
+          setEditId(null);
+          setEditContent('');
+        }}
+      >
+        <Text style={{ color: '#333', fontSize: 13 }}>취소</Text>
+      </TouchableOpacity>
+    </View>
+  </View>
+) : (
+  <Text style={styles.commentContent}>{item.content}</Text>
+)}
   </View>
   </View>
 );
@@ -350,7 +355,7 @@ export default function CommentSection({
         
         // ⬇️ [수정 1] 문제 2 해결: 댓글 수정 시 추가 여백
         // vScale(20) -> vScale(40)으로 늘려서 여유 공간 확보
-        extraScrollHeight={Platform.OS === 'ios' ? vScale(40) : 0} 
+        extraScrollHeight={Platform.OS === 'ios' ? vScale(60) : 0} 
       >
         {/* ListHeaderComponent, comments.map 등 */}
         {ListHeaderComponent}
@@ -367,7 +372,9 @@ export default function CommentSection({
             ref={inputRef}
             placeholder="댓글을 작성해 주세요."
             value={input}
-            // ... (다른 props)
+            onChangeText={setInput}
+            maxLength={200}
+            editable={editId === null} // ⬅️ [추가 권장] 수정 중일 땐 비활성화
             style={[
               styles.input,
               {
@@ -377,7 +384,7 @@ export default function CommentSection({
                 paddingVertical: 10, 
               },
             ]}
-            // ... (다른 props)
+            placeholderTextColor="#7E7E7E"
             multiline
             scrollEnabled={true}
             textAlignVertical="top"
@@ -397,7 +404,6 @@ export default function CommentSection({
             }}
           />
         <TouchableOpacity
-          // ... (등록 버튼 props)
            style={[
             styles.submitBtn,
             { 
