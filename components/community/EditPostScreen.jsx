@@ -519,26 +519,36 @@ export default function EditPostScreen({ route, navigation }) {
   style={styles.contentBox}
   onPress={() => inputRef.current && inputRef.current.focus()}
 >
-  <TextInput
-    ref={inputRef}
-    value={content}
-    onChangeText={setContent}
-    placeholder="다양한 여행 이야기를 적어주세요"
-    placeholderTextColor="#b3b3b3"
-    multiline
-    style={[
-      styles.contentInput,
-      { height: contentHeight, width: '100%', alignSelf: 'stretch' },
-    ]}
-    textAlignVertical="top"
-    onContentSizeChange={(e) => {
-      const h = e?.nativeEvent?.contentSize?.height || MIN_HEIGHT;
-      setContentHeight(Math.max(MIN_HEIGHT, Math.min(MAX_HEIGHT, h)));
-    }}
-    scrollEnabled={false} // 입력창 내부 스크롤 없음    
-  />
+  {/* ⬇️ 1. ScrollView로 TextInput을 감싸줍니다. */}
+  <ScrollView
+    style={{ maxHeight: height * 0.4 }} // 2. 스크롤 최대 높이 지정
+    nestedScrollEnabled={true}
+    keyboardShouldPersistTaps="handled"
+    showsVerticalScrollIndicator={true}
+  >
+    <TextInput
+      ref={inputRef}
+      value={content}
+      onChangeText={setContent}
+      placeholder="다양한 여행 이야기를 적어주세요"
+      placeholderTextColor="#b3b3b3"
+      multiline
+      style={[
+        styles.contentInput,
+        // ⬇️ 3. height를 contentHeight가 아닌 고정값으로 변경
+        { height: height * 0.4 }, 
+      ]}
+      textAlignVertical="top"
+      // ⬇️ 4. onContentSizeChange 핸들러 제거
+      // onContentSizeChange={(e) => ... }
+      
+      // ⬇️ 5. scrollEnabled=true로 변경 (내부 스크롤 활성화)
+      scrollEnabled={true} 
+    />
+  </ScrollView>
   {content.trim().length === 0 && (
     <View style={styles.guideBox} pointerEvents="none">
+    <Text style={styles.guideText}>{'\u2022'} {'\n'}</Text>
       <Text style={styles.guideText}>{'\u2022'} 여행 동행자 모집{'\n'}</Text>
       <Text style={styles.guideText}>{'\u2022'} 즐거웠던 여행 기억{'\n'}</Text>
       <Text style={styles.guideText}>{'\u2022'} 다른 여행자들에게 알려주고싶은 장소{'\n'}</Text>
@@ -649,11 +659,15 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     flexGrow: 0,
     flexShrink: 1,
-    width: '100%',         // ⬅️ [추가] NewPostScreen과 동일하게
+    width: '100%',        
     alignSelf: 'stretch',
   },
   guideBox: {
-    marginTop: -65,
+    position: 'absolute', 
+    top: 14,  
+    left: 14, 
+    right: 14,  
+    zIndex: 5,
   },
   guideText: {
     color: '#b3b3b3',
