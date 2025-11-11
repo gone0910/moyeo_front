@@ -1,4 +1,4 @@
-// components/community/common/CommentSection.jsx 댓글 영역역
+// components/community/common/CommentSection.jsx 댓글 영역
 // 커뮤니티 게시글 -상세보기- 댓글 
 import React, { useState, useEffect, useRef,forwardRef, useImperativeHandle, } from 'react';
 import {
@@ -7,6 +7,7 @@ ScrollView, Modal, Alert, RefreshControl, Keyboard } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getCommentList, createComment, editComment, deleteComment } from '../../../api/community'; 
 import { MaterialIcons } from '@expo/vector-icons';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 
 
 // 반응형 함수
@@ -16,17 +17,18 @@ const BASE_HEIGHT = 844;
 const scale = (size) => (SCREEN_WIDTH / BASE_WIDTH) * size;
 const vScale = (size) => (SCREEN_HEIGHT / BASE_HEIGHT) * size;
 
-// ✅ mock 데이터 (더미 댓글)
-const mockCommentList = [
-  // ... (mock 데이터) ...
-];
+// ... (mockCommentList 등 다른 변수들은 그대로) ...
 
 export default function CommentSection({ 
   postId, 
   myNickname = '', 
   ListHeaderComponent, // 
-  style // ⬅️ [추가] (PostDetailScreen에서 flex: 1을 받음)
+  style // ⬅️ [중요] (PostDetailScreen에서 flex: 1을 받음)
 }, ref) {
+  
+  // ... (모든 state, ref, effect, 함수들은 그대로 둡니다) ...
+  // ... (fetchComments, handleRefresh, handleSubmit, handleDelete 등...) ...
+
   const [input, setInput] = useState('');
   const [editId, setEditId] = useState(null); // 기존 입력란 수정
   const [editContent, setEditContent] = useState(''); // 댓글 직접 수정
@@ -174,6 +176,8 @@ export default function CommentSection({
   
   // 🔥 스크롤 + 포커스 타이밍 개선
   setTimeout(() => {
+    // ⬇️ [수정] ScrollView에는 없는 기능이므로 주석 처리 (또는 삭제)
+    /*
     if (flatListRef.current) {
       flatListRef.current.scrollToIndex({
         index: index,
@@ -181,11 +185,12 @@ export default function CommentSection({
         viewPosition: 0.3,
       });
     }
+    */
     
-    // 스크롤 완료 후 포커스
+    // 포커스 기능은 유지
     setTimeout(() => {
       editInputRefs.current[id]?.focus();
-    }, 400);
+    }, 400); // ⬅️ 타이밍을 100ms로 줄여도 됩니다.
   }, 100);
 };
 
@@ -205,9 +210,10 @@ export default function CommentSection({
   const [menuPosition, setMenuPosition] = useState({ top: 0, right: 0 });
   const moreBtnRefs = useRef({}); // 각 댓글별 ref 저장(댓글 모달 높이 )
 
-  // 댓글 랜더 (1개)
+
+  // ... (renderItem 함수는 그대로 둡니다) ...
   const renderItem = ({ item, index }) => ( // ⬅️ [복원] index 파라미터
-  <View style={styles.commentRow}>
+  <View key={item.id} style={styles.commentRow}>
     {/* 첫 줄: 프로필 + 닉네임 + (오른쪽) 시간 + 더보기 */}
     <View style={styles.topRow}>
       <Image source={{ uri: item.profileUrl }} style={styles.profileImg} />
@@ -314,45 +320,23 @@ export default function CommentSection({
   </View>
 );
 
+
   return (
-    // 전체를 flex:1 View로 감싼다
-    <View style={style}> {/* PostDetailScreen에서 받은 style(flex:1) 적용 */}
-      {/* 댓글 리스트 */}
-      <FlatList
+    // 최상위 KAV가 KAS와 inputRow를 모두 감쌉니다.
+    <KeyboardAvoidingView
+      style={style} 
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    >
+      
+      {/* 1. 댓글 목록 (KAS) */}
+      <KeyboardAwareScrollView
         ref={flatListRef}
-        ListHeaderComponent={ListHeaderComponent} // 
-        data={comments}
-        renderItem={renderItem} // ⬅️ [적용] index와 onFocus 로직이 추가된 renderItem
-        keyExtractor={(item, idx) => (item.id ?? idx).toString()}
-        getItemLayout={(data, index) => ({
-          length: vScale(100),
-          offset: vScale(100) * index,
-          index,
-        })}
+        style={{ flex: 1 }}
         contentContainerStyle={{
           paddingBottom: vScale(10),
           paddingTop: vScale(8),
         }}
-        ListEmptyComponent={
-          // <View style={{ paddingBottom: vScale(120) }}>
-            <Text style={styles.emptyText}>아직 작성된 댓글이 없어요</Text>
-          // </View>
-        }
-        // [포커싱 및 키보드 문제 해결용 옵션 추가]
-        keyboardShouldPersistTaps="handled"
-        keyboardDismissMode="on-drag"
-        removeClippedSubviews={false} // ← 포커싱 시 키보드 자동 닫힘 방지
-        onScrollToIndexFailed={(info) => {
-          const wait = new Promise((resolve) => setTimeout(resolve, 500));
-          wait.then(() => {
-            flatListRef.current?.scrollToIndex({
-              index: info.index,
-              animated: true,
-              viewPosition: 0.3,
-            });
-          });
-        }}
-        refreshControl={
+        refreshControl={ 
           <RefreshControl
             refreshing={refreshing}
             onRefresh={handleRefresh}
@@ -360,70 +344,79 @@ export default function CommentSection({
             colors={['#4F46E5']}
           />
         }
-      />
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+        enableOnAndroid={true} 
+        
+        // ⬇️ [수정 1] 문제 2 해결: 댓글 수정 시 추가 여백
+        // vScale(20) -> vScale(40)으로 늘려서 여유 공간 확보
+        extraScrollHeight={Platform.OS === 'ios' ? vScale(40) : 0} 
+      >
+        {/* ListHeaderComponent, comments.map 등 */}
+        {ListHeaderComponent}
+        {comments.map((item, index) => renderItem({ item, index }))}
+        {comments.length === 0 && !refreshing && (
+          <Text style={styles.emptyText}>아직 작성된 댓글이 없어요</Text>
+        )}
+      </KeyboardAwareScrollView>
+      {/* ⬆️ KAS 끝 ⬆️ */}
+      
+      {/* 2. 하단 입력창 */}
+      <View style={styles.inputRow}>
+        <TextInput
+            ref={inputRef}
+            placeholder="댓글을 작성해 주세요."
+            value={input}
+            // ... (다른 props)
+            style={[
+              styles.input,
+              {
+                fontSize: scale(14),
+                backgroundColor: editId === null ? '#FFF' : '#FAFAFA',
+                color: editId === null ? '#000' : '#B0B0B0',
+                paddingVertical: 10, 
+              },
+            ]}
+            // ... (다른 props)
+            multiline
+            scrollEnabled={true}
+            textAlignVertical="top"
+            returnKeyType="default"
 
-      {/* 하단 입력창만 KeyboardAvoidingView로 분리
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0} 
-      > */}
-        <View style={styles.inputRow}>
-          <TextInput
-              ref={inputRef}
-              placeholder="댓글을 작성해 주세요."
-              value={input}
-              onChangeText={setInput}
-              maxLength={200}
-              editable={editId === null}
-              style={[
-                styles.input,
-                {
-                  // height, minHeight, maxHeight 제거!
-                  fontSize: scale(14),
-                  backgroundColor: editId === null ? '#FFF' : '#FAFAFA',
-                  color: editId === null ? '#000' : '#B0B0B0',
-                  paddingVertical: 10, // or vScale(10)
-                },
-              ]}
-              placeholderTextColor="#7E7E7E"
-              multiline
-              scrollEnabled={true}
-              // onContentSizeChange={e => setInputHeight(e.nativeEvent.contentSize.height)} // 생략 가능
-              textAlignVertical="top"
-              returnKeyType="default"
-            onFocus={() => {
+            // ⬇️ [수정 2] 문제 1 해결: 하단 입력창 과다 스크롤
+            // KAV 애니메이션 시간을 기다리기 위해 100ms -> 300ms로 변경
+            onFocus={() => { 
               setTimeout(() => {
-                if (flatListRef.current && typeof flatListRef.current.scrollToEnd === 'function') {
+                const scrollResponder = flatListRef.current?.getScrollResponder?.();
+                if (scrollResponder && typeof scrollResponder.scrollToEnd === 'function') {
+                  scrollResponder.scrollToEnd({ animated: true });
+                } else if (flatListRef.current && typeof flatListRef.current.scrollToEnd === 'function') {
                   flatListRef.current.scrollToEnd({ animated: true });
-                  console.log('Scrolled to end'); // ⬅️ [보존]
-                } else {
-                  console.warn('scrollToEnd method not found on flatListRef: 해당 모듈 확인바람.'); // ⬅️ [보존]
                 }
-              }, 100);
+              }, 300); // ⬅️ 100ms에서 300ms로 수정
             }}
           />
-          <TouchableOpacity
-            style={[
-              styles.submitBtn,
-              { 
-                // ⬇️ [복원] 비활성화 시 스타일
-                backgroundColor: input.trim() && editId === null ? '#FFFFFF' : '#FAFAFA',
-                opacity: editId === null ? 1 : 0.5,
-              }
-            ]}
-            onPress={handleSubmit}
-            disabled={!input.trim() || editId !== null} // ⬅️ [복원]
-          >
-            <Text style={styles.submitText}>등록</Text>
-          </TouchableOpacity>
-        </View>
-      {/* </KeyboardAvoidingView> */}
-
-  </View>
+        <TouchableOpacity
+          // ... (등록 버튼 props)
+           style={[
+            styles.submitBtn,
+            { 
+              backgroundColor: input.trim() && editId === null ? '#FFFFFF' : '#FAFAFA',
+              opacity: editId === null ? 1 : 0.5,
+            }
+          ]}
+          onPress={handleSubmit}
+          disabled={!input.trim() || editId !== null}
+        >
+          <Text style={styles.submitText}>등록</Text>
+        </TouchableOpacity>
+      </View>
+      
+    </KeyboardAvoidingView> // ⬅️ 최상위 KAV 닫기
   );
 }
 
-// 이 코드를 CommentSection.jsx 맨 아래(마지막 줄 근처)에 붙여넣으세요
+// ... (CommentItem 및 styles는 그대로 둡니다) ...
 export function CommentItem(props) {
   // props에는 댓글 한 개의 모든 정보(id, nickname, content, profileUrl, createdDate, isMine 등)가 담겨있음
   return (
