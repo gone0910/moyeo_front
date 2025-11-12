@@ -43,10 +43,10 @@ export default function ProfileHomeScreen({ route }) {
     try {
       await logoutUser();
       setUser(null);
-      navigation.reset({
-        index: 0,
-        routes: [{ name: 'Login' }],
-      });
+      // navigation.reset({
+      //   index: 0,
+      //   routes: [{ name: 'Login' }],
+      // });
     } catch (error) {
       console.error('로그아웃 오류:', error);
     }

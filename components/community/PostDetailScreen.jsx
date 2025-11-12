@@ -297,23 +297,20 @@ export default function PostDetailScreen({ route, navigation }) {
         onEdit={() => navigation.navigate('EditPost', { postId: post.postId, post })}
       />
 
-      {/* ⬇️ [제거] KeyboardAvoidingView 래퍼를 완전히 제거합니다. */}
-      {/* <KeyboardAvoidingView
+      <KeyboardAvoidingView
         style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0} 
-      > */}
-
-        {/* CommentSection은 flex: 1 스타일을 props로 받아서 
-            KAV가 없어도 전체 영역을 차지합니다. */}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        // PostHeader의 높이(56)를 보정합니다.
+        keyboardVerticalOffset={Platform.OS === 'ios' ? scaleHeight(56) : 0} 
+      >
         <CommentSection
           style={{ flex: 1 }} // ⬅️ 이 style은 유지
-          postId={post.postId}
+          postId={postId}
           myNickname={myNickname}
           ListHeaderComponent={renderHeader()} 
         />
         
-      {/* </KeyboardAvoidingView> */}
+      </KeyboardAvoidingView>
       {/* ⬆️ [제거] */}
 
     </SafeAreaView>

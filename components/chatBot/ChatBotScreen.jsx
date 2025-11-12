@@ -99,74 +99,62 @@ export default function ChatBotScreen() {
     setRegionStep('done');
   };
 
-  // "리스트 재조회" - 5차(결과) 말풍선일 때만 동작
+  // "리스트 재조회" 버튼 클릭 시
   const handleListReload = async () => {
+    // 마지막 결과 말풍선 찾기
     const lastBot = messages.slice().reverse().find(m => m.type === 'bot' && m.custom === 'result');
     if (!lastBot) return;
 
     const { catLabel, catValue, resultData } = lastBot;
-
+    // 기존 결과의 name 배열 추출 (중복 제외용)
     const excludedNames = resultData?.map(item => item.name).filter(Boolean) || [];
 
-    // 토큰 확보
     const token = await AsyncStorage.getItem('jwt');
-
-        // 메시지 갱신
     const updated = messages.map(m => ({ ...m, isActive: false }));
 
-    updated.push({
-      type: 'user',
-      text: '리스트 재조회',
-    });
+    updated.push({ type: 'user', text: '리스트 재조회' });
 
-    // 로딩 말풍선 추가!
     updated.push({
-      type: 'bot',
-      text: '재조회 중입니다...',
-      isActive: false,
-      custom: 'loading',
+    type: 'bot',
+    text: '재조회 중입니다...',
+    isActive: false,
+    custom: 'loading',
     });
-    
     setMessages([...updated]);
 
     let newResult = [];
+
     try {
+      // 목적지 기반 재조회
       if (selectedCity) {
         const res = await recreateByDestination({
           city: selectedCity,
           category: catValue,
-          excludedNames,
-        },
-        token
-      );
+          excludedNames, // 기존 결과 제외
+      }, token);
         console.log('[재조회 응답 확인] 목적지 기반:', res);
         newResult = res;
-      } else if (locationCoords) {
+      } // GPS 기반 재조회
+      else if (locationCoords) {
         const res = await recreateByGPS({
           latitude: locationCoords.latitude,
           longitude: locationCoords.longitude,
           category: catValue,
           excludedNames,
-        },
-        token,
-      );
+        }, token);
         console.log('[재조회 응답 확인] GPS 기반:', res);
         newResult = res;
-      } else {
-        console.warn('⛔ 위치 정보 또는 도시 정보 없음. 재조회 불가.');
-      }
-    } catch (error) {
-      console.error('[재조회 API 호출 실패]', error);
-    }
+      } } catch (error) {
+    console.error('[재조회 API 호출 실패]', error);
+  }
 
-    // 로딩 말풍선을 지우고, 결과 안내만 갱신
+    // 로딩 말풍선 제거 및 새 결과 표시
     const cleared = updated.filter(m => m.custom !== 'loading');
     cleared.push({
       ...lastBot,
       isActive: true,
-      resultData: newResult,  // 결과만 최신화 (text는 건드리지 않음)
+      resultData: newResult,  // 기존 제외한 새 결과
     });
-
     setMessages([...cleared]);
   };
 
@@ -204,9 +192,9 @@ export default function ChatBotScreen() {
     return;
   }
 }
-  // === [여기에 아래 코드 붙여넣기!] ===
+  // "현재 위치 기반 정보제공" 버튼 클릭 시
   else if (value === 'currentLocation') {
-    // 내 대답 말풍선 추가
+    // 사용자 응답 말풍선 추가
     updated.push({ type: 'user', text: label });
 
     // 로딩 말풍선 추가
@@ -219,10 +207,10 @@ export default function ChatBotScreen() {
 
     setMessages([...updated]);
 
-    // ② 위치권한 팝업 요청 (권한 거부/허용 모두 대응)
+    // 위치 권한 팝업 요청
     let { status } = await Location.requestForegroundPermissionsAsync();
     if (status !== 'granted') {
-      // ③ 권한 거부 안내 봇 말풍선
+      // 권한 거부 시 안내 말풍선
       updated.push({
         type: 'bot',
         text: '위치 정보 접근이 거부되었습니다. 위치기반 서비스 이용이 제한됩니다.',
@@ -231,7 +219,7 @@ export default function ChatBotScreen() {
       setMessages([...updated]);
       return;
     }
-    // ④ 권한 허용: 실제 위치값 얻기(터미널에 출력)
+    // 권한 허용: 현재 위치 좌표 획득
     let location = await Location.getCurrentPositionAsync({});
     const { latitude, longitude } = location.coords;
     console.log('현재 위치:', latitude, longitude); // <- 위도 경도 로그출력
@@ -239,7 +227,7 @@ export default function ChatBotScreen() {
 
     const cleared = updated.filter(m => m.custom !== 'loading');
 
-    // ⑤ 카테고리 선택 말풍선 추가
+    // 카테고리 선택 말풍선 추가
     cleared.push({
       type: 'bot',
       text: '정보 제공을 원하시는 카테고리를 선택해 주세요.',
@@ -302,7 +290,7 @@ export default function ChatBotScreen() {
       const catObj = CATEGORY_LIST.find(cat => cat.value === value);
       updated.push({ type: 'user', text: catObj.label });
 
-      // 1 로딩 메시지 추가
+      // 로딩 메시지 추가
       updated.push({
         type: 'bot',
         text: '정보를 불러오고 있어요...',
@@ -311,32 +299,16 @@ export default function ChatBotScreen() {
       });
       setMessages(updated); // 중간 반영
 
-      // JWT 토큰 가져오기 (예시: AsyncStorage 또는 Context)
       const token = await AsyncStorage.getItem('jwt');
-
-      // 위치 or 목적지 기준 요청 "queryByDestination"
       let resultData = [];
 
-        // 호출 직전 주요 변수 상태 로그 추가
-  console.log('[디버깅] selectedProvince:', selectedProvince);
-  console.log('[디버깅] selectedCity:', selectedCity);
-  console.log('[디버깅] locationCoords:', locationCoords);
-  console.log('[디버깅] category value:', value);
-  console.log('[디버깅] token 존재 여부:', !!token);
       try {
         if (selectedCity) {
-          // 선택된 province와 city 객체를 REGION_MAP에서 찾아야 함
+          // 목적지 기반 조회
           const cityObj = REGION_MAP[selectedProvince]?.find(city => city.name === selectedCity);
           const cityCode = cityObj?.code; // 예: 'GANGNAM_GU'
 
-            const requestBody = {
-    city: cityCode,      // 명세서 key와 일치!
-    category: value,
-  };
-
-  // 여기에 명확한 로그!
-  console.log('[API 전송 바디] 실제 body:', JSON.stringify(requestBody, null, 2));
-  console.log('[API 전송 헤더] Authorization:', token ? `Bearer ${token}` : '없음');
+          console.log('[API 전송 바디]', { city: cityCode, category: value });
 
           const res = await queryByDestination({
             city: cityCode, // 영문 ENUM을 API에 보냄
@@ -344,9 +316,10 @@ export default function ChatBotScreen() {
           },
           token,
         );
-         console.log('[응답 도착] queryByDestination 결과:', res);
-          console.log('전송 city code:', cityCode, '선택한 도:', selectedProvince, '선택한 시:', selectedCity);
+          console.log('[응답 도착] queryByDestination 결과:', res);
           resultData = res;
+         
+        // GPS 기반 조회  
         } else if (locationCoords) {
           console.log('[API 요청 준비]', {
           latitude: locationCoords.latitude,
@@ -358,48 +331,34 @@ export default function ChatBotScreen() {
             latitude: locationCoords.latitude,
             longitude: locationCoords.longitude,
             category: value,
-          },
-          token
-        );
+          }, token);
           console.log('[API 응답 확인] 현재 위치 기반 응답:', res);
           resultData = res;
         } else {
-          console.warn('⛔ 위치 또는 목적지가 설정되지 않았습니다.');
+          console.warn('위치 또는 목적지가 설정되지 않았습니다.');
         }
       } catch (error) {
-        console.error('[❌ API 호출 오류]', error?.response?.data || error.message || error);
-          if (error.response) console.error('error.response:', error.response);
-  if (error.request) console.error('error.request:', error.request);
-  if (error.config) console.error('error.config:', error.config);
-  return { success: false, error: error?.response?.data?.message || error.message };
+        console.error('[API 호출 오류]', error);
       }
 
-// 상태 업데이트 전 로그 (디버깅용)
-// console.log('setMessages 호출 전 messages:', messages);
+      // 로딩 말풍선 제거 및 결과 표시
+      const cleared = updated.filter(m => m.custom !== 'loading');
+      const newMessages = [...cleared].map(m => ({ ...m, isActive: false }));
 
-const cleared = updated.filter(m => m.custom !== 'loading');
-
-// 불변성 보장 위해 새 배열 생성
-const newMessages = [...cleared].map(m => ({ ...m, isActive: false }));
-
-newMessages.push({
-  type: 'bot',
-  text: '정보 결과 안내',
-  isActive: true,
-  custom: 'result',
-  catLabel: catObj.label,
-  catValue: value,
-  resultData,
-  province: selectedProvince,
-  city: selectedCity,
-});
-
-// 상태 업데이트 전 새 배열 로그 (디버깅용)
-// console.log('setMessages 할 새 배열:', JSON.stringify(newMessages, null, 2));
-
-setMessages(newMessages);
-}
-  };
+      newMessages.push({
+        type: 'bot',
+        text: '정보 결과 안내',
+        isActive: true,
+        custom: 'result',
+        catLabel: catObj.label,
+        catValue: value,
+        resultData,
+        province: selectedProvince,
+        city: selectedCity,
+      });
+      setMessages(newMessages);
+      }
+        };
 
   // 도/시 합체 말풍선 (disable/흑백/이전처리)
   const renderRegionBubble = (key, step, province) => {
