@@ -137,7 +137,6 @@ const [contentHeight, setContentHeight] = useState(MIN_HEIGHT);
       '전주시': 'JEONJU_SI',
       '군산시': 'GUNSAN_SI',
       '익산시': 'IKSAN_SI',
-      '정읍시': 'JEONGEUP_SI',
       '남원시': 'NAMWON_SI',
       '김제시': 'GIMJE_SI',
       '순창군': 'SUNCHANG_GUN',
@@ -355,7 +354,7 @@ const [contentHeight, setContentHeight] = useState(MIN_HEIGHT);
     {selectedRegion === '전라북도' && (
       <View style={{ marginTop: 4 }}>
         <ToggleSelector
-          items={["전주시", "군산시", "익산시", "정읍시", "남원시", "김제시", "순창군"]}
+          items={["전주시", "군산시", "익산시", "남원시", "김제시", "순창군"]}
           selectedItem={selectedCity}
           onSelect={setSelectedCity}
           size="small"

@@ -217,7 +217,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Pretendard',                 
     lineHeight: normalize(28, 'height'),
     letterSpacing: -0.5,                     
-    marginBottom: normalize(10, 'height'),
+    marginBottom: normalize(-3, 'height'),
     fontWeight: '500',
   },
 
@@ -227,6 +227,7 @@ const styles = StyleSheet.create({
     lineHeight: normalize(28, 'height'),
     letterSpacing: -0.5,
     fontWeight: '500',
+    paddingTop: normalize(16),
   },
   buttonContainer: {
     width: '100%',
