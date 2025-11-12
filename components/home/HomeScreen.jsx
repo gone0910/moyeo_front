@@ -243,7 +243,12 @@ const normalized = (merged || []).map(it => {
             travelList={myTrips}
             onPressCreate={() => navigation.navigate('Planner')}
             onPressCard={(scheduleId) => {
-              navigation.navigate('PlannerResponse', { scheduleId, from: 'Home' });
+              navigation.navigate('PlannerResponse', {
+    scheduleId,
+    from: 'Home',
+    mode: 'read',   // ✅ 읽기모드로 진입하도록 명시
+    skipFirstFetch: true, // (선택) 서버 재조회 1회 스킵, 초기 로딩 빠르게
+  });
             }}
           />
         </ScrollView>
