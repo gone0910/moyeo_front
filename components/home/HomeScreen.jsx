@@ -45,6 +45,33 @@ const pickKey = (obj) => {
    return s && /\d+/.test(s) ? s : null;   // 문자열 키로 통일
  };
 
+
+ function parseLocalYMD(ymd) {
+  if (typeof ymd !== 'string') return null;
+  const m = ymd.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!m) return null;
+  const [_, y, mo, d] = m;
+  return new Date(Number(y), Number(mo) - 1, Number(d)); // 로컬 00:00
+}
+
+function isTodayLocal(ymd) {
+  const target = parseLocalYMD(ymd);
+  if (!target) return false;
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  return target.getTime() === today.getTime();
+}
+
+// 서버 dDay 우선 사용하되, 시작일이 '오늘'이면 D-DAY로 교정
+function fixDDayForToday(serverDDayLike, startDateLike) {
+  const start =
+    startDateLike ||
+    ''; // startDate / start / start_date / beginDate 등은 아래에서 골라줌
+  if (isTodayLocal(start)) return 'D-DAY';
+  return serverDDayLike ?? '';
+}
+
+// ✅ 서버 dDay 우선 고정 (로컬 덮어쓰기 방지)
 async function mergeWithLocalOverlay(serverItems) {
   try {
     const raw = await AsyncStorage.getItem('MY_TRIPS');
@@ -52,24 +79,34 @@ async function mergeWithLocalOverlay(serverItems) {
     const local = JSON.parse(raw);
     if (!Array.isArray(local)) return serverItems;
 
-    // 서버 기준 맵 (유효 id만)
     const map = new Map(
-      serverItems
+      (serverItems || [])
         .map((it) => [pickKey(it), it])
         .filter(([k]) => !!k)
     );
+
     for (const l of local) {
       const lid = pickKey(l);
-      if (!lid) continue; // id 없는 드래프트는 무시
+      if (!lid) continue;
+
       const base = map.get(lid) || {};
-      map.set(lid, {
+
+      // 1️⃣ 1차 병합: 로컬 값 덮어쓰기
+      let merged = {
         ...base,
         ...l,
         title: base.title ?? l.title,
         startDate: base.startDate ?? l.startDate,
         endDate: base.endDate ?? l.endDate,
-      });
+      };
+
+      // 2️⃣ dDay/dday는 서버 기준으로 다시 고정
+      if (typeof base?.dDay === 'string') merged.dDay = base.dDay;
+      if (typeof base?.dday === 'string') merged.dday = base.dday;
+
+      map.set(lid, merged);
     }
+
     return Array.from(map.values());
   } catch {
     return serverItems;
@@ -101,10 +138,18 @@ export default function HomeScreen() {
             return;
           }
           const { items, status } = await fetchPlanList();
-          if (!mounted) return;
-          const merged = await mergeWithLocalOverlay(Array.isArray(items) ? items : []);
-          setMyTrips(merged);
-          setServerDown(status === null || status >= 500);
+if (!mounted) return;
+const merged = await mergeWithLocalOverlay(Array.isArray(items) ? items : []);
+
+// ✅ D-DAY 교정 추가
+const normalized = (merged || []).map(it => {
+  const start = it.startDate || it.beginDate || it.start || it.start_date || '';
+  const serverDDay = it.dDay ?? it.dday ?? '';
+  return { ...it, dDay: fixDDayForToday(serverDDay, start) };
+});
+
+setMyTrips(normalized);
+setServerDown(status === null || status >= 500);
         } catch (err) {
           const raw = await AsyncStorage.getItem('MY_TRIPS');
           if (!mounted) return;
@@ -121,7 +166,13 @@ export default function HomeScreen() {
       try {
         const { items } = await fetchPlanList();
         const merged = await mergeWithLocalOverlay(Array.isArray(items) ? items : []); // 서버 늦으면 로컬이 보강
-        setMyTrips(merged);
+        // ✅ D-DAY 교정 추가
+const normalized = (merged || []).map(it => {
+  const start = it.startDate || it.beginDate || it.start || it.start_date || '';
+  const serverDDay = it.dDay ?? it.dday ?? '';
+  return { ...it, dDay: fixDDayForToday(serverDDay, start) };
+});
+        setMyTrips(normalized);
       } catch {
         const raw = await AsyncStorage.getItem('MY_TRIPS');
         setMyTrips(raw ? JSON.parse(raw) : []);

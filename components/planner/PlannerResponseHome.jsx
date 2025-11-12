@@ -520,6 +520,7 @@ export default function PlannerResponseHome() {
   const [scheduleData, setScheduleData] = useState(null);
   const [listVersion, setListVersion] = useState(0);
   const dayIdxRef = useRef(selectedDayIndex);
+  const [showResave, setShowResave] = useState(true);
 
   // ✅ "내 여행으로 저장" — 편집본(PLAN_EDITED) 우선 저장 → upsert → 캐시정리 → 읽기모드 전환
 const handleSaveToMyTrips = async () => {
@@ -561,13 +562,10 @@ const handleSaveToMyTrips = async () => {
     // 👇 추가: 저장 직후, 화면 보호용 스냅샷 기준 확정
 savedSnapshotRef.current = latest;
 
-    // (D) 캐시 정리 및 갱신 이벤트는 약간 지연 후 실행 (1초)
-    setTimeout(async () => {
-      await removeCacheData(CACHE_KEYS.PLAN_DETAIL);
-      await clearDraftCaches();
-      await invalidateListAndHomeCaches();
-      emitTripsUpdated(undefined, { id: finalId, reason: 'save' });
-    }, 1000);
+    await removeCacheData(CACHE_KEYS.PLAN_DETAIL);
+    await clearDraftCaches();
+    await invalidateListAndHomeCaches();
+    emitTripsUpdated(undefined, { id: finalId, reason: 'save' });
 
 
     // ✅ 여기 추가
@@ -1297,8 +1295,9 @@ navigation.setParams({ ...(route.params || {}), skipFirstFetch: true }); // 1회
   setIsEditing(false);
   setOriginalScheduleData(null);
   setIsSaved(true);
-  Alert.alert('수정 완료', '플랜이 수정되었습니다. 내 여행으로 재저장할 수 있습니다.');
-};
+  setShowResave(true); // ← 편집 완료되면 다시 노출 허용
+  Alert.alert('수정 완료', '플랜이 수정되었습니다.\n내 여행으로 재저장할 수 있습니다.');
+}
 
 
   const onPressSave = () => { handleEditDone(); };
@@ -1595,13 +1594,14 @@ navigation.setParams({ ...(route.params || {}), skipFirstFetch: true }); // 1회
         ) : isReadOnly ? (
   <View style={styles.bottomAffordance}>
     {/* 내 여행으로 재저장 버튼 — 수정 완료 후에만 표시 */}
-    {isSaved && (
+    {isSaved && showResave && (
       <TouchableOpacity
         style={styles.resaveButton}
         onPress={async () => {
           console.log('🔒 lock on after save:', lockServerFetchRef.current);
           try {
             openSaving?.();
+            setShowResave(false); // ✅ 버튼 즉시 감추기
 
             // 1) 최신 편집본 확보 (화면편집본 > 캐시 > 현재상태)
             const cachedEdited = await getCacheData(CACHE_KEYS.PLAN_EDITED);
@@ -1609,6 +1609,7 @@ navigation.setParams({ ...(route.params || {}), skipFirstFetch: true }); // 1회
             if (!latest?.days?.length) {
               closeSaving?.();
               console.warn('재저장 불가: latest.days 없음');
+              setShowResave(true); // ❗ 복구
               return;
             }
 
@@ -1620,6 +1621,7 @@ navigation.setParams({ ...(route.params || {}), skipFirstFetch: true }); // 1회
             if (!Number.isFinite(id)) {
               closeSaving?.();
               console.warn('재저장 불가: scheduleId 없음');
+              setShowResave(true); // ❗ 복구
               return;
             }
 
@@ -1648,10 +1650,12 @@ navigation.setParams({ ...(route.params || {}), skipFirstFetch: true }); // 1회
 
             // 8) 마무리
             closeSaving?.();
+            
             console.log('✅ 재저장 완료: 화면 유지 & 상태 반영');
           } catch (e) {
             closeSaving?.();
             console.warn('❌ 재저장 오류:', e);
+            setShowResave(true);
           }
         }}
       >

@@ -56,7 +56,8 @@ function safeCalculateDday(startDate) {
   const t0 = new Date(today.getFullYear(), today.getMonth(), today.getDate());
   const d0 = new Date(target.getFullYear(), target.getMonth(), target.getDate());
   const diff = Math.ceil((d0 - t0) / (1000 * 60 * 60 * 24));
-  return diff >= 0 ? `D-${diff}` : `D+${Math.abs(diff)}`;
+  if (diff === 0) return 'D-DAY'; // ✅ 추가된 부분
+  return diff > 0 ? `D-${diff}` : `D+${Math.abs(diff)}`;
 }
 
 function normalizeTripShape(item, index = 0) {
@@ -309,6 +310,15 @@ const openPlannerResponse = useCallback((trip) => {
           const serverTrips = Array.isArray(items) ? items : [];
           const merged = await mergeWithLocalOverlay(serverTrips);
           const normalized = merged.map((t, i) => normalizeTripShape(t, i));
+          // ✅ fallback: days 누락된 경우 로컬 최신본 보충
+       const localRaw = await AsyncStorage.getItem('MY_TRIPS');
+       if (localRaw) {
+         const localTrips = JSON.parse(localRaw);
+         normalized.forEach((t, i) => {
+           const match = localTrips.find(l => String(l.id) === String(t.id));
+           if (match?.days?.length && !t?.days?.length) t.days = match.days;
+         });
+       }
           setMyTrips(normalized);
           await writeTripsPreserveDays(normalized);
         } catch (e) {

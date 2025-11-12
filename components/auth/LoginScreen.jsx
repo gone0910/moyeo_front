@@ -172,16 +172,16 @@ export default function LoginScreen() {
         </TouchableOpacity>
 
         {/* mock 로그인 */}
-        <TouchableOpacity
-  style={[styles.loginButton, styles.mockButton]}
-  onPress={async () => {
-    await AsyncStorage.setItem('mock', 'true');
-    await AsyncStorage.setItem('jwt', 'mock-token');
-    navigation.replace('UserInfo'); // 또는 'BottomTab'
-  }}
->
-  <Text style={styles.mockButtonText}>임시 로그인 (Mock)</Text>
-</TouchableOpacity>
+       {/* <TouchableOpacity  */}
+  {/* style={[styles.loginButton, styles.mockButton]} */}
+  {/* onPress={async () => { */}
+    {/* await AsyncStorage.setItem('mock', 'true'); */}
+    {/* await AsyncStorage.setItem('jwt', 'mock-token'); */}
+    {/* navigation.replace('UserInfo'); // 또는 'BottomTab' */}
+  {/* }} */}
+{/* > */}
+  {/* <Text style={styles.mockButtonText}>임시 로그인 (Mock)</Text> */}
+{/* </TouchableOpacity> */}
       </View>
     </View>
   );
