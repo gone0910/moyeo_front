@@ -327,11 +327,7 @@ export default function CommentSection({
 
 
   return (
-    // 최상위 KAV가 KAS와 inputRow를 모두 감쌉니다.
-    <KeyboardAvoidingView
-      style={style} 
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-    >
+    <View style={style}>
       
       {/* 1. 댓글 목록 (KAS) */}
       <KeyboardAwareScrollView
@@ -418,7 +414,7 @@ export default function CommentSection({
         </TouchableOpacity>
       </View>
       
-    </KeyboardAvoidingView> // ⬅️ 최상위 KAV 닫기
+    </View> // ⬅️ 최상위 KAV 닫기
   );
 }
 
