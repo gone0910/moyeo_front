@@ -53,12 +53,15 @@ export default function PlaceDetailScreen() {
   React.useCallback(() => {
     const parent = navigation.getParent(MAIN_TAB_ID);
     // 탭바 강제 숨김
-    parent?.setOptions({
-      tabBarStyle: [defaultTabBarStyle, HIDDEN_TABBAR_STYLE],
-    });
+    const t = setTimeout(() => {
+      parent?.setOptions({
+        tabBarStyle: [defaultTabBarStyle, HIDDEN_TABBAR_STYLE],
+      });
+    }, 0);
 
     // 언포커스/언마운트 시 원복
     return () => {
+      clearTimeout(t);
       parent?.setOptions({
         tabBarStyle: defaultTabBarStyle,
       });
@@ -113,8 +116,7 @@ export default function PlaceDetailScreen() {
 
         saveCacheData(CACHE_KEYS.PLAN_DETAIL, { ...place, ...detail });
       } catch (e) {
-        console.warn('📛 일정 상세 조회 실패:', e);
-        // 404면 카카오로 보강
+        // 404면 카카오로 보강 (경고 로그는 찍지 않음)
         if (e?.status === 404) {
           try {
             const keyword = (place?.name || '').trim();
@@ -132,6 +134,7 @@ export default function PlaceDetailScreen() {
             setError('상세 정보가 없어 지도만 표시합니다.');
           }
         } else {
+          console.warn('📛 일정 상세 조회 실패:', e);
           setError(e?.message || '상세 조회 실패');
         }
       } finally {

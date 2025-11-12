@@ -759,7 +759,7 @@ export default function PlannerInfoScreen() {
         <View style={{ paddingHorizontal: normalize(20) }}>
           <View style={[styles.budgetValueBox, tmpBudget===0 && styles.disabledBudgetBox]}>
             <Text style={[styles.budgetValueText, tmpBudget===0 && styles.disabledText]}>
-  예산: {tmpBudget === 0 ? '선택없음' : `${tmpBudget.toLocaleString()}원 이하`}
+   {tmpBudget === 200000 ? '선택없음' : `${tmpBudget.toLocaleString()}원 이하`}
 </Text>
           </View>
           <Slider

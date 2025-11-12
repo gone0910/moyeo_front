@@ -177,19 +177,6 @@ const [contentHeight, setContentHeight] = useState(MIN_HEIGHT);
 
       };
 
-  useEffect(() => {
-    // 글쓰기 진입 시 탭바 숨기기
-    navigation.getParent()?.setOptions({
-      tabBarStyle: { display: 'none' }
-    });
-    return () => {
-      // 글쓰기 화면 벗어나면 탭바 다시 복원
-      navigation.getParent()?.setOptions({
-        tabBarStyle: undefined
-      });
-    };
-  }, [navigation]);
-
    const handleRegister = async () => {
 
 
@@ -422,25 +409,24 @@ const [contentHeight, setContentHeight] = useState(MIN_HEIGHT);
   style={styles.contentBox}
   onPress={() => inputRef.current && inputRef.current.focus()}
 >
+  <ScrollView
+  style={{ maxHeight: height * 0.4 }}
+  nestedScrollEnabled={true}
+  keyboardShouldPersistTaps="handled"
+  showsVerticalScrollIndicator={true}
+>
   <TextInput
-  ref={inputRef}
-  value={content}
-  onChangeText={setContent}
-  placeholder="다양한 여행 이야기를 적어주세요"
-  placeholderTextColor="#b3b3b3"
-  multiline
-  style={[
-    styles.contentInput,
-    { height: contentHeight, width: '100%', alignSelf: 'stretch' },
-  ]}
-  textAlignVertical="top"
-  onContentSizeChange={(e) => {
-    const h = e?.nativeEvent?.contentSize?.height || MIN_HEIGHT;
-    // 🚫 무제한 확장 금지 — 500까지만 커지고 멈춤
-    setContentHeight(Math.max(MIN_HEIGHT, Math.min(MAX_HEIGHT, h)));
-  }}
-  scrollEnabled={false} // 입력창 내부 스크롤 없음
-/>
+    ref={inputRef}
+    value={content}
+    onChangeText={setContent}
+    placeholder="다양한 여행 이야기를 적어주세요"
+    placeholderTextColor="#b3b3b3"
+    multiline
+    style={[styles.contentInput, { height: height * 0.4 }]}
+    textAlignVertical="top"
+    scrollEnabled={true}   // 내부 스크롤 활성화
+  />
+</ScrollView>
   {content.trim().length === 0 && (
     <View style={styles.guideBox} pointerEvents="none">
       <Text style={styles.guideText}>{'\u2022'} 여행 동행자 모집</Text>

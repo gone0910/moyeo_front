@@ -62,6 +62,29 @@ function normalize(size, based = 'width') {
   const scale = based === 'height' ? SCREEN_HEIGHT / BASE_HEIGHT : SCREEN_WIDTH / BASE_WIDTH;
   return Math.round(size * scale);
 }
+// 장소 개수에 따라 "마지막 아래 여백" 자동 조정
+const dynamicLastGap = (count) => {
+  if (count <= 2) return normalize(30, 'height');   // 카드 1~2개 → 여백 좁게
+  if (count <= 4) return normalize(50, 'height');   // 카드 3~4개 → 중간
+  if (count <= 6) return normalize(70, 'height');   // 카드 5~6개 → 넉넉히
+  return normalize(90, 'height');                   // 카드 7개 이상 → 넉넉히
+};
+
+// ✅ 하단 패딩(편집 모드: 과감히 작게 / 읽기 모드: 적당)
+const bottomPaddingFor = (count, editing = false) => {
+  if (editing) {
+    // 저장 전(편집) — 최소 여백 위주로 꽉 붙게
+    if (count <= 2) return normalize(16, 'height');
+    if (count <= 4) return normalize(22, 'height');
+    if (count <= 6) return normalize(28, 'height');
+    return normalize(34, 'height'); // 7개+
+  }
+  // 읽기 모드 — 너무 넓지 않게만
+  if (count <= 2) return normalize(36, 'height');
+  if (count <= 4) return normalize(48, 'height');
+  if (count <= 6) return normalize(60, 'height');
+  return normalize(72, 'height'); // 7개+
+};
 
 // =====================
 // helpers
@@ -497,6 +520,7 @@ export default function PlannerResponseHome() {
   const [scheduleData, setScheduleData] = useState(null);
   const [listVersion, setListVersion] = useState(0);
   const dayIdxRef = useRef(selectedDayIndex);
+  const [showResave, setShowResave] = useState(true);
 
   // ✅ "내 여행으로 저장" — 편집본(PLAN_EDITED) 우선 저장 → upsert → 캐시정리 → 읽기모드 전환
 const handleSaveToMyTrips = async () => {
@@ -538,13 +562,10 @@ const handleSaveToMyTrips = async () => {
     // 👇 추가: 저장 직후, 화면 보호용 스냅샷 기준 확정
 savedSnapshotRef.current = latest;
 
-    // (D) 캐시 정리 및 갱신 이벤트는 약간 지연 후 실행 (1초)
-    setTimeout(async () => {
-      await removeCacheData(CACHE_KEYS.PLAN_DETAIL);
-      await clearDraftCaches();
-      await invalidateListAndHomeCaches();
-      emitTripsUpdated(undefined, { id: finalId, reason: 'save' });
-    }, 1000);
+    await removeCacheData(CACHE_KEYS.PLAN_DETAIL);
+    await clearDraftCaches();
+    await invalidateListAndHomeCaches();
+    emitTripsUpdated(undefined, { id: finalId, reason: 'save' });
 
 
     // ✅ 여기 추가
@@ -960,6 +981,7 @@ const loadSnapshotForId = useCallback(async (id) => {
 
   // ===== Edit mode =====
   const enterEditMode = () => {
+    setIsSaved(false);
     setEditedPlaces({});
     setEditedPlaceId(null);
     setNewlyAddedPlaceId(null);
@@ -1272,7 +1294,10 @@ navigation.setParams({ ...(route.params || {}), skipFirstFetch: true }); // 1회
   // 6) 편집 종료
   setIsEditing(false);
   setOriginalScheduleData(null);
-};
+  setIsSaved(true);
+  setShowResave(true); // ← 편집 완료되면 다시 노출 허용
+  Alert.alert('수정 완료', '플랜이 수정되었습니다.\n내 여행으로 재저장할 수 있습니다.');
+}
 
 
   const onPressSave = () => { handleEditDone(); };
@@ -1367,7 +1392,9 @@ navigation.setParams({ ...(route.params || {}), skipFirstFetch: true }); // 1회
               containerStyle={styles.container}
               keyboardDismissMode="on-drag"
               keyboardShouldPersistTaps="handled"
-              contentContainerStyle={{ paddingBottom: normalize(160, 'height') }}
+              contentContainerStyle={{
+    paddingBottom: bottomPaddingFor(places.length, /* editing= */ true), // ✅ 160 → 동적
+  }}
               renderItem={({ item: place, index, drag }) => {
                 const currentIndex = places.findIndex((p) => p.id === place.id);
                 const isEditingItem = newlyAddedPlaceId === place.id || editedPlaceId === place.id;
@@ -1470,8 +1497,11 @@ navigation.setParams({ ...(route.params || {}), skipFirstFetch: true }); // 1회
           ) : (
             <ScrollView
               ref={scrollRef}
-              style={styles.container}
-              contentContainerStyle={{ paddingTop: normalize(20), paddingBottom: normalize(160, 'height') }}
+              style={[styles.container, { marginBottom: -17 }]} // ✅ 읽기모드만 -70 제거
+              contentContainerStyle={{
+    paddingTop: normalize(20),
+    paddingBottom: bottomPaddingFor(places.length, /* editing= */ false), // ✅ 160 → 동적
+  }}
             >
               {places.map((place, idx) => (
                 <View key={place.id ? String(place.id) : `temp-${idx}`}>
@@ -1528,7 +1558,12 @@ navigation.setParams({ ...(route.params || {}), skipFirstFetch: true }); // 1회
 
                   {/* 마지막 카드 아래 교통정보 (마지막 day 제외) */}
                   {idx === places.length - 1 && place.fromPrevious && selectedDayIndex !== scheduleData.days.length - 1 && (
-                    <View style={styles.transportRow}>
+                    <View
+    style={[
+      styles.transportRow,
+      { marginBottom: dynamicLastGap(places.length) } // ✅ 마지막 밑 여백 동적
+    ]}
+  >
                       <View style={styles.transportItem}>
                         <View style={styles.iconSlot}><Ionicons name="car-outline" size={normalize(19)} color="#6B7280" /></View>
                         <Text style={styles.timeText}>{place.fromPrevious.car}분</Text>
@@ -1556,80 +1591,83 @@ navigation.setParams({ ...(route.params || {}), skipFirstFetch: true }); // 1회
               <Text style={styles.fixedDoneButtonText}>플랜 수정 완료</Text>
             </TouchableOpacity>
           </View>
-        ) : (from === 'Home' || isReadOnly || isSaved) ? (
-          <>
-    {/* 내 여행으로 재저장 */}
-    <View style={styles.resaveBox}>
-{/* ✅ 내 여행으로 재저장 */}
-<TouchableOpacity
-  style={styles.resaveButton}
-  onPress={async () => {
-    console.log('🔒 lock on after save:', lockServerFetchRef.current);
-try {
-  openSaving?.();
-
-  // 1) 최신 편집본 확보 (화면편집본 > 캐시 > 현재상태)
-  const cachedEdited = await getCacheData(CACHE_KEYS.PLAN_EDITED);
-  const latest = editDraft || cachedEdited || scheduleData;
-  if (!latest?.days?.length) {
-    closeSaving?.();
-    // 팝업 없이 로그만 남김
-    console.warn('재저장 불가: latest.days 없음');
-    return;
-  }
-
-  // 2) scheduleId 확보
-  const id = getNumericScheduleId?.() ??
-             Number(route?.params?.scheduleId) ??
-             Number(scheduleData?.id ?? scheduleData?.scheduleId);
-  if (!Number.isFinite(id)) {
-    closeSaving?.();
-    console.warn('재저장 불가: scheduleId 없음');
-    return;
-  }
-
-  // 3) payload 생성 (추가/삭제/순서/음수시간 정리)
-  const { days } = buildResaveDaysPayload(latest);
-  console.log('📤 [resave payload]', { id, daysCount: days?.length });
-
-  // 4) 서버 전송
-  await resaveSchedule(id, days);
-
-  // 5) 캐시/리스트 갱신
-  await removeCacheData?.(CACHE_KEYS.PLAN_DETAIL);
-  await clearDraftCaches?.();          // 편집 캐시 초기화(선택)
-  await invalidateListAndHomeCaches?.();
-  emitTripsUpdated?.(DeviceEventEmitter, { id, reason: 'resave' });
-
-  // 6) 화면 그대로 유지 + 즉시 반영
-  const upsertPayload = { ...latest, id, scheduleId: id, days };
-  try { await upsertMyTrip?.(upsertPayload); } catch {}
-  try { await writeEditedDraft?.(upsertPayload); } catch {} // 이후 재편집 대비
-  setScheduleData?.(upsertPayload);
-  savedSnapshotRef.current = upsertPayload;
-
-  // 7) 자동 재조회로 덮어쓰기 방지
-  lockServerFetchRef.current = true;
-
-  // 8) 마무리 — 팝업/문구 없음, 스피너만 닫고 끝
-  closeSaving?.();
-  console.log('✅ 재저장 완료: 화면 유지 & 상태 반영');
-} catch (e) {
-  closeSaving?.();
-  console.warn('❌ 재저장 오류:', e);
-  // 요청대로 Alert 문구 제거 — 조용히 실패 로그만
-}
-
-}}
->
-  <Text style={styles.resaveButtonText}>내 여행으로 재저장</Text>
-</TouchableOpacity>
-    </View>
-
-    {/* 기존: 플랜 삭제 / 플랜 수정 */}
-    <View style={styles.bottomButtonContainer}>
+        ) : isReadOnly ? (
+  <View style={styles.bottomAffordance}>
+    {/* 내 여행으로 재저장 버튼 — 수정 완료 후에만 표시 */}
+    {isSaved && showResave && (
       <TouchableOpacity
-        style={[styles.editButton, { flex: 1, marginRight: normalize(8), backgroundColor: '#fff', borderColor: '#F97575' }]}
+        style={styles.resaveButton}
+        onPress={async () => {
+          console.log('🔒 lock on after save:', lockServerFetchRef.current);
+          try {
+            openSaving?.();
+            setShowResave(false); // ✅ 버튼 즉시 감추기
+
+            // 1) 최신 편집본 확보 (화면편집본 > 캐시 > 현재상태)
+            const cachedEdited = await getCacheData(CACHE_KEYS.PLAN_EDITED);
+            const latest = editDraft || cachedEdited || scheduleData;
+            if (!latest?.days?.length) {
+              closeSaving?.();
+              console.warn('재저장 불가: latest.days 없음');
+              setShowResave(true); // ❗ 복구
+              return;
+            }
+
+            // 2) scheduleId 확보
+            const id =
+              getNumericScheduleId?.() ??
+              Number(route?.params?.scheduleId) ??
+              Number(scheduleData?.id ?? scheduleData?.scheduleId);
+            if (!Number.isFinite(id)) {
+              closeSaving?.();
+              console.warn('재저장 불가: scheduleId 없음');
+              setShowResave(true); // ❗ 복구
+              return;
+            }
+
+            // 3) payload 생성 (추가/삭제/순서/음수시간 정리)
+            const { days } = buildResaveDaysPayload(latest);
+            console.log('📤 [resave payload]', { id, daysCount: days?.length });
+
+            // 4) 서버 전송
+            await resaveSchedule(id, days);
+
+            // 5) 캐시/리스트 갱신
+            await removeCacheData?.(CACHE_KEYS.PLAN_DETAIL);
+            await clearDraftCaches?.();
+            await invalidateListAndHomeCaches?.();
+            emitTripsUpdated?.(DeviceEventEmitter, { id, reason: 'resave' });
+
+            // 6) 화면 그대로 유지 + 즉시 반영
+            const upsertPayload = { ...latest, id, scheduleId: id, days };
+            try { await upsertMyTrip?.(upsertPayload); } catch {}
+            try { await writeEditedDraft?.(upsertPayload); } catch {}
+            setScheduleData?.(upsertPayload);
+            savedSnapshotRef.current = upsertPayload;
+
+            // 7) 자동 재조회로 덮어쓰기 방지
+            lockServerFetchRef.current = true;
+
+            // 8) 마무리
+            closeSaving?.();
+            
+            console.log('✅ 재저장 완료: 화면 유지 & 상태 반영');
+          } catch (e) {
+            closeSaving?.();
+            console.warn('❌ 재저장 오류:', e);
+            setShowResave(true);
+          }
+        }}
+      >
+        <Text style={styles.resaveButtonText}>내 여행으로 재저장</Text>
+      </TouchableOpacity>
+    )}
+
+    {/* 하단 버튼: 플랜 삭제 / 플랜 수정 */}
+    <View style={styles.bottomButtonRow}>
+      {/* 플랜 삭제 */}
+      <TouchableOpacity
+        style={[styles.editButton, { borderColor: '#F97575' }]}
         onPress={() => {
           Alert.alert(
             '플랜 삭제',
@@ -1637,13 +1675,18 @@ try {
             [
               { text: '취소', style: 'cancel' },
               {
-                text: '삭제', style: 'destructive',
+                text: '삭제',
+                style: 'destructive',
                 onPress: async () => {
                   try {
                     setIsDeleting(true);
                     const numericId = getNumericScheduleId();
-                    const fallback  = /^[0-9]+$/.test(String(scheduleId ?? '')) ? Number(scheduleId) : null;
-                    const finalId   = Number.isFinite(numericId) ? numericId : fallback;
+                    const fallback = /^[0-9]+$/.test(String(scheduleId ?? ''))
+                      ? Number(scheduleId)
+                      : null;
+                    const finalId = Number.isFinite(numericId)
+                      ? numericId
+                      : fallback;
                     if (!Number.isFinite(finalId)) {
                       setIsDeleting(false);
                       Alert.alert('삭제 불가', '삭제할 숫자 ID를 찾을 수 없습니다.');
@@ -1666,15 +1709,17 @@ try {
         <Text style={[styles.editButtonText, { color: '#F97575' }]}>플랜 삭제</Text>
       </TouchableOpacity>
 
+      {/* 플랜 수정 */}
       <TouchableOpacity
-        style={[styles.editButton, { flex: 1, backgroundColor: '#fff', borderColor: '#4F46E5' }]}
+        style={[styles.editButton, { borderColor: '#4F46E5' }]}
         onPress={enterEditMode}
       >
         <Text style={[styles.editButtonText, { color: '#4F46E5' }]}>플랜 수정</Text>
       </TouchableOpacity>
     </View>
-  </>
-        ) : (
+  </View>
+) : (
+
           <>
             <View style={styles.bottomButtonContainer1}>
               <TouchableOpacity style={[styles.editButton, { marginRight: normalize(2) }]} onPress={enterEditMode}>
@@ -1852,15 +1897,26 @@ const styles = StyleSheet.create({
   marginTop: normalize(10),
   marginBottom: normalize(6),
 },
+bottomAffordance: {
+    position: 'absolute',
+    left: normalize(16),
+    right: normalize(16),
+    bottom: normalize(8),
+  },
 resaveButton: {
-  backgroundColor: '#4F46E5',
-  borderRadius: normalize(10),
-  paddingVertical: normalize(12),
-  alignItems: 'center',
-},
-resaveButtonText: {
-  color: '#fff',
-  fontSize: normalize(16),
-  fontWeight: '600',
-},
+    backgroundColor: '#4F46E5',
+    borderRadius: normalize(10),
+    paddingVertical: normalize(12),
+    alignItems: 'center',
+  },
+  resaveButtonText: {
+    color: '#fff',
+    fontSize: normalize(16),
+    fontWeight: '600',
+  },
+  bottomButtonRow: {
+    flexDirection: 'row',
+    gap: normalize(12),             // 버튼 사이 간격
+    marginTop: normalize(10),
+  },
 });
