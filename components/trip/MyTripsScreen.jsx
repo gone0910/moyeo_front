@@ -392,16 +392,16 @@ const openPlannerResponse = useCallback((trip) => {
     <View style={styles.screen}>
       <HeaderBar />
        {/* ⚠️ 개발용: 로컬 캐시 초기화 버튼 (사용 후 주석처리) */}
-<View style={{ paddingHorizontal: 20, marginTop: 10 }}>
-  <TouchableOpacity
-    style={{ backgroundColor: '#F87171', borderRadius: 10, padding: 10 }}
-    onPress={() => purgeAllTripsAndCaches()}
-  >
-    <Text style={{ color: '#fff', textAlign: 'center', fontWeight: '600' }}>
-      ⚠️ 로컬 캐시 초기화
-    </Text>
-  </TouchableOpacity>
-</View>
+{/* <View style={{ paddingHorizontal: 20, marginTop: 10 }}> */}
+  {/* <TouchableOpacity */}
+    {/* style={{ backgroundColor: '#F87171', borderRadius: 10, padding: 10 }} */}
+    {/* onPress={() => purgeAllTripsAndCaches()} */}
+  {/* > */}
+    {/* <Text style={{ color: '#fff', textAlign: 'center', fontWeight: '600' }}> */}
+      {/* ⚠️ 로컬 캐시 초기화 */} 
+    {/* </Text> */}
+  {/* </TouchableOpacity> */}
+{/* </View> */}
 
       <View style={[styles.tipContainer, { alignSelf: 'center', width: containerWidth }]}>
         <Text style={styles.tipTitle}>오늘의 여행 <Text style={{ fontStyle: 'italic' }}>TIP</Text></Text>
