@@ -72,7 +72,6 @@ export default function PostDetailScreen({ route, navigation }) {
   const [myNickname, setMyNickname] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   const commentSectionRef = useRef();
-  // const [comments, setComments] = useState([]); // CommentSection이 자체 관리하므로 주석 처리
   
   const postId = route?.params?.postId || 1; // postId를 상단으로 이동
 

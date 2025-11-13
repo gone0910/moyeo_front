@@ -2,12 +2,12 @@
 // 커뮤니티 게시글 -상세보기- 댓글 
 import React, { useState, useEffect, useRef,forwardRef, useImperativeHandle, } from 'react';
 import {
-  View, Text, StyleSheet, TextInput, TouchableOpacity, Image, Dimensions, KeyboardAvoidingView, Platform, FlatList,
-ScrollView, Modal, Alert, RefreshControl, Keyboard } from 'react-native';
+  View, Text, StyleSheet, TextInput, TouchableOpacity, Image, Dimensions, Platform, FlatList,
+ Modal, Alert, RefreshControl, Keyboard } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getCommentList, createComment, editComment, deleteComment } from '../../../api/community'; 
 import { MaterialIcons } from '@expo/vector-icons';
-import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
+//import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 
 
 // 반응형 함수
@@ -127,8 +127,11 @@ export default function CommentSection({
   try {
     await createComment(postId, input, token);
     setInput('');
-    Keyboard.dismiss(); // ⬅ 키보드 먼저 내리기
+    Keyboard.dismiss();
     await fetchComments();
+    setTimeout(() => {
+      flatListRef.current?.scrollToEnd({ animated: true }); // 최하단 이동!
+    }, 400); // fetchComments 및 키보드 애니메이션 종료 후
   } catch (e) {
     alert('댓글 등록 실패');
   }
@@ -158,30 +161,21 @@ export default function CommentSection({
   };
 
   // 5. 수정 버튼 (모달에서 '수정' 눌렀을 때)
-  const handleEdit = (id, content, index) => { // 🔥 index 파라미터 추가
+  const handleEdit = (id, content, index) => {
   setEditId(id);
   setEditContent(content);
-  
-  // 🔥 스크롤 + 포커스 타이밍 개선
-  setTimeout(() => {
-    // ⬇️ [수정] ScrollView에는 없는 기능이므로 주석 처리 (또는 삭제)
-    /*
-    if (flatListRef.current) {
-      flatListRef.current.scrollToIndex({
-        index: index,
-        animated: true,
-        viewPosition: 0.3,
-      });
-    }
-    */
-    
-    // 포커스 기능은 유지
-    setTimeout(() => {
-      editInputRefs.current[id]?.focus();
-    }, 400); // ⬅️ 타이밍을 100ms로 줄여도 됩니다.
-  }, 100);
-};
 
+  flatListRef.current?.scrollToIndex({
+    animated: true,
+    index: index, // 해당 댓글의 index
+    viewPosition: 0.3, // 0: 상단, 0.5: 중앙, 1: 하단 (0.3 정도로 살짝 위에)
+  });
+
+  // 2. 스크롤 애니메이션(300ms) 후 포커스
+  setTimeout(() => {
+    editInputRefs.current[id]?.focus();
+  }, 300); 
+};
   //(3) 댓글 수정 저장 함수 추가 (인라인 '수정' 버튼)
   const handleInlineEditSubmit = async (id) => {
     if (!editContent.trim()) return;
@@ -319,16 +313,12 @@ export default function CommentSection({
 
   return (
     <View style={style}>
-      
-      {/* 1. 댓글 목록 (KAS) */}
-      <KeyboardAwareScrollView
+      <FlatList 
         ref={flatListRef}
-        style={{ flex: 1 }}
-        contentContainerStyle={{
-          flexGrow: 1,
-          paddingBottom: vScale(0), // 입력창 높이 대비 넉넉히
-          paddingTop: vScale(0),
-        }}
+        ListHeaderComponent={ListHeaderComponent} // 게시글 본문
+        data={comments} 
+        renderItem={renderItem} 
+        keyExtractor={(item) => item.id.toString()}
         refreshControl={ 
           <RefreshControl
             refreshing={refreshing}
@@ -337,20 +327,18 @@ export default function CommentSection({
             colors={['#4F46E5']}
           />
         }
+        ListEmptyComponent={ 
+          !refreshing && (
+            <Text style={styles.emptyText}>아직 작성된 댓글이 없어요</Text>
+          )
+        }
+        contentContainerStyle={{
+          flexGrow: 1,
+          paddingBottom: vScale(44), 
+        }}
         keyboardShouldPersistTaps="handled"
-        enableOnAndroid={true}
-        enableAutomaticScroll={true} 
-        extraScrollHeight={Platform.OS === 'ios' ? 20 : 40}  
-        keyboardOpeningTime={Platform.OS === 'ios' ? 0 : 250}
-      >
-        {/* ListHeaderComponent, comments.map 등 */}
-        {ListHeaderComponent}
-        {comments.map((item, index) => renderItem({ item, index }))}
-        {comments.length === 0 && !refreshing && (
-          <Text style={styles.emptyText}>아직 작성된 댓글이 없어요</Text>
-        )}
-      </KeyboardAwareScrollView>
-      {/* ⬆️ KAS 끝 ⬆️ */}
+      />
+      {/*FlatList 끝 */}
       
       {/* 2. 하단 입력창 */}
       <View style={styles.inputRow}>
@@ -378,7 +366,7 @@ export default function CommentSection({
             onFocus={() => {
               setTimeout(() => {
                 flatListRef.current?.scrollToEnd({ animated: true });
-              }, 250); // 키보드/애니메이션 끝까지 대기
+              }, 300); // 키보드/애니메이션 끝까지 대기
             }}
           />
         <TouchableOpacity
