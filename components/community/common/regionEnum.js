@@ -125,7 +125,7 @@ export const KOR_TO_CITY_ENUM = {
       '전주시': 'JEONJU_SI',
       '군산시': 'GUNSAN_SI',
       '익산시': 'IKSAN_SI',
-      '정읍시': 'JEONGEUP_SI',
+      // '정읍시': 'JEONGEUP_SI',
       '남원시': 'NAMWON_SI',
       '김제시': 'GIMJE_SI',
       '순창군': 'SUNCHANG_GUN',
