@@ -25,9 +25,6 @@ export default function CommentSection({
   ListHeaderComponent, // 
   style // ⬅️ [중요] (PostDetailScreen에서 flex: 1을 받음)
 }, ref) {
-  
-  // ... (모든 state, ref, effect, 함수들은 그대로 둡니다) ...
-  // ... (fetchComments, handleRefresh, handleSubmit, handleDelete 등...) ...
 
   const [input, setInput] = useState('');
   const [editId, setEditId] = useState(null); // 기존 입력란 수정
@@ -120,31 +117,22 @@ export default function CommentSection({
 
   // 화면 진입/댓글 CRUD 후 목록 새로고침
   useEffect(() => {
-    // if (propComments) return; // ⬅️ [제거]
     if (!token || !postId) return;
     fetchComments();
-  }, [token, postId]); // ⬅️ [제거] propComments 의존성 제거
+  }, [token, postId]); 
 
   // 3. 댓글 등록 (하단 입력창 전용)
   const handleSubmit = async () => {
-    if (!input.trim()) return;
-    try {
-      // ⬇️ [변경] 하단 입력창은 '등록' 전용이므로 editId 확인 로직 제거
-      await createComment(postId, input, token);
-      
-      setInput('');
-      await fetchComments();
-      // [댓글 등록/수정 후 하단 자동 스크롤 + 포커스]
-      setTimeout(() => {
-        flatListRef.current?.scrollToEnd({ animated: true });
-        Keyboard.dismiss();           // ⬅️ [추가] 키보드를 내립니다.
-        inputRef.current?.blur();     // ⬅️ [수정] 포커스를 해제합니다.
-
-      }, 200);
-    } catch (e) {
-      alert('댓글 등록 실패'); // ⬅️ [수정]
-    }
-  };
+  if (!input.trim()) return;
+  try {
+    await createComment(postId, input, token);
+    setInput('');
+    Keyboard.dismiss(); // ⬅ 키보드 먼저 내리기
+    await fetchComments();
+  } catch (e) {
+    alert('댓글 등록 실패');
+  }
+};
 
   // 4. 삭제 버튼 (mock/실제 분기 + 주석/로그)
   const handleDelete = async (id) => {
@@ -201,6 +189,7 @@ export default function CommentSection({
       await editComment(id, editContent, token);
       setEditId(null);
       setEditContent('');
+      Keyboard.dismiss();
       await fetchComments();
     } catch (e) {
       alert('댓글 수정 실패');
@@ -307,11 +296,13 @@ export default function CommentSection({
       >
         <Text style={{ color: '#4F46E5', fontWeight: 'bold', fontSize: 13 }}>수정</Text>
       </TouchableOpacity>
+
       <TouchableOpacity
         style={{ marginRight: scale(6) ,paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, backgroundColor: '#FAFAFA' }}
         onPress={() => {
           setEditId(null);
           setEditContent('');
+          Keyboard.dismiss();
         }}
       >
         <Text style={{ color: '#333', fontSize: 13 }}>취소</Text>
@@ -334,8 +325,9 @@ export default function CommentSection({
         ref={flatListRef}
         style={{ flex: 1 }}
         contentContainerStyle={{
-          paddingBottom: vScale(10),
-          paddingTop: vScale(8),
+          flexGrow: 1,
+          paddingBottom: vScale(0), // 입력창 높이 대비 넉넉히
+          paddingTop: vScale(0),
         }}
         refreshControl={ 
           <RefreshControl
@@ -346,12 +338,10 @@ export default function CommentSection({
           />
         }
         keyboardShouldPersistTaps="handled"
-        keyboardDismissMode="on-drag"
-        enableOnAndroid={true} 
-        
-        // ⬇️ [수정 1] 문제 2 해결: 댓글 수정 시 추가 여백
-        // vScale(20) -> vScale(40)으로 늘려서 여유 공간 확보
-        extraScrollHeight={Platform.OS === 'ios' ? vScale(60) : 0} 
+        enableOnAndroid={true}
+        enableAutomaticScroll={true} 
+        extraScrollHeight={Platform.OS === 'ios' ? 20 : 40}  
+        keyboardOpeningTime={Platform.OS === 'ios' ? 0 : 250}
       >
         {/* ListHeaderComponent, comments.map 등 */}
         {ListHeaderComponent}
@@ -385,18 +375,10 @@ export default function CommentSection({
             scrollEnabled={true}
             textAlignVertical="top"
             returnKeyType="default"
-
-            // ⬇️ [수정 2] 문제 1 해결: 하단 입력창 과다 스크롤
-            // KAV 애니메이션 시간을 기다리기 위해 100ms -> 300ms로 변경
-            onFocus={() => { 
+            onFocus={() => {
               setTimeout(() => {
-                const scrollResponder = flatListRef.current?.getScrollResponder?.();
-                if (scrollResponder && typeof scrollResponder.scrollToEnd === 'function') {
-                  scrollResponder.scrollToEnd({ animated: true });
-                } else if (flatListRef.current && typeof flatListRef.current.scrollToEnd === 'function') {
-                  flatListRef.current.scrollToEnd({ animated: true });
-                }
-              }, 300); // ⬅️ 100ms에서 300ms로 수정
+                flatListRef.current?.scrollToEnd({ animated: true });
+              }, 250); // 키보드/애니메이션 끝까지 대기
             }}
           />
         <TouchableOpacity
@@ -407,18 +389,23 @@ export default function CommentSection({
               opacity: editId === null ? 1 : 0.5,
             }
           ]}
-          onPress={handleSubmit}
+          onPress={async () => {
+            await handleSubmit();
+            // 댓글 등록/목록 새로고침 후 최하단으로 이동
+            setTimeout(() => {
+              flatListRef.current?.scrollToEnd({ animated: true });
+            }, 200);
+          }}
           disabled={!input.trim() || editId !== null}
         >
           <Text style={styles.submitText}>등록</Text>
         </TouchableOpacity>
       </View>
       
-    </View> // ⬅️ 최상위 KAV 닫기
+    </View>
   );
 }
 
-// ... (CommentItem 및 styles는 그대로 둡니다) ...
 export function CommentItem(props) {
   // props에는 댓글 한 개의 모든 정보(id, nickname, content, profileUrl, createdDate, isMine 등)가 담겨있음
   return (
