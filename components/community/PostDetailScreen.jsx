@@ -300,7 +300,7 @@ export default function PostDetailScreen({ route, navigation }) {
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         // PostHeader의 높이(56)를 보정합니다.
-        keyboardVerticalOffset={Platform.OS === 'ios' ? vScale(56) : 0}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? vScale(0) : 0}
       >
         <CommentSection
           style={{ flex: 1 }} // ⬅️ 이 style은 유지
