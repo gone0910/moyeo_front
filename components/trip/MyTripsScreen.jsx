@@ -29,7 +29,7 @@ import { MAIN_TAB_ID, defaultTabBarStyle } from '../../navigation/BottomTabNavig
 async function purgeAllTripsAndCaches() {
   try {
     await AsyncStorage.setItem('MY_TRIPS', JSON.stringify([])); // 모든 로컬 여행 삭제
-    await clearDraftCaches?.(); // PLAN_INITIAL / PLAN_EDITED / PLAN_SAVE_READY 등
+    await clearDraftCaches?.(); // PLAN_INITIAL / PLAN_EDITED / PLAN_SAVE_READY 
     await removeCacheData?.(CACHE_KEYS.PLAN_DETAIL);
     await invalidateListAndHomeCaches?.();
     Alert.alert('초기화 완료', '모든 로컬 여행/캐시가 제거되었습니다.');
