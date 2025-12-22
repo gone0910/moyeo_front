@@ -71,7 +71,7 @@ function fixDDayForToday(serverDDayLike, startDateLike) {
   return serverDDayLike ?? '';
 }
 
-// ✅ 서버 dDay 우선 고정 (로컬 덮어쓰기 방지)
+// ✅ 서버 dDay 우선 고정 (로컬 덮어쓰기 방지
 async function mergeWithLocalOverlay(serverItems) {
   try {
     const raw = await AsyncStorage.getItem('MY_TRIPS');
